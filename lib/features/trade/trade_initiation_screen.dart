@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/routes_manager/routes_manager.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
 import '../../core/widgets/loading_widget.dart';
@@ -28,6 +29,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
   final List<ProductModel> _selectedOfferedProducts = [];
   bool _isLoading = false;
   bool _loadingProducts = true;
+  String? _errorMessage;
   TradeType _selectedTradeType = TradeType.itemForItem;
 
   @override
@@ -38,22 +40,45 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
 
   Future<void> _loadUserProducts() async {
     try {
-      // You'll need to implement this method to get user's available products
-      final products = await FirebaseService.getUserProducts(UserModel.currentUser!.id,context);
+      final user = UserModel.currentUser;
+      if (user == null) {
+        throw Exception('Please log in to view your products');
+      }
+
+      print('=== SCREEN DEBUG: Starting to load products for user ${user.id} ===');
+
+      final products = await FirebaseService.getUserProducts(user.id,context);
+
+      print('=== SCREEN DEBUG: Received ${products.length} products from FirebaseService ===');
+
+      // Additional client-side filtering
+      final availableProducts = products.where((p) =>
+      p.id != widget.targetProduct.id // Don't allow trading the same product
+      ).toList();
+
+      print('=== SCREEN DEBUG: ${availableProducts.length} products available for trading ===');
+
       setState(() {
-        _userProducts = products.where((p) => p.isAvailable && p.status == ProductStatus.available).toList();
+        _userProducts = availableProducts;
         _loadingProducts = false;
+        _errorMessage = null;
       });
+
     } catch (e) {
+      print('=== SCREEN DEBUG: Error in _loadUserProducts: $e ===');
       setState(() {
         _loadingProducts = false;
+        _errorMessage = e.toString();
       });
-      await showInfoDialog(
-        context: context,
-        title: 'Error',
-        message: 'Failed to load your products',
-        icon: Icons.error_outline,
-      );
+
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Loading Failed',
+          message: 'Failed to load your products: $e\n\nPlease check your internet connection and try again.',
+          icon: Icons.error_outline,
+        );
+      }
     }
   }
 
@@ -93,10 +118,15 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
     });
 
     try {
+      final user = UserModel.currentUser;
+      if (user == null) {
+        throw Exception('User not logged in');
+      }
+
       final tradeOffer = TradeOffer(
         id: '', // Will be set by Firebase
-        fromUserId: UserModel.currentUser!.id,
-        fromUserName: UserModel.currentUser!.name,
+        fromUserId: user.id,
+        fromUserName: user.name,
         toUserId: widget.targetProduct.ownerId,
         toUserName: widget.targetProduct.ownerName,
         offeredProductIds: _selectedOfferedProducts.map((p) => p.id).toList(),
@@ -146,6 +176,11 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
         title: 'Initiate Trade',
         actions: [
           IconButton(
+            onPressed: _loadUserProducts, // Add retry functionality
+            icon: Icon(Icons.refresh),
+            tooltip: 'Retry',
+          ),
+          IconButton(
             onPressed: () {
               showInfoDialog(
                 context: context,
@@ -161,114 +196,192 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
           ),
         ],
       ),
-      body: LoadingOverlay(
-        isLoading: _loadingProducts,
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loadingProducts) {
+      return LoadingOverlay(child:  Container(),
+        isLoading: true,
         loadingMessage: 'Loading your products...',
+      );
+    }
+
+    if (_errorMessage != null) {
+      return _buildErrorState();
+    }
+
+    return _buildMainContent();
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(24.w),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.all(16.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Target Product Card
-                    _buildProductCard(
-                      widget.targetProduct,
-                      'You are requesting:',
-                      Colors.blue.withOpacity(0.1),
-                    ),
-
-                    SizedBox(height: 24.h),
-
-                    // Trade Type Selection
-                    Text(
-                      'Trade Type',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 12.h),
-                    _buildTradeTypeSelector(),
-
-                    SizedBox(height: 24.h),
-
-                    // Your Products to Offer
-                    Text(
-                      'Select items to offer:',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 12.h),
-
-                    if (_userProducts.isEmpty) ...[
-                      Container(
-                        padding: EdgeInsets.all(24.w),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).cardColor,
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.inventory_2_outlined,
-                              size: 48.w,
-                              color: Theme.of(context).iconTheme.color?.withOpacity(0.3),
-                            ),
-                            SizedBox(height: 16.h),
-                            Text(
-                              'No available products',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            SizedBox(height: 8.h),
-                            Text(
-                              'Add some products to your inventory to start trading',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ] else ...[
-                      _buildProductsGrid(),
-                    ],
-
-                    SizedBox(height: 24.h),
-
-                    // Message
-                    AuthTextField(
-                      controller: _messageController,
-                      hint: 'Add a message to the owner (optional)',
-                      maxLines: 4,
-                      label: "",
-                    ),
-                  ],
-                ),
-              ),
+            Icon(
+              Icons.error_outline,
+              size: 64.w,
+              color: Theme.of(context).colorScheme.error,
             ),
-
-            // Submit Button
-            Container(
-              padding: EdgeInsets.all(16.w),
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                border: Border(
-                  top: BorderSide(
-                    color: Theme.of(context).dividerColor,
-                    width: 1,
-                  ),
+            SizedBox(height: 16.h),
+            Text(
+              'Failed to Load Products',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Theme.of(context).colorScheme.error,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              _errorMessage ?? 'Unknown error occurred',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 24.h),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AuthButton(
+                  text: 'Try Again',
+                  onPressed: _loadUserProducts,
+                  isOutlined: true,
                 ),
-              ),
-              child: AuthButton(
-                text: 'Send Trade Offer',
-                onPressed: _canProceedWithTrade() ? _submitTradeOffer : null,
-                isLoading: _isLoading,
-                icon: Icon(Icons.send, size: 18.w),
-              ),
+                SizedBox(width: 12.w),
+                AuthButton(
+                  text: 'Add Product',
+                  onPressed: () {
+                    // Navigate to add product screen
+                    Navigator.of(context).pushNamed(RoutesManager.createProduct);
+                  },
+                ),
+              ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMainContent() {
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(16.w),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Target Product Card
+                _buildProductCard(
+                  widget.targetProduct,
+                  'You are requesting:',
+                  Colors.blue.withOpacity(0.1),
+                ),
+
+                SizedBox(height: 24.h),
+
+                // Trade Type Selection
+                Text(
+                  'Trade Type',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 12.h),
+                _buildTradeTypeSelector(),
+
+                SizedBox(height: 24.h),
+
+                // Your Products to Offer
+                Text(
+                  'Select items to offer:',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 12.h),
+
+                if (_userProducts.isEmpty) ...[
+                  _buildNoProductsState(),
+                ] else ...[
+                  _buildProductsGrid(),
+                ],
+
+                SizedBox(height: 24.h),
+
+                // Message
+                AuthTextField(label: '',
+                  controller: _messageController,
+                  hint: 'Add a message to the owner (optional)',
+                  maxLines: 4,
+                 // maxLength: 500,
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Submit Button
+        Container(
+          padding: EdgeInsets.all(16.w),
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            border: Border(
+              top: BorderSide(
+                color: Theme.of(context).dividerColor,
+                width: 1,
+              ),
+            ),
+          ),
+          child: AuthButton(
+            text: 'Send Trade Offer',
+            onPressed: _canProceedWithTrade() ? _submitTradeOffer : null,
+            isLoading: _isLoading,
+            icon: Icon(Icons.send, size: 18.w),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNoProductsState() {
+    return Container(
+      padding: EdgeInsets.all(24.w),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 64.w,
+            color: Theme.of(context).iconTheme.color?.withOpacity(0.3),
+          ),
+          SizedBox(height: 16.h),
+          Text(
+            'No Products Available for Trade',
+            style: Theme.of(context).textTheme.titleMedium,
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            'You need to add some products to your inventory before you can trade.',
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 16.h),
+          AuthButton(
+            text: 'Add Your First Product',
+            onPressed: () {
+              Navigator.of(context).pushNamed(RoutesManager.createProduct);
+            },
+          ),
+        ],
       ),
     );
   }

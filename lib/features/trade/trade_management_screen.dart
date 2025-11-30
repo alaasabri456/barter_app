@@ -1,13 +1,14 @@
 // screens/trade/trade_management_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:provider/provider.dart';
 
 import '../../core/widgets/custom_app_bar.dart';
+import '../../core/widgets/custom_dialog.dart';
 import '../../core/widgets/loading_widget.dart';
 import '../../firebase/firebase_service.dart';
 import '../../models/trade_offer.dart';
 import '../../models/user_model.dart';
+import '../authentication/widgets/auth_button.dart';
 
 class TradeManagementScreen extends StatefulWidget {
   const TradeManagementScreen({super.key});
@@ -29,8 +30,18 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
     _tabController = TabController(length: 2, vsync: this);
     _loadTrades();
 
+    // Debug: Check received trades
+    _debugCheckTrades();
+
     // Check for expired trades periodically
     FirebaseService.checkAndExpireTrades();
+  }
+
+  Future<void> _debugCheckTrades() async {
+    final user = UserModel.currentUser;
+    if (user != null) {
+      await FirebaseService.debugCheckReceivedTrades(user.id);
+    }
   }
 
   @override
@@ -47,16 +58,198 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         FirebaseService.getSentTrades(user.id),
       ]);
 
+      print('=== SCREEN DEBUG: Loaded ${received.length} received trades ===');
+      print('=== SCREEN DEBUG: Loaded ${sent.length} sent trades ===');
+
       setState(() {
         _receivedTrades = received;
         _sentTrades = sent;
         _isLoading = false;
       });
     } catch (e) {
+      print('=== SCREEN DEBUG: Error loading trades: $e ===');
       setState(() {
         _isLoading = false;
       });
-      // Handle error
+    }
+  }
+
+  Future<void> _acceptTrade(TradeOffer trade) async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      await FirebaseService.updateTradeStatus(
+        tradeId: trade.id,
+        newStatus: TradeStatus.accepted,
+        userId: UserModel.currentUser!.id,
+        userName: UserModel.currentUser!.name,
+      );
+      // Mark the main requested product as unavailable
+      // Use the first requested product ID (the main product being traded for)
+      if (trade.requestedProductIds.isNotEmpty) {
+        final mainProductId = trade.requestedProductIds.first;
+        await FirebaseService.updateProductAvailability(
+          productId: mainProductId,
+          isAvailable: false,
+        );
+      }
+
+      // Optional: Also mark offered products as unavailable if it's a direct trade
+      if ( trade.offeredProductIds.isNotEmpty) {
+        for (final offeredProductId in trade.offeredProductIds) {
+          await FirebaseService.updateProductAvailability(
+            productId: offeredProductId,
+            isAvailable: false,
+          );
+        }
+      }
+
+      // Optional: Reject all other pending trades for the requested product
+      if (trade.requestedProductIds.isNotEmpty) {
+        final mainProductId = trade.requestedProductIds.first;
+        await FirebaseService.rejectOtherTradeOffers(
+          productId: mainProductId,
+          acceptedTradeId: trade.id,
+        );
+      }
+
+      // Reload trades
+      await _loadTrades();
+
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Trade Accepted',
+          message: 'You have accepted the trade offer!',
+          icon: Icons.check_circle,
+          iconColor: Colors.green,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Error',
+          message: 'Failed to accept trade: $e',
+          icon: Icons.error_outline,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _rejectTrade(TradeOffer trade) async {
+    final confirmed = await showConfirmationDialog(
+      context: context,
+      title: 'Reject Trade',
+      message: 'Are you sure you want to reject this trade offer?',
+      confirmText: 'Reject',
+      cancelText: 'Cancel',
+      icon: Icons.cancel_outlined,
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      await FirebaseService.updateTradeStatus(
+        tradeId: trade.id,
+        newStatus: TradeStatus.rejected,
+        userId: UserModel.currentUser!.id,
+        userName: UserModel.currentUser!.name,
+      );
+
+      // Reload trades
+      await _loadTrades();
+
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Trade Rejected',
+          message: 'You have rejected the trade offer.',
+          icon: Icons.cancel,
+          iconColor: Colors.orange,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Error',
+          message: 'Failed to reject trade: $e',
+          icon: Icons.error_outline,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _cancelTrade(TradeOffer trade) async {
+    final confirmed = await showConfirmationDialog(
+      context: context,
+      title: 'Cancel Trade',
+      message: 'Are you sure you want to cancel this trade offer?',
+      confirmText: 'Cancel Trade',
+      cancelText: 'Keep',
+      icon: Icons.delete_outline,
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      await FirebaseService.updateTradeStatus(
+        tradeId: trade.id,
+        newStatus: TradeStatus.cancelled,
+        userId: UserModel.currentUser!.id,
+        userName: UserModel.currentUser!.name,
+      );
+
+      // Reload trades
+      await _loadTrades();
+
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Trade Cancelled',
+          message: 'Your trade offer has been cancelled.',
+          icon: Icons.cancel,
+          iconColor: Colors.grey,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Error',
+          message: 'Failed to cancel trade: $e',
+          icon: Icons.error_outline,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -65,6 +258,13 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
     return Scaffold(
       appBar: CustomAppBar(
         title: 'Trade Management',
+        actions: [
+          IconButton(
+            onPressed: _loadTrades,
+            icon: Icon(Icons.refresh),
+            tooltip: 'Refresh',
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -117,9 +317,10 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
             SizedBox(height: 8.h),
             Text(
               isReceived
-                  ? 'Trade requests will appear here'
+                  ? 'Trade requests will appear here when other users offer trades'
                   : 'Your trade offers will appear here',
               style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -150,141 +351,310 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.r),
         ),
-        child: InkWell(
-          onTap: () {
-            // Navigate to trade details
-            _showTradeDetails(trade, isReceived: isReceived);
-          },
-          borderRadius: BorderRadius.circular(12.r),
-          child: Padding(
-            padding: EdgeInsets.all(16.w),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header with status and time
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(trade.status).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      child: Text(
-                        _getStatusText(trade.status),
-                        style: TextStyle(
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.w600,
-                          color: _getStatusColor(trade.status),
-                        ),
-                      ),
-                    ),
-                    Text(
-                      _getTimeAgo(trade.createdAt),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-
-                SizedBox(height: 12.h),
-
-                // Trade parties
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'You ${isReceived ? 'receive' : 'offer'}:',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          SizedBox(height: 4.h),
-                          Text(
-                            '${trade.offeredProductIds.length} item${trade.offeredProductIds.length != 1 ? 's' : ''}',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.swap_horiz, size: 20.w),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            'You ${isReceived ? 'offer' : 'receive'}:',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          SizedBox(height: 4.h),
-                          Text(
-                            '${trade.requestedProductIds.length} item${trade.requestedProductIds.length != 1 ? 's' : ''}',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                SizedBox(height: 12.h),
-
-                // Counter offers indicator
-                if (trade.counterOffers.isNotEmpty) ...[
+        child: Padding(
+          padding: EdgeInsets.all(16.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with status and time
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8.r),
+                      color: _getStatusColor(trade.status).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12.r),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    child: Text(
+                      _getStatusText(trade.status),
+                      style: TextStyle(
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w600,
+                        color: _getStatusColor(trade.status),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    _getTimeAgo(trade.createdAt),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+
+              SizedBox(height: 12.h),
+
+              // Trade parties info
+              Row(
+                children: [
+                  Icon(
+                    isReceived ? Icons.person_outline : Icons.person,
+                    size: 16.w,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  SizedBox(width: 4.w),
+                  Expanded(
+                    child: Text(
+                      isReceived
+                          ? 'From: ${trade.fromUserName}'
+                          : 'To: ${trade.toUserName}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+
+              SizedBox(height: 12.h),
+
+              // Trade items
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.countertops, size: 12.w, color: Colors.orange),
-                        SizedBox(width: 4.w),
                         Text(
-                          '${trade.counterOffers.length} counter offer${trade.counterOffers.length != 1 ? 's' : ''}',
-                          style: TextStyle(
-                            fontSize: 10.sp,
-                            color: Colors.orange,
+                          'You ${isReceived ? 'receive' : 'offer'}:',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             fontWeight: FontWeight.w500,
                           ),
+                        ),
+                        SizedBox(height: 4.h),
+                        FutureBuilder<List<String>>(
+                          future: _getProductNames(trade.requestedProductIds),
+                          builder: (context, snapshot) {
+                            final names = snapshot.data ?? ['Loading...'];
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                for (final name in names.take(2))
+                                  Text(
+                                    '• $name',
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                if (names.length > 2)
+                                  Text(
+                                    '• ...and ${names.length - 2} more',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
                         ),
                       ],
                     ),
                   ),
-                  SizedBox(height: 8.h),
-                ],
-
-                // Expiry timer for pending trades
-                if (isPending && !isExpired) ...[
-                  LinearProgressIndicator(
-                    value: _getExpiryProgress(trade.expiresAt),
-                    backgroundColor: Theme.of(context).dividerColor,
-                  ),
-                  SizedBox(height: 4.h),
-                  Text(
-                    'Expires in ${_getTimeUntil(trade.expiresAt)}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                  Icon(Icons.swap_horiz, size: 20.w, color: Theme.of(context).primaryColor),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'You ${isReceived ? 'offer' : 'receive'}:',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        FutureBuilder<List<String>>(
+                          future: _getProductNames(trade.offeredProductIds),
+                          builder: (context, snapshot) {
+                            final names = snapshot.data ?? ['Loading...'];
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                for (final name in names.take(2))
+                                  Text(
+                                    '$name •',
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                if (names.length > 2)
+                                  Text(
+                                    '...and ${names.length - 2} more •',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ),
                 ],
+              ),
+
+              SizedBox(height: 12.h),
+
+              // Trade message
+              if (trade.message != null && trade.message!.isNotEmpty) ...[
+                Container(
+                  padding: EdgeInsets.all(8.w),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.message_outlined, size: 16.w, color: Theme.of(context).primaryColor),
+                      SizedBox(width: 8.w),
+                      Expanded(
+                        child: Text(
+                          trade.message!,
+                          style: Theme.of(context).textTheme.bodySmall,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 12.h),
               ],
-            ),
+
+              // Counter offers indicator
+              if (trade.counterOffers.isNotEmpty) ...[
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.countertops, size: 12.w, color: Colors.orange),
+                      SizedBox(width: 4.w),
+                      Text(
+                        '${trade.counterOffers.length} counter offer${trade.counterOffers.length != 1 ? 's' : ''}',
+                        style: TextStyle(
+                          fontSize: 10.sp,
+                          color: Colors.orange,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 8.h),
+              ],
+
+              // Expiry timer for pending trades
+              if (isPending && !isExpired) ...[
+                Column(
+                  children: [
+                    LinearProgressIndicator(
+                      value: _getExpiryProgress(trade.expiresAt),
+                      backgroundColor: Theme.of(context).dividerColor,
+                    ),
+                    SizedBox(height: 4.h),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Expires in ${_getTimeUntil(trade.expiresAt)}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                          ),
+                        ),
+                        Text(
+                          '${_getDaysUntil(trade.expiresAt)} days left',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w500,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12.h),
+              ],
+
+              // Action buttons
+              if (isReceived && trade.status == TradeStatus.pending) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: AuthButton(
+                        text: 'Accept',
+                        onPressed: () => _acceptTrade(trade),
+                        isOutlined: false,
+                      ),
+                    ),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: AuthButton(
+                        text: 'Reject',
+                        onPressed: () => _rejectTrade(trade),
+                        isOutlined: true,
+                        backgroundColor: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ),
+              ] else if (!isReceived && trade.status == TradeStatus.pending) ...[
+                AuthButton(
+                  text: 'Cancel Trade',
+                  onPressed: () => _cancelTrade(trade),
+                  isOutlined: true,
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+              ] else if (trade.status == TradeStatus.accepted) ...[
+                Container(
+                  padding: EdgeInsets.all(8.w),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle, size: 16.w, color: Colors.green),
+                      SizedBox(width: 8.w),
+                      Expanded(
+                        child: Text(
+                          'Trade accepted! Coordinate with the other user to complete the exchange.',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.green,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
     );
+  }
+
+  Future<List<String>> _getProductNames(List<String> productIds) async {
+    try {
+      if (productIds.isEmpty) return ['No items'];
+
+      final products = await FirebaseService.getProductsByIds(productIds,context);
+      return products.map((p) => p.title).toList();
+    } catch (e) {
+      print('=== DEBUG: Error getting product names: $e ===');
+      return List.generate(productIds.length, (index) => 'Product ${index + 1}');
+    }
   }
 
   Color _getStatusColor(TradeStatus status) {
@@ -305,7 +675,20 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
   }
 
   String _getStatusText(TradeStatus status) {
-    return status.name.toUpperCase();
+    switch (status) {
+      case TradeStatus.pending:
+        return 'PENDING';
+      case TradeStatus.accepted:
+        return 'ACCEPTED';
+      case TradeStatus.rejected:
+        return 'REJECTED';
+      case TradeStatus.expired:
+        return 'EXPIRED';
+      case TradeStatus.completed:
+        return 'COMPLETED';
+      case TradeStatus.cancelled:
+        return 'CANCELLED';
+    }
   }
 
   String _getTimeAgo(DateTime date) {
@@ -336,16 +719,17 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
     }
   }
 
+  int _getDaysUntil(DateTime date) {
+    final now = DateTime.now();
+    final difference = date.difference(now);
+    return difference.inDays;
+  }
+
   double _getExpiryProgress(DateTime expiresAt) {
     final now = DateTime.now();
     final totalDuration = expiresAt.difference(expiresAt.subtract(const Duration(days: 7)));
     final remainingDuration = expiresAt.difference(now);
 
     return 1 - (remainingDuration.inSeconds / totalDuration.inSeconds);
-  }
-
-  void _showTradeDetails(TradeOffer trade, {required bool isReceived}) {
-    // Implement trade details screen navigation
-    // This would show full trade details, counter offers, and action buttons
   }
 }

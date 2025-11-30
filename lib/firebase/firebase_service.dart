@@ -205,26 +205,73 @@ class FirebaseService {
   }
 
   static Future<String> createTradeOffer(TradeOffer trade) async {
-  try {
-  final tradesCollection = _getTradesCollection();
-  final tradeDoc = tradesCollection.doc();
+    try {
+      print('=== DEBUG: Creating trade offer ===');
+      print('From: ${trade.fromUserId} (${trade.fromUserName})');
+      print('To: ${trade.toUserId} (${trade.toUserName})');
+      print('Offered Products: ${trade.offeredProductIds}');
+      print('Requested Products: ${trade.requestedProductIds}');
+      print('Type: ${trade.type}');
+      print('Status: ${trade.status}');
 
-  final tradeWithId = trade.copyWith(id: tradeDoc.id);
-  await tradeDoc.set(tradeWithId);
+      final tradesCollection = _getTradesCollection();
+      final tradeDoc = tradesCollection.doc();
 
-  // Add to trade history
-  await _addTradeHistory(
-  tradeId: tradeDoc.id,
-  action: 'TRADE_CREATED',
-  performedByUserId: trade.fromUserId,
-  performedByUserName: trade.fromUserName,
-  details: {'type': trade.type.name},
-  );
+      final tradeWithId = trade.copyWith(id: tradeDoc.id);
 
-  return tradeDoc.id;
-  } catch (e) {
-  throw Exception('Failed to create trade offer: $e');
+      print('=== DEBUG: Saving trade to Firestore with ID: ${tradeDoc.id} ===');
+
+      await tradeDoc.set(tradeWithId);
+
+      // Add to trade history
+      await _addTradeHistory(
+        tradeId: tradeDoc.id,
+        action: 'TRADE_CREATED',
+        performedByUserId: trade.fromUserId,
+        performedByUserName: trade.fromUserName,
+        details: {
+          'type': trade.type.name,
+          'offeredProducts': trade.offeredProductIds,
+          'requestedProducts': trade.requestedProductIds,
+        },
+      );
+
+      print('=== DEBUG: Trade created successfully with ID: ${tradeDoc.id} ===');
+
+      return tradeDoc.id;
+    } catch (e) {
+      print('=== DEBUG: ERROR creating trade offer: $e ===');
+      throw Exception('Failed to create trade offer: $e');
+    }
   }
+
+  // In FirebaseService
+  static Future<void> debugCheckReceivedTrades(String userId) async {
+    try {
+      print('=== DEBUG: Checking received trades for user: $userId ===');
+
+      final tradesCollection = _getTradesCollection();
+      final querySnapshot = await tradesCollection
+          .where('toUserId', isEqualTo: userId)
+          .get();
+
+      print('=== DEBUG: Found ${querySnapshot.docs.length} trades for user $userId ===');
+
+      for (final doc in querySnapshot.docs) {
+        final trade = doc.data();
+        print('Trade ID: ${trade.id}');
+        print('  From: ${trade.fromUserName} (${trade.fromUserId})');
+        print('  Status: ${trade.status}');
+        print('  Offered: ${trade.offeredProductIds}');
+        print('  Requested: ${trade.requestedProductIds}');
+        print('  Created: ${trade.createdAt}');
+        print('  Expires: ${trade.expiresAt}');
+        print('  ---');
+      }
+
+    } catch (e) {
+      print('=== DEBUG: ERROR checking received trades: $e ===');
+    }
   }
 
   static Future<List<TradeOffer>> getReceivedTrades(String userId) async {
@@ -447,21 +494,69 @@ class FirebaseService {
   }
   }
 
+  // In firebase_service.dart - update the getUserProducts method
   static Future<List<ProductModel>> getUserProducts(String userId,BuildContext context) async {
     try {
-      final productsCollection = _getProductsCollection(context);
+      print('=== DEBUG: Getting products for user: $userId ===');
+
+      if (userId.isEmpty) {
+        throw Exception('User ID is empty');
+      }
+
+      final productsCollection = _getProductsCollection( context);
+      print('=== DEBUG: Products collection reference created ===');
+
+      // First, try a simple query to see if we can get any data
+      final testQuery = await productsCollection.limit(1).get();
+      print('=== DEBUG: Test query successful, collection exists ===');
+
+      // Now query for user's products
       final querySnapshot = await productsCollection
           .where('ownerId', isEqualTo: userId)
-          .where('isAvailable', isEqualTo: true)
           .orderBy('createdAt', descending: true)
           .get();
 
-      return querySnapshot.docs.map((doc) => doc.data()).toList();
+      print('=== DEBUG: Query completed, found ${querySnapshot.docs.length} documents ===');
+
+      if (querySnapshot.docs.isEmpty) {
+        print('=== DEBUG: No products found for user $userId ===');
+        return [];
+      }
+
+      // Convert documents to ProductModel
+      final products = <ProductModel>[];
+      for (final doc in querySnapshot.docs) {
+        try {
+          final product = doc.data();
+          print('=== DEBUG: Product ${product.title} - Available: ${product.isAvailable}, Status: ${product.status}');
+          products.add(product);
+        } catch (e) {
+          print('=== DEBUG: Error parsing product document: $e ===');
+        }
+      }
+
+      // Filter available products
+      final availableProducts = products.where((p) =>
+      p.isAvailable &&
+          p.status == ProductStatus.available
+      ).toList();
+
+      print('=== DEBUG: ${availableProducts.length} available products after filtering ===');
+
+      return availableProducts;
+
     } catch (e) {
-      throw Exception('Failed to get user products: $e');
+      print('=== DEBUG: ERROR in getUserProducts: $e ===');
+      print('=== DEBUG: Error type: ${e.runtimeType} ===');
+
+      if (e is FirebaseException) {
+        print('=== DEBUG: Firebase error code: ${e.code} ===');
+        print('=== DEBUG: Firebase error message: ${e.message} ===');
+      }
+
+      throw Exception('Failed to load your products. Please check your connection and try again.');
     }
   }
-
   // If you need to get products by IDs (for trade details)
   static Future<List<ProductModel>> getProductsByIds(List<String> productIds,BuildContext context) async {
     try {
@@ -494,6 +589,57 @@ class FirebaseService {
       }
     } catch (e) {
       throw Exception('Failed to get product: $e');
+    }
+  }
+
+  // Add to FirebaseService class
+  static Future<void> updateProductAvailability({
+    required String productId,
+    required bool isAvailable,
+  }) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('products')
+          .doc(productId)
+          .update({
+        'isAvailable': isAvailable,
+        'status': isAvailable ? 'available' : 'unavailable',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update product availability: $e');
+    }
+  }
+
+  static Future<void> rejectOtherTradeOffers({
+    required String productId,
+    required String acceptedTradeId,
+  }) async {
+    try {
+      // Get all pending trades for this product except the accepted one
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('trades')
+          .where('productId', isEqualTo: productId)
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      // Batch update to reject all other trades
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (final doc in querySnapshot.docs) {
+        if (doc.id != acceptedTradeId) {
+          batch.update(doc.reference, {
+            'status': 'rejected',
+            'updatedAt': FieldValue.serverTimestamp(),
+            'rejectedReason': 'Product no longer available',
+          });
+        }
+      }
+
+      await batch.commit();
+    } catch (e) {
+      print('Error rejecting other trades: $e');
+      // Don't throw here as this is optional functionality
     }
   }
 
