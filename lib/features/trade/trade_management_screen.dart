@@ -6,8 +6,9 @@ import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
 import '../../core/widgets/loading_widget.dart';
 import '../../firebase/firebase_service.dart';
-import '../../models/trade_offer.dart';
-import '../../models/user_model.dart';
+import '../../features/trade/models/trade_offer.dart';
+import '../../features/authentication/models/user_model.dart';
+import '../../features/products/models/product_model.dart';
 import '../authentication/widgets/auth_button.dart';
 
 class TradeManagementScreen extends StatefulWidget {
@@ -86,22 +87,24 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         userId: UserModel.currentUser!.id,
         userName: UserModel.currentUser!.name,
       );
-      // Mark the main requested product as unavailable
+      // Mark the main requested product as traded
       // Use the first requested product ID (the main product being traded for)
       if (trade.requestedProductIds.isNotEmpty) {
         final mainProductId = trade.requestedProductIds.first;
         await FirebaseService.updateProductAvailability(
           productId: mainProductId,
           isAvailable: false,
+          newStatus: ProductStatus.traded,
         );
       }
 
-      // Optional: Also mark offered products as unavailable if it's a direct trade
-      if ( trade.offeredProductIds.isNotEmpty) {
+      // Also mark offered products as traded
+      if (trade.offeredProductIds.isNotEmpty) {
         for (final offeredProductId in trade.offeredProductIds) {
           await FirebaseService.updateProductAvailability(
             productId: offeredProductId,
             isAvailable: false,
+            newStatus: ProductStatus.traded,
           );
         }
       }
@@ -361,7 +364,10 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8.w,
+                      vertical: 4.h,
+                    ),
                     decoration: BoxDecoration(
                       color: _getStatusColor(trade.status).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12.r),
@@ -418,9 +424,8 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                       children: [
                         Text(
                           'You ${isReceived ? 'receive' : 'offer'}:',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(fontWeight: FontWeight.w500),
                         ),
                         SizedBox(height: 4.h),
                         FutureBuilder<List<String>>(
@@ -433,18 +438,24 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                                 for (final name in names.take(2))
                                   Text(
                                     '• $name',
-                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(fontWeight: FontWeight.w500),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 if (names.length > 2)
                                   Text(
                                     '• ...and ${names.length - 2} more',
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
-                                    ),
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.color
+                                              ?.withOpacity(0.7),
+                                        ),
                                   ),
                               ],
                             );
@@ -453,16 +464,19 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                       ],
                     ),
                   ),
-                  Icon(Icons.swap_horiz, size: 20.w, color: Theme.of(context).primaryColor),
+                  Icon(
+                    Icons.swap_horiz,
+                    size: 20.w,
+                    color: Theme.of(context).primaryColor,
+                  ),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
                           'You ${isReceived ? 'offer' : 'receive'}:',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(fontWeight: FontWeight.w500),
                         ),
                         SizedBox(height: 4.h),
                         FutureBuilder<List<String>>(
@@ -475,18 +489,24 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                                 for (final name in names.take(2))
                                   Text(
                                     '$name •',
-                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(fontWeight: FontWeight.w500),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 if (names.length > 2)
                                   Text(
                                     '...and ${names.length - 2} more •',
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
-                                    ),
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.color
+                                              ?.withOpacity(0.7),
+                                        ),
                                   ),
                               ],
                             );
@@ -511,7 +531,11 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.message_outlined, size: 16.w, color: Theme.of(context).primaryColor),
+                      Icon(
+                        Icons.message_outlined,
+                        size: 16.w,
+                        color: Theme.of(context).primaryColor,
+                      ),
                       SizedBox(width: 8.w),
                       Expanded(
                         child: Text(
@@ -568,16 +592,20 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                       children: [
                         Text(
                           'Expires in ${_getTimeUntil(trade.expiresAt)}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).textTheme.bodySmall?.color?.withOpacity(0.7),
+                              ),
                         ),
                         Text(
                           '${_getDaysUntil(trade.expiresAt)} days left',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w500,
-                            color: Theme.of(context).primaryColor,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.w500,
+                                color: Theme.of(context).primaryColor,
+                              ),
                         ),
                       ],
                     ),
@@ -608,7 +636,8 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                     ),
                   ],
                 ),
-              ] else if (!isReceived && trade.status == TradeStatus.pending) ...[
+              ] else if (!isReceived &&
+                  trade.status == TradeStatus.pending) ...[
                 AuthButton(
                   text: 'Cancel Trade',
                   onPressed: () => _cancelTrade(trade),
@@ -629,9 +658,9 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                       Expanded(
                         child: Text(
                           'Trade accepted! Coordinate with the other user to complete the exchange.',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.green,
-                          ),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: Colors.green),
                         ),
                       ),
                     ],
@@ -649,11 +678,17 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
     try {
       if (productIds.isEmpty) return ['No items'];
 
-      final products = await FirebaseService.getProductsByIds(productIds,context);
+      final products = await FirebaseService.getProductsByIds(
+        productIds,
+        context,
+      );
       return products.map((p) => p.title).toList();
     } catch (e) {
       print('=== DEBUG: Error getting product names: $e ===');
-      return List.generate(productIds.length, (index) => 'Product ${index + 1}');
+      return List.generate(
+        productIds.length,
+        (index) => 'Product ${index + 1}',
+      );
     }
   }
 
@@ -727,7 +762,9 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
 
   double _getExpiryProgress(DateTime expiresAt) {
     final now = DateTime.now();
-    final totalDuration = expiresAt.difference(expiresAt.subtract(const Duration(days: 7)));
+    final totalDuration = expiresAt.difference(
+      expiresAt.subtract(const Duration(days: 7)),
+    );
     final remainingDuration = expiresAt.difference(now);
 
     return 1 - (remainingDuration.inSeconds / totalDuration.inSeconds);

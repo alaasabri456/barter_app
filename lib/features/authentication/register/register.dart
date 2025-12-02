@@ -5,8 +5,8 @@ import '../../../core/routes_manager/routes_manager.dart';
 import '../../../core/validators.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import '../../../firebase/firebase_service.dart';
-import '../../../models/register_request.dart';
-import '../../../models/user_model.dart';
+import '../models/register_request.dart';
+import '../models/user_model.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
 
@@ -43,7 +43,8 @@ class _RegisterState extends State<Register> {
       await showInfoDialog(
         context: context,
         title: 'Terms Required',
-        message: 'Please agree to the Terms of Service and Privacy Policy to continue.',
+        message:
+            'Please agree to the Terms of Service and Privacy Policy to continue.',
         icon: Icons.warning_outlined,
         iconColor: Theme.of(context).colorScheme.error,
       );
@@ -61,7 +62,9 @@ class _RegisterState extends State<Register> {
       );
 
       // Create user with Firebase Auth
-      final UserCredential userCredential = await FirebaseService.register(registerRequest);
+      final UserCredential userCredential = await FirebaseService.register(
+        registerRequest,
+      );
 
       if (userCredential.user != null) {
         // Create user document in Firestore
@@ -69,7 +72,7 @@ class _RegisterState extends State<Register> {
           id: userCredential.user!.uid,
           name: _nameController.text.trim(),
           email: _emailController.text.trim(),
-          favouriteEventsId: [],
+          favouriteProductIds: [],
         );
 
         await FirebaseService.addUserToFireStore(newUser);
@@ -88,10 +91,9 @@ class _RegisterState extends State<Register> {
           );
 
           // Navigate to main layout
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            RoutesManager.mainLayout,
-                (route) => false,
-          );
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil(RoutesManager.mainLayout, (route) => false);
         }
       }
     } on FirebaseAuthException catch (e) {
@@ -154,16 +156,16 @@ class _RegisterState extends State<Register> {
         children: [
           Text(
             'Terms of Service',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 16.h),
           Text(
             '1. Acceptance of Terms',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           SizedBox(height: 8.h),
           Text(
@@ -173,9 +175,9 @@ class _RegisterState extends State<Register> {
           SizedBox(height: 16.h),
           Text(
             '2. User Responsibilities',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           SizedBox(height: 8.h),
           Text(
@@ -185,9 +187,9 @@ class _RegisterState extends State<Register> {
           SizedBox(height: 16.h),
           Text(
             '3. Privacy Policy',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           SizedBox(height: 8.h),
           Text(
@@ -247,7 +249,9 @@ class _RegisterState extends State<Register> {
                 Text(
                   'Sign up to start bartering with others',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.7),
+                    color: Theme.of(
+                      context,
+                    ).textTheme.bodyLarge?.color?.withOpacity(0.7),
                   ),
                   textAlign: TextAlign.center,
                 ),

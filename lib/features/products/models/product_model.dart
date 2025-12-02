@@ -36,40 +36,56 @@ class ProductModel {
   });
 
   ProductModel.fromJson(Map<String, dynamic> json)
-      : this(
-    id: json["id"] ?? '',
-    title: json["title"] ?? '',
-    description: json["description"] ?? '',
-    category: json["category"] ?? '',
-    condition: json["condition"] ?? '',
-    ownerId: json["ownerId"] ?? '',
-    ownerName: json["ownerName"] ?? '',
-    images: (json["images"] as List<dynamic>?)
-        ?.map((obj) => obj.toString())
-        .toList() ??
-        [],
-    createdAt: json["createdAt"] != null
-        ? DateTime.parse(json["createdAt"])
-        : DateTime.now(),
-    updatedAt: json["updatedAt"] != null
-        ? DateTime.parse(json["updatedAt"])
-        : DateTime.now(),
-    isAvailable: json["isAvailable"] ?? true,
-    tags: (json["tags"] as List<dynamic>?)
-        ?.map((obj) => obj.toString())
-        .toList() ??
-        [],
-    location: json["location"],
-    status: ProductStatus.values.firstWhere(
+    : this(
+        id: json["id"] ?? '',
+        title: json["title"] ?? '',
+        description: json["description"] ?? '',
+        category: json["category"] ?? '',
+        condition: json["condition"] ?? '',
+        ownerId: json["ownerId"] ?? '',
+        ownerName: json["ownerName"] ?? '',
+        images:
+            (json["images"] as List<dynamic>?)
+                ?.map((obj) => obj.toString())
+                .toList() ??
+            [],
+        createdAt: _parseDateTime(json["createdAt"]),
+        updatedAt: _parseDateTime(json["updatedAt"]),
+        isAvailable: json["isAvailable"] ?? true,
+        tags:
+            (json["tags"] as List<dynamic>?)
+                ?.map((obj) => obj.toString())
+                .toList() ??
+            [],
+        location: json["location"],
+        status: ProductStatus.values.firstWhere(
           (status) => status.name == (json["status"] ?? "available"),
-      orElse: () => ProductStatus.available,
-    ),
-    viewCount: json["viewCount"] ?? 0,
-    interestedUsers: (json["interestedUsers"] as List<dynamic>?)
-        ?.map((obj) => obj.toString())
-        .toList() ??
-        [],
-  );
+          orElse: () => ProductStatus.available,
+        ),
+        viewCount: json["viewCount"] ?? 0,
+        interestedUsers:
+            (json["interestedUsers"] as List<dynamic>?)
+                ?.map((obj) => obj.toString())
+                .toList() ??
+            [],
+      );
+
+  static DateTime _parseDateTime(dynamic value) {
+    if (value == null) {
+      return DateTime.now();
+    } else if (value is String) {
+      return DateTime.parse(value);
+    } else if (value is DateTime) {
+      return value;
+    } else {
+      // Handle Firestore Timestamp
+      try {
+        return (value as dynamic).toDate();
+      } catch (e) {
+        return DateTime.now();
+      }
+    }
+  }
 
   Map<String, dynamic> toJson() => {
     "id": id,
@@ -143,20 +159,9 @@ class ProductModel {
   int get hashCode => id.hashCode;
 }
 
-enum ProductStatus {
-  available,
-  traded,
-  reserved,
-  unavailable,
-}
+enum ProductStatus { available, traded, reserved, unavailable }
 
-enum ProductCondition {
-  new_item,
-  like_new,
-  good,
-  fair,
-  poor,
-}
+enum ProductCondition { new_item, like_new, good, fair, poor }
 
 enum ProductCategory {
   electronics,
@@ -230,12 +235,14 @@ extension ProductCategoryExtension on ProductCategory {
   }
 
   static List<String> get allDisplayNames {
-    return ProductCategory.values.map((category) => category.displayName).toList();
+    return ProductCategory.values
+        .map((category) => category.displayName)
+        .toList();
   }
 
   static ProductCategory fromDisplayName(String displayName) {
     return ProductCategory.values.firstWhere(
-          (category) => category.displayName == displayName,
+      (category) => category.displayName == displayName,
       orElse: () => ProductCategory.others,
     );
   }

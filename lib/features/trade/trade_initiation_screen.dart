@@ -1,16 +1,15 @@
 // screens/trade/initiate_trade_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:provider/provider.dart';
 
 import '../../core/routes_manager/routes_manager.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
 import '../../core/widgets/loading_widget.dart';
 import '../../firebase/firebase_service.dart';
-import '../../models/product_model.dart';
-import '../../models/trade_offer.dart';
-import '../../models/user_model.dart';
+import '../../features/products/models/product_model.dart';
+import '../../features/trade/models/trade_offer.dart';
+import '../../features/authentication/models/user_model.dart';
 import '../authentication/widgets/auth_button.dart';
 import '../authentication/widgets/auth_text_field.dart';
 
@@ -45,25 +44,34 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
         throw Exception('Please log in to view your products');
       }
 
-      print('=== SCREEN DEBUG: Starting to load products for user ${user.id} ===');
+      print(
+        '=== SCREEN DEBUG: Starting to load products for user ${user.id} ===',
+      );
 
-      final products = await FirebaseService.getUserProducts(user.id,context);
+      final products = await FirebaseService.getUserProducts(user.id, context);
 
-      print('=== SCREEN DEBUG: Received ${products.length} products from FirebaseService ===');
+      print(
+        '=== SCREEN DEBUG: Received ${products.length} products from FirebaseService ===',
+      );
 
       // Additional client-side filtering
-      final availableProducts = products.where((p) =>
-      p.id != widget.targetProduct.id // Don't allow trading the same product
-      ).toList();
+      final availableProducts = products
+          .where(
+            (p) =>
+                p.id !=
+                widget.targetProduct.id, // Don't allow trading the same product
+          )
+          .toList();
 
-      print('=== SCREEN DEBUG: ${availableProducts.length} products available for trading ===');
+      print(
+        '=== SCREEN DEBUG: ${availableProducts.length} products available for trading ===',
+      );
 
       setState(() {
         _userProducts = availableProducts;
         _loadingProducts = false;
         _errorMessage = null;
       });
-
     } catch (e) {
       print('=== SCREEN DEBUG: Error in _loadUserProducts: $e ===');
       setState(() {
@@ -75,7 +83,8 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
         await showInfoDialog(
           context: context,
           title: 'Loading Failed',
-          message: 'Failed to load your products: $e\n\nPlease check your internet connection and try again.',
+          message:
+              'Failed to load your products: $e\n\nPlease check your internet connection and try again.',
           icon: Icons.error_outline,
         );
       }
@@ -185,7 +194,8 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
               showInfoDialog(
                 context: context,
                 title: 'Trade Types',
-                message: '• Item for Item: Exchange one item for another\n'
+                message:
+                    '• Item for Item: Exchange one item for another\n'
                     '• Multi for Single: Offer multiple items for one valuable item\n'
                     '• Service for Item: Offer a service in exchange for an item\n'
                     '• Service for Service: Exchange services',
@@ -202,7 +212,8 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
 
   Widget _buildBody() {
     if (_loadingProducts) {
-      return LoadingOverlay(child:  Container(),
+      return LoadingOverlay(
+        child: Container(),
         isLoading: true,
         loadingMessage: 'Loading your products...',
       );
@@ -255,7 +266,9 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
                   text: 'Add Product',
                   onPressed: () {
                     // Navigate to add product screen
-                    Navigator.of(context).pushNamed(RoutesManager.createProduct);
+                    Navigator.of(
+                      context,
+                    ).pushNamed(RoutesManager.createProduct);
                   },
                 ),
               ],
@@ -314,11 +327,12 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
                 SizedBox(height: 24.h),
 
                 // Message
-                AuthTextField(label: '',
+                AuthTextField(
+                  label: '',
                   controller: _messageController,
                   hint: 'Add a message to the owner (optional)',
                   maxLines: 4,
-                 // maxLength: 500,
+                  // maxLength: 500,
                 ),
               ],
             ),
@@ -331,10 +345,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
           decoration: BoxDecoration(
             color: Theme.of(context).scaffoldBackgroundColor,
             border: Border(
-              top: BorderSide(
-                color: Theme.of(context).dividerColor,
-                width: 1,
-              ),
+              top: BorderSide(color: Theme.of(context).dividerColor, width: 1),
             ),
           ),
           child: AuthButton(
@@ -405,13 +416,16 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
               borderRadius: BorderRadius.circular(8.r),
               image: product.images.isNotEmpty
                   ? DecorationImage(
-                image: NetworkImage(product.images.first),
-                fit: BoxFit.cover,
-              )
+                      image: NetworkImage(product.images.first),
+                      fit: BoxFit.cover,
+                    )
                   : null,
             ),
             child: product.images.isEmpty
-                ? Icon(Icons.image, color: Theme.of(context).primaryColor.withOpacity(0.5))
+                ? Icon(
+                    Icons.image,
+                    color: Theme.of(context).primaryColor.withOpacity(0.5),
+                  )
                 : null,
           ),
 
@@ -424,9 +438,9 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
               children: [
                 Text(
                   title,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
                 ),
                 SizedBox(height: 4.h),
                 Text(
@@ -529,17 +543,24 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
                 Container(
                   height: 100.h,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(10.r)),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(10.r),
+                    ),
                     color: Theme.of(context).primaryColor.withOpacity(0.1),
                     image: product.images.isNotEmpty
                         ? DecorationImage(
-                      image: NetworkImage(product.images.first),
-                      fit: BoxFit.cover,
-                    )
+                            image: NetworkImage(product.images.first),
+                            fit: BoxFit.cover,
+                          )
                         : null,
                   ),
                   child: product.images.isEmpty
-                      ? Icon(Icons.image, color: Theme.of(context).primaryColor.withOpacity(0.5))
+                      ? Icon(
+                          Icons.image,
+                          color: Theme.of(
+                            context,
+                          ).primaryColor.withOpacity(0.5),
+                        )
                       : null,
                 ),
 
@@ -561,7 +582,9 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
                       Text(
                         product.category,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                          color: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.color?.withOpacity(0.7),
                         ),
                       ),
                     ],
@@ -581,11 +604,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
                     color: Theme.of(context).primaryColor,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    Icons.check,
-                    size: 16.w,
-                    color: Colors.white,
-                  ),
+                  child: Icon(Icons.check, size: 16.w, color: Colors.white),
                 ),
               ),
           ],

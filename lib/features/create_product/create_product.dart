@@ -3,12 +3,17 @@ import 'package:barter/core/routes_manager/routes_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:path/path.dart' as path;
+
+import '../../config/api_config.dart';
 import '../../core/validators.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
 import '../../firebase/firebase_service.dart';
-import '../../models/product_model.dart';
-import '../../models/user_model.dart';
+import '../../features/products/models/product_model.dart';
+import '../../features/authentication/models/user_model.dart';
 import '../authentication/widgets/auth_button.dart';
 import '../authentication/widgets/auth_text_field.dart';
 import 'widgets/product_form_field.dart';
@@ -30,10 +35,12 @@ class _CreateProductState extends State<CreateProduct> {
   final _tagsController = TextEditingController();
 
   bool _isLoading = false;
+  bool _isUploadingImages = false;
   bool _isEditing = false;
   String _selectedCategory = ProductCategory.others.name;
   String _selectedCondition = ProductCondition.good.name;
-  List<String> _selectedImages = [];
+  List<File> _selectedImageFiles = []; // Store File objects
+  List<String> _uploadedImageUrls = []; // Store uploaded URLs
   List<String> _tags = [];
 
   @override
@@ -53,7 +60,7 @@ class _CreateProductState extends State<CreateProduct> {
     _locationController.text = product.location ?? '';
     _selectedCategory = product.category;
     _selectedCondition = product.condition;
-    _selectedImages = List.from(product.images);
+    _uploadedImageUrls = List.from(product.images);
     _tags = List.from(product.tags);
     _tagsController.text = _tags.join(', ');
   }
@@ -77,6 +84,84 @@ class _CreateProductState extends State<CreateProduct> {
     });
   }
 
+  // ==================== IMAGE UPLOAD TO IMGBB ====================
+  Future<String?> _uploadImageToImgBB(File imageFile) async {
+    try {
+      // Convert image to base64
+      final bytes = await imageFile.readAsBytes();
+      final base64Image = base64Encode(bytes);
+
+      // Prepare request
+      final uri = Uri.parse('https://api.imgbb.com/1/upload');
+
+      final response = await http.post(
+        uri,
+        body: {
+          'key': ApiConfig.imgbbApiKey,
+          'image': base64Image,
+          'name': path.basename(imageFile.path),
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        // Get the image URL from response
+        return data['data']['url'];
+      } else {
+        print('ImgBB upload failed: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Error uploading to ImgBB: $e');
+      return null;
+    }
+  }
+
+  // Upload multiple images to ImgBB
+  Future<List<String>> _uploadImagesToImgBB(List<File> imageFiles) async {
+    setState(() {
+      _isUploadingImages = true;
+    });
+
+    final List<String> uploadedUrls = [];
+
+    for (final imageFile in imageFiles) {
+      if (_uploadedImageUrls.length >= 5) break; // Max 5 images
+
+      final url = await _uploadImageToImgBB(imageFile);
+      if (url != null) {
+        uploadedUrls.add(url);
+        setState(() {
+          _uploadedImageUrls.add(url);
+        });
+      }
+    }
+
+    setState(() {
+      _isUploadingImages = false;
+    });
+
+    return uploadedUrls;
+  }
+
+  // Alternative: Upload to Firebase Storage
+  Future<List<String>> _uploadImagesToFirebase(List<File> imageFiles) async {
+    setState(() {
+      _isUploadingImages = true;
+    });
+
+    final List<String> uploadedUrls = [];
+
+
+
+    setState(() {
+      _isUploadingImages = false;
+    });
+
+    return uploadedUrls;
+  }
+
+  // ==================== IMAGE PICKER ====================
   Future<void> _pickImages() async {
     final ImagePicker picker = ImagePicker();
 
@@ -121,7 +206,7 @@ class _CreateProductState extends State<CreateProduct> {
   }
 
   void _addSelectedImages(List<XFile> pickedFiles) {
-    final remainingSlots = 5 - _selectedImages.length;
+    final remainingSlots = 5 - _selectedImageFiles.length;
     if (remainingSlots <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -137,26 +222,45 @@ class _CreateProductState extends State<CreateProduct> {
         : pickedFiles;
 
     setState(() {
-      _selectedImages.addAll(filesToAdd.map((file) => file.path));
+      _selectedImageFiles.addAll(filesToAdd.map((file) => File(file.path)));
     });
 
     // Show warning if we couldn't add all selected images
     if (pickedFiles.length > remainingSlots) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Only $remainingSlots images added (max 5)'),
-        ),
+        SnackBar(content: Text('Only $remainingSlots images added (max 5)')),
       );
     }
   }
 
   void _removeImage(int index) {
     setState(() {
-      _selectedImages.removeAt(index);
+      if (index < _selectedImageFiles.length) {
+        _selectedImageFiles.removeAt(index);
+      } else {
+        final urlIndex = index - _selectedImageFiles.length;
+        if (urlIndex < _uploadedImageUrls.length) {
+          _uploadedImageUrls.removeAt(urlIndex);
+        }
+      }
     });
   }
 
   void _viewImage(int index) {
+    String? imagePath;
+    bool isLocalFile = index < _selectedImageFiles.length;
+
+    if (isLocalFile) {
+      imagePath = _selectedImageFiles[index].path;
+    } else {
+      final urlIndex = index - _selectedImageFiles.length;
+      if (urlIndex < _uploadedImageUrls.length) {
+        imagePath = _uploadedImageUrls[urlIndex];
+      }
+    }
+
+    if (imagePath == null) return;
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -171,30 +275,19 @@ class _CreateProductState extends State<CreateProduct> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12.r),
-                child: Image.file(
-                  File(_selectedImages[index]),
+                child: isLocalFile
+                    ? Image.file(
+                  File(imagePath!),
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            size: 48.w,
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                          SizedBox(height: 8.h),
-                          Text(
-                            'Failed to load image',
-                            style: TextStyle(
-                              fontSize: 14.sp,
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
+                    return _buildImageErrorWidget();
+                  },
+                )
+                    : Image.network(
+                  imagePath!,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return _buildImageErrorWidget();
                   },
                 ),
               ),
@@ -210,16 +303,35 @@ class _CreateProductState extends State<CreateProduct> {
                     color: Colors.black54,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    Icons.close,
-                    size: 20.w,
-                    color: Colors.white,
-                  ),
+                  child: Icon(Icons.close, size: 20.w, color: Colors.white),
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildImageErrorWidget() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 48.w,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            'Failed to load image',
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: Theme.of(context).colorScheme.error,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -232,12 +344,18 @@ class _CreateProductState extends State<CreateProduct> {
           child: Wrap(
             children: [
               ListTile(
-                leading: Icon(Icons.photo_library, color: Theme.of(context).primaryColor),
+                leading: Icon(
+                  Icons.photo_library,
+                  color: Theme.of(context).primaryColor,
+                ),
                 title: Text('Choose from Gallery'),
                 onTap: () => Navigator.pop(context, ImageSource.gallery),
               ),
               ListTile(
-                leading: Icon(Icons.photo_camera, color: Theme.of(context).primaryColor),
+                leading: Icon(
+                  Icons.photo_camera,
+                  color: Theme.of(context).primaryColor,
+                ),
                 title: Text('Take a Photo'),
                 onTap: () => Navigator.pop(context, ImageSource.camera),
               ),
@@ -248,10 +366,12 @@ class _CreateProductState extends State<CreateProduct> {
     );
   }
 
+  // ==================== SAVE PRODUCT ====================
   Future<void> _saveProduct() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_selectedImages.isEmpty) {
+    // Check if we have images (either uploaded or already have URLs)
+    if (_selectedImageFiles.isEmpty && _uploadedImageUrls.isEmpty) {
       await showInfoDialog(
         context: context,
         title: 'Images Required',
@@ -270,9 +390,34 @@ class _CreateProductState extends State<CreateProduct> {
       final user = UserModel.currentUser;
       if (user == null) throw Exception('User not found');
 
+      // Upload new images if any
+      List<String> finalImageUrls = List.from(_uploadedImageUrls);
+
+      if (_selectedImageFiles.isNotEmpty) {
+        // Try ImgBB first, fallback to Firebase Storage
+        final uploadedUrls = await _uploadImagesToImgBB(_selectedImageFiles);
+
+        // If ImgBB fails, try Firebase Storage
+        if (uploadedUrls.isEmpty && _selectedImageFiles.isNotEmpty) {
+          final firebaseUrls = await _uploadImagesToFirebase(_selectedImageFiles);
+          finalImageUrls.addAll(firebaseUrls);
+        } else {
+          finalImageUrls.addAll(uploadedUrls);
+        }
+
+        // Clear local files after upload
+        _selectedImageFiles.clear();
+      }
+
+      // Ensure we have at least one image
+      if (finalImageUrls.isEmpty) {
+        throw Exception('Failed to upload images. Please try again.');
+      }
+
       final now = DateTime.now();
-      final productId =
-      _isEditing ? widget.product!.id : 'product_${now.millisecondsSinceEpoch}';
+      final productId = _isEditing
+          ? widget.product!.id
+          : 'product_${now.millisecondsSinceEpoch}';
 
       final product = ProductModel(
         id: productId,
@@ -282,7 +427,7 @@ class _CreateProductState extends State<CreateProduct> {
         condition: _selectedCondition,
         ownerId: user.id,
         ownerName: user.name,
-        images: _selectedImages,
+        images: finalImageUrls, // Store URLs, not file paths
         createdAt: _isEditing ? widget.product!.createdAt : now,
         updatedAt: now,
         location: _locationController.text.trim().isNotEmpty
@@ -295,7 +440,7 @@ class _CreateProductState extends State<CreateProduct> {
       );
 
       await FirebaseService.addProductToFireStore(product, context);
-Navigator.pushReplacementNamed(context,RoutesManager.mainLayout);
+
       if (mounted) {
         await showInfoDialog(
           context: context,
@@ -314,8 +459,7 @@ Navigator.pushReplacementNamed(context,RoutesManager.mainLayout);
         await showInfoDialog(
           context: context,
           title: 'Error',
-          message:
-          'Failed to ${_isEditing ? 'update' : 'create'} product. Please try again.',
+          message: 'Failed to ${_isEditing ? 'update' : 'create'} product: $e',
           icon: Icons.error_outline,
           iconColor: Theme.of(context).colorScheme.error,
         );
@@ -344,6 +488,7 @@ Navigator.pushReplacementNamed(context,RoutesManager.mainLayout);
     }
   }
 
+  // ==================== BUILD METHOD ====================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -355,11 +500,11 @@ Navigator.pushReplacementNamed(context,RoutesManager.mainLayout);
         ),
         actions: [
           TextButton(
-            onPressed: _isLoading ? null : _saveProduct,
+            onPressed: (_isLoading || _isUploadingImages) ? null : _saveProduct,
             child: Text(
               _isEditing ? 'Update' : 'Create',
               style: TextStyle(
-                color: _isLoading
+                color: (_isLoading || _isUploadingImages)
                     ? Theme.of(context).disabledColor
                     : Theme.of(context).primaryColor,
                 fontWeight: FontWeight.w600,
@@ -370,130 +515,156 @@ Navigator.pushReplacementNamed(context,RoutesManager.mainLayout);
       ),
       body: Form(
         key: _formKey,
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(20.w),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Product Images Section
-              _buildImagePickerSection(),
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: EdgeInsets.all(20.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Product Images Section
+                  _buildImagePickerSection(),
 
-              SizedBox(height: 32.h),
+                  SizedBox(height: 32.h),
 
-              // Product Title
-              AuthTextField(
-                label: 'Product Title',
-                hint: 'Enter product title',
-                controller: _titleController,
-                validator: Validators.validateProductTitle,
-                textInputAction: TextInputAction.next,
+                  // Product Title
+                  AuthTextField(
+                    label: 'Product Title',
+                    hint: 'Enter product title',
+                    controller: _titleController,
+                    validator: Validators.validateProductTitle,
+                    textInputAction: TextInputAction.next,
+                  ),
+
+                  SizedBox(height: 24.h),
+
+                  // Product Description
+                  AuthTextField(
+                    label: 'Description',
+                    hint: 'Describe your product in detail',
+                    controller: _descriptionController,
+                    validator: Validators.validateProductDescription,
+                    maxLines: 4,
+                    textInputAction: TextInputAction.newline,
+                  ),
+
+                  SizedBox(height: 24.h),
+
+                  // Category Dropdown
+                  ProductCategoryDropdown(
+                    label: 'Category',
+                    value: _selectedCategory,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCategory = value ?? ProductCategory.others.name;
+                      });
+                    },
+                  ),
+
+                  SizedBox(height: 24.h),
+
+                  // Condition Dropdown
+                  ProductConditionDropdown(
+                    label: 'Condition',
+                    value: _selectedCondition,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCondition = value ?? ProductCondition.good.name;
+                      });
+                    },
+                  ),
+
+                  SizedBox(height: 24.h),
+
+                  // Location (Optional)
+                  AuthTextField(
+                    label: 'Location (Optional)',
+                    hint: 'Enter your location',
+                    controller: _locationController,
+                    textInputAction: TextInputAction.next,
+                  ),
+
+                  SizedBox(height: 24.h),
+
+                  // Tags
+                  AuthTextField(
+                    label: 'Tags (Optional)',
+                    hint: 'Enter tags separated by commas',
+                    controller: _tagsController,
+                    onChanged: _onTagsChanged,
+                    textInputAction: TextInputAction.done,
+                  ),
+
+                  if (_tags.isNotEmpty) ...[
+                    SizedBox(height: 12.h),
+                    Wrap(
+                      spacing: 8.w,
+                      runSpacing: 8.h,
+                      children: _tags.map((tag) {
+                        return Chip(
+                          label: Text(tag, style: TextStyle(fontSize: 12.sp)),
+                          backgroundColor: Theme.of(
+                            context,
+                          ).primaryColor.withOpacity(0.1),
+                          side: BorderSide(
+                            color: Theme.of(context).primaryColor.withOpacity(0.3),
+                          ),
+                          deleteIcon: const Icon(Icons.close, size: 16),
+                          onDeleted: () {
+                            setState(() {
+                              _tags.remove(tag);
+                              _tagsController.text = _tags.join(', ');
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    SizedBox(height: 24.h),
+                  ],
+
+                  // Save Button
+                  AuthButton(
+                    text: _isEditing ? 'Update Product' : 'Create Product',
+                    onPressed: _saveProduct,
+                    isLoading: _isLoading || _isUploadingImages,
+                    height: 56,
+                  ),
+
+                  SizedBox(height: 40.h),
+                ],
               ),
+            ),
 
-              SizedBox(height: 24.h),
-
-              // Product Description
-              AuthTextField(
-                label: 'Description',
-                hint: 'Describe your product in detail',
-                controller: _descriptionController,
-                validator: Validators.validateProductDescription,
-                maxLines: 4,
-                textInputAction: TextInputAction.newline,
-              ),
-
-              SizedBox(height: 24.h),
-
-              // Category Dropdown
-              ProductCategoryDropdown(
-                label: 'Category',
-                value: _selectedCategory,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCategory = value ?? ProductCategory.others.name;
-                  });
-                },
-              ),
-
-              SizedBox(height: 24.h),
-
-              // Condition Dropdown
-              ProductConditionDropdown(
-                label: 'Condition',
-                value: _selectedCondition,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCondition = value ?? ProductCondition.good.name;
-                  });
-                },
-              ),
-
-              SizedBox(height: 24.h),
-
-              // Location (Optional)
-              AuthTextField(
-                label: 'Location (Optional)',
-                hint: 'Enter your location',
-                controller: _locationController,
-                textInputAction: TextInputAction.next,
-              ),
-
-              SizedBox(height: 24.h),
-
-              // Tags
-              AuthTextField(
-                label: 'Tags (Optional)',
-                hint: 'Enter tags separated by commas',
-                controller: _tagsController,
-                onChanged: _onTagsChanged,
-                textInputAction: TextInputAction.done,
-              ),
-
-              if (_tags.isNotEmpty) ...[
-                SizedBox(height: 12.h),
-                Wrap(
-                  spacing: 8.w,
-                  runSpacing: 8.h,
-                  children: _tags.map((tag) {
-                    return Chip(
-                      label: Text(
-                        tag,
-                        style: TextStyle(fontSize: 12.sp),
+            // Uploading overlay
+            if (_isUploadingImages)
+              Container(
+                color: Colors.black54,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16.h),
+                      Text(
+                        'Uploading images...',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16.sp,
+                        ),
                       ),
-                      backgroundColor:
-                      Theme.of(context).primaryColor.withOpacity(0.1),
-                      side: BorderSide(
-                        color: Theme.of(context).primaryColor.withOpacity(0.3),
-                      ),
-                      deleteIcon: const Icon(Icons.close, size: 16),
-                      onDeleted: () {
-                        setState(() {
-                          _tags.remove(tag);
-                          _tagsController.text = _tags.join(', ');
-                        });
-                      },
-                    );
-                  }).toList(),
+                    ],
+                  ),
                 ),
-                SizedBox(height: 24.h),
-              ],
-
-              // Save Button
-              AuthButton(
-                text: _isEditing ? 'Update Product' : 'Create Product',
-                onPressed: _saveProduct,
-                isLoading: _isLoading,
-                height: 56,
               ),
-
-              SizedBox(height: 20.h),
-            ],
-          ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildImagePickerSection() {
+    final totalImages = _selectedImageFiles.length + _uploadedImageUrls.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -510,9 +681,9 @@ Navigator.pushReplacementNamed(context,RoutesManager.mainLayout);
           height: 120.h,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: _selectedImages.length + 1,
+            itemCount: totalImages + 1,
             itemBuilder: (context, index) {
-              if (index == _selectedImages.length) {
+              if (index == totalImages) {
                 // Add image button
                 return GestureDetector(
                   onTap: _pickImages,
@@ -552,6 +723,20 @@ Navigator.pushReplacementNamed(context,RoutesManager.mainLayout);
               }
 
               // Image item
+              final bool isLocalFile = index < _selectedImageFiles.length;
+              final String? imagePath;
+
+              if (isLocalFile) {
+                imagePath = _selectedImageFiles[index].path;
+              } else {
+                final urlIndex = index - _selectedImageFiles.length;
+                imagePath = urlIndex < _uploadedImageUrls.length
+                    ? _uploadedImageUrls[urlIndex]
+                    : null;
+              }
+
+              if (imagePath == null) return SizedBox();
+
               return GestureDetector(
                 onTap: () => _viewImage(index),
                 child: Container(
@@ -560,28 +745,29 @@ Navigator.pushReplacementNamed(context,RoutesManager.mainLayout);
                   margin: EdgeInsets.only(right: 8.w),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12.r),
-                    border: Border.all(
-                      color: Theme.of(context).dividerColor,
-                    ),
+                    border: Border.all(color: Theme.of(context).dividerColor),
                   ),
                   child: Stack(
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12.r),
-                        child: Image.file(
-                          File(_selectedImages[index]),
+                        child: isLocalFile
+                            ? Image.file(
+                          File(imagePath),
                           width: double.infinity,
                           height: double.infinity,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: Theme.of(context).primaryColor.withOpacity(0.1),
-                              child: Icon(
-                                Icons.error_outline,
-                                size: 32.w,
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                            );
+                            return _buildImageContainerError();
+                          },
+                        )
+                            : Image.network(
+                          imagePath,
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return _buildImageContainerError();
                           },
                         ),
                       ),
@@ -609,7 +795,10 @@ Navigator.pushReplacementNamed(context,RoutesManager.mainLayout);
                           bottom: 4.w,
                           left: 4.w,
                           child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 6.w,
+                              vertical: 2.h,
+                            ),
                             decoration: BoxDecoration(
                               color: Theme.of(context).primaryColor,
                               borderRadius: BorderRadius.circular(4.r),
@@ -634,24 +823,59 @@ Navigator.pushReplacementNamed(context,RoutesManager.mainLayout);
 
         SizedBox(height: 8.h),
 
-        Text(
-          '${_selectedImages.length}/5 images selected',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
-          ),
+        Row(
+          children: [
+            Text(
+              '${totalImages}/5 images',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.color?.withOpacity(0.7),
+              ),
+            ),
+            if (_isUploadingImages) ...[
+              SizedBox(width: 8.w),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4.r),
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 12.w,
+                      height: 12.h,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 4.w),
+                    Text(
+                      'Uploading',
+                      style: TextStyle(
+                        fontSize: 10.sp,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ]
+          ],
         ),
-
-        // if (_selectedImages.isNotEmpty) ...[
-        //   SizedBox(height: 4.h),
-        //   Text(
-        //     'Tap image to view, tap × to remove',
-        //     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        //       color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.5),
-        //       fontSize: 10.sp,
-        //     ),
-        //   ),
-        // ],
       ],
+    );
+  }
+
+  Widget _buildImageContainerError() {
+    return Container(
+      color: Theme.of(context).primaryColor.withOpacity(0.1),
+      child: Center(
+        child: Icon(
+          Icons.error_outline,
+          size: 32.w,
+          color: Theme.of(context).colorScheme.error,
+        ),
+      ),
     );
   }
 }

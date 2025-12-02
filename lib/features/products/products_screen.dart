@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/loading_widget.dart';
-import '../../models/user_model.dart';
+import '../../features/authentication/models/user_model.dart';
+import '../../features/products/models/product_model.dart';
+import '../../firebase/firebase_service.dart';
 import '../authentication/widgets/auth_text_field.dart';
 import 'widgets/product_card.dart';
 
@@ -22,6 +24,8 @@ class _ProductsScreenState extends State<ProductsScreen>
   String _searchQuery = '';
   String _selectedCategory = 'All';
   String _selectedCondition = 'All';
+  List<ProductModel> _products = [];
+  String? _errorMessage;
 
   final List<String> _categories = [
     'All',
@@ -30,7 +34,7 @@ class _ProductsScreenState extends State<ProductsScreen>
     'Books',
     'Sports',
     'Home',
-    'Others'
+    'Others',
   ];
 
   final List<String> _conditions = [
@@ -39,7 +43,7 @@ class _ProductsScreenState extends State<ProductsScreen>
     'Like New',
     'Good',
     'Fair',
-    'Poor'
+    'Poor',
   ];
 
   @override
@@ -57,16 +61,32 @@ class _ProductsScreenState extends State<ProductsScreen>
   }
 
   Future<void> _loadProducts() async {
+    final user = UserModel.currentUser;
+    if (user == null) {
+      setState(() {
+        _errorMessage = 'Please log in to view your products';
+        _isLoading = false;
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
     });
 
-    // Simulate loading products
-    await Future.delayed(const Duration(seconds: 1));
-
-    setState(() {
-      _isLoading = false;
-    });
+    try {
+      final products = await FirebaseService.getUserProducts(user.id, context);
+      setState(() {
+        _products = products;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to load products: $e';
+        _isLoading = false;
+      });
+    }
   }
 
   void _onSearchChanged(String query) {
@@ -121,9 +141,9 @@ class _ProductsScreenState extends State<ProductsScreen>
 
           Text(
             'Filter Products',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
 
           SizedBox(height: 24.h),
@@ -131,9 +151,9 @@ class _ProductsScreenState extends State<ProductsScreen>
           // Category filter
           Text(
             'Category',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
 
           SizedBox(height: 12.h),
@@ -160,9 +180,9 @@ class _ProductsScreenState extends State<ProductsScreen>
           // Condition filter
           Text(
             'Condition',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
 
           SizedBox(height: 12.h),
@@ -206,7 +226,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    _loadProducts();
+                    setState(() {}); // Trigger rebuild with new filters
                   },
                   child: Text('Apply'),
                 ),
@@ -222,8 +242,6 @@ class _ProductsScreenState extends State<ProductsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final user = UserModel.currentUser;
-
     return Scaffold(
       appBar: CustomAppBar(
         title: 'My Products',
@@ -265,14 +283,16 @@ class _ProductsScreenState extends State<ProductsScreen>
             child: LoadingOverlay(
               isLoading: _isLoading,
               loadingMessage: 'Loading products...',
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildProductsList('available'),
-                  _buildProductsList('traded'),
-                  _buildProductsList('all'),
-                ],
-              ),
+              child: _errorMessage != null
+                  ? _buildErrorState()
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildProductsList(ProductStatus.available),
+                        _buildProductsList(ProductStatus.traded),
+                        _buildProductsList(null), // All products
+                      ],
+                    ),
             ),
           ),
         ],
@@ -280,45 +300,68 @@ class _ProductsScreenState extends State<ProductsScreen>
     );
   }
 
-  Widget _buildProductsList(String filter) {
-    // Mock products data
-    final List<Map<String, dynamic>> products = List.generate(
-      10,
-          (index) => {
-        'id': 'product_$index',
-        'title': 'Sample Product ${index + 1}',
-        'description': 'This is a detailed description of the sample product ${index + 1}.',
-        'category': _categories[(index % (_categories.length - 1)) + 1],
-        'condition': _conditions[(index % (_conditions.length - 1)) + 1],
-        'status': index % 3 == 0 ? 'traded' : 'available',
-        'imageUrl': null,
-        'createdAt': DateTime.now().subtract(Duration(days: index)),
-        'viewCount': (index + 1) * 10,
-        'interestedUsers': List.generate((index % 5), (i) => 'user_$i'),
-      },
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 64.w,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          SizedBox(height: 16.h),
+          Text(
+            'Error Loading Products',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          SizedBox(height: 8.h),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 32.w),
+            child: Text(
+              _errorMessage ?? 'Unknown error',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+          ),
+          SizedBox(height: 24.h),
+          ElevatedButton(onPressed: _loadProducts, child: Text('Try Again')),
+        ],
+      ),
     );
+  }
 
-    // Filter products based on current tab
-    List<Map<String, dynamic>> filteredProducts = products.where((product) {
+  Widget _buildProductsList(ProductStatus? statusFilter) {
+    // Filter products based on current tab and search/filter criteria
+    List<ProductModel> filteredProducts = _products.where((product) {
       bool matchesFilter = true;
 
-      if (filter == 'available') {
-        matchesFilter = product['status'] == 'available';
-      } else if (filter == 'traded') {
-        matchesFilter = product['status'] == 'traded';
+      // Status filter
+      if (statusFilter != null) {
+        matchesFilter = product.status == statusFilter;
       }
 
+      // Search query
       if (_searchQuery.isNotEmpty) {
-        matchesFilter = matchesFilter &&
-            product['title'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
+        final query = _searchQuery.toLowerCase();
+        matchesFilter =
+            matchesFilter &&
+            (product.title.toLowerCase().contains(query) ||
+                product.description.toLowerCase().contains(query));
       }
 
+      // Category filter
       if (_selectedCategory != 'All') {
-        matchesFilter = matchesFilter && product['category'] == _selectedCategory;
+        matchesFilter =
+            matchesFilter &&
+            product.category.toLowerCase() == _selectedCategory.toLowerCase();
       }
 
+      // Condition filter
       if (_selectedCondition != 'All') {
-        matchesFilter = matchesFilter && product['condition'] == _selectedCondition;
+        matchesFilter =
+            matchesFilter &&
+            product.condition.toLowerCase() == _selectedCondition.toLowerCase();
       }
 
       return matchesFilter;
@@ -336,16 +379,22 @@ class _ProductsScreenState extends State<ProductsScreen>
             ),
             SizedBox(height: 16.h),
             Text(
-              'No products found',
+              _products.isEmpty ? 'No products yet' : 'No products found',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Theme.of(context).textTheme.titleMedium?.color?.withOpacity(0.5),
+                color: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.color?.withOpacity(0.5),
               ),
             ),
             SizedBox(height: 8.h),
             Text(
-              'Try adjusting your search or filters',
+              _products.isEmpty
+                  ? 'Start by adding your first product'
+                  : 'Try adjusting your search or filters',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                color: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.color?.withOpacity(0.5),
               ),
             ),
           ],
@@ -361,22 +410,59 @@ class _ProductsScreenState extends State<ProductsScreen>
         itemBuilder: (context, index) {
           final product = filteredProducts[index];
           return ProductCard(
-            title: product['title'],
-            description: product['description'],
-            category: product['category'],
-            condition: product['condition'],
-            status: product['status'],
-            viewCount: product['viewCount'],
-            interestedCount: product['interestedUsers'].length,
-            createdAt: product['createdAt'],
+            title: product.title,
+            description: product.description,
+            category: product.category,
+            condition: product.condition,
+            status: product.status.name,
+            viewCount: product.viewCount,
+            interestedCount: product.interestedUsers.length,
+            createdAt: product.createdAt,
+            imageUrl: product.images.isNotEmpty ? product.images.first : null,
             onTap: () {
               // Navigate to product details
+              // Navigator.of(context).pushNamed(
+              //   RoutesManager.productDetails,
+              //   arguments: product.id,
+              // );
             },
             onEdit: () {
               // Navigate to edit product
+              // Navigator.of(context).pushNamed(
+              //   RoutesManager.createProduct,
+              //   arguments: product,
+              // );
             },
-            onDelete: () {
+            onDelete: () async {
               // Show delete confirmation
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text('Delete Product'),
+                  content: Text(
+                    'Are you sure you want to delete "${product.title}"?',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Theme.of(context).colorScheme.error,
+                      ),
+                      child: Text('Delete'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirmed == true) {
+                // TODO: Implement delete functionality
+                // await FirebaseService.deleteProduct(product.id);
+                // _loadProducts();
+              }
             },
           );
         },

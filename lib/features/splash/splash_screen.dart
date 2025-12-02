@@ -1,10 +1,9 @@
-import 'package:barter/models/product_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/routes_manager/routes_manager.dart';
 import '../../firebase/firebase_service.dart';
-import '../../models/user_model.dart';
+import '../../features/authentication/models/user_model.dart';
 import '../../core/widgets/loading_widget.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -29,21 +28,19 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+      ),
+    );
 
-    _scaleAnimation = Tween<double>(
-      begin: 0.5,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: const Interval(0.0, 0.6, curve: Curves.elasticOut),
-    ));
+    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.6, curve: Curves.elasticOut),
+      ),
+    );
 
     _startSplashSequence();
   }
@@ -201,13 +198,16 @@ class _SplashScreenState extends State<SplashScreen>
                       animation: _animationController,
                       builder: (context, child) {
                         return FadeTransition(
-                          opacity: Tween<double>(
-                            begin: 0.0,
-                            end: 1.0,
-                          ).animate(CurvedAnimation(
-                            parent: _animationController,
-                            curve: const Interval(0.6, 1.0, curve: Curves.easeIn),
-                          )),
+                          opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
+                            CurvedAnimation(
+                              parent: _animationController,
+                              curve: const Interval(
+                                0.6,
+                                1.0,
+                                curve: Curves.easeIn,
+                              ),
+                            ),
+                          ),
                           child: Column(
                             children: [
                               const LoadingWidget(
@@ -240,13 +240,12 @@ class _SplashScreenState extends State<SplashScreen>
                   animation: _animationController,
                   builder: (context, child) {
                     return FadeTransition(
-                      opacity: Tween<double>(
-                        begin: 0.0,
-                        end: 0.7,
-                      ).animate(CurvedAnimation(
-                        parent: _animationController,
-                        curve: const Interval(0.8, 1.0, curve: Curves.easeIn),
-                      )),
+                      opacity: Tween<double>(begin: 0.0, end: 0.7).animate(
+                        CurvedAnimation(
+                          parent: _animationController,
+                          curve: const Interval(0.8, 1.0, curve: Curves.easeIn),
+                        ),
+                      ),
                       child: Text(
                         'Version 1.0.0',
                         style: TextStyle(
@@ -303,37 +302,22 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
       vsync: this,
     );
 
-    _logoScale = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _logoController,
-      curve: Curves.elasticOut,
-    ));
+    _logoScale = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _logoController, curve: Curves.elasticOut),
+    );
 
-    _logoRotation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _logoController,
-      curve: Curves.easeInOut,
-    ));
+    _logoRotation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _logoController, curve: Curves.easeInOut),
+    );
 
     _textSlide = Tween<double>(
       begin: 50.0,
       end: 0.0,
-    ).animate(CurvedAnimation(
-      parent: _textController,
-      curve: Curves.easeOut,
-    ));
+    ).animate(CurvedAnimation(parent: _textController, curve: Curves.easeOut));
 
-    _rippleAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _rippleController,
-      curve: Curves.easeOut,
-    ));
+    _rippleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _rippleController, curve: Curves.easeOut),
+    );
 
     _startAnimations();
   }
@@ -421,7 +405,9 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.3 * (1 - _rippleAnimation.value)),
+                              color: Colors.white.withOpacity(
+                                0.3 * (1 - _rippleAnimation.value),
+                              ),
                               width: 2,
                             ),
                           ),
@@ -437,7 +423,9 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.5 * (1 - _rippleAnimation.value)),
+                              color: Colors.white.withOpacity(
+                                0.5 * (1 - _rippleAnimation.value),
+                              ),
                               width: 2,
                             ),
                           ),

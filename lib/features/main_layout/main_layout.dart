@@ -4,9 +4,9 @@ import 'package:flutter/services.dart';
 import '../home/home_screen.dart';
 import '../products/products_screen.dart';
 import '../create_product/create_product.dart';
+import '../trade/trade_management_screen.dart';
 import '../profile/profile_screen.dart';
-import 'widgets/custom_bottom_nav.dart' ;
-
+import 'widgets/custom_bottom_nav.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -30,7 +30,8 @@ class _MainLayoutState extends State<MainLayout> {
       const HomeScreen(),
       const ProductsScreen(),
       const CreateProduct(),
-       const ProfileScreen(),
+      const TradeManagementScreen(),
+      const ProfileScreen(),
     ];
   }
 
@@ -84,6 +85,11 @@ class _MainLayoutState extends State<MainLayout> {
       label: 'Create',
     ),
     const BottomNavItem(
+      icon: Icons.swap_horiz_outlined,
+      activeIcon: Icons.swap_horiz,
+      label: 'Trades',
+    ),
+    const BottomNavItem(
       icon: Icons.person_outline,
       activeIcon: Icons.person,
       label: 'Profile',
@@ -96,16 +102,15 @@ class _MainLayoutState extends State<MainLayout> {
       body: PageView(
         controller: _pageController,
         onPageChanged: _onPageChanged,
-        physics: const NeverScrollableScrollPhysics(), // Disable swipe navigation
+        physics:
+            const NeverScrollableScrollPhysics(), // Disable swipe navigation
         children: _screens,
       ),
-      bottomNavigationBar:
-         AnimatedBottomNav(
-          currentIndex: _currentIndex,
-          onTap: _onTabTapped,
-          items: _navItems,
-        ),
-
+      bottomNavigationBar: AnimatedBottomNav(
+        currentIndex: _currentIndex,
+        onTap: _onTabTapped,
+        items: _navItems,
+      ),
     );
   }
 }
@@ -124,9 +129,10 @@ class _MainLayoutStandardState extends State<MainLayoutStandard> {
   // Define the screens for each tab
   final List<Widget> _screens = [
     const HomeScreen(),
-     const ProductsScreen(),
+    const ProductsScreen(),
     const CreateProduct(),
-     const ProfileScreen(),
+    const TradeManagementScreen(),
+    const ProfileScreen(),
   ];
 
   void _onTabTapped(int index) {
@@ -143,10 +149,7 @@ class _MainLayoutStandardState extends State<MainLayoutStandard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: _onTabTapped,
@@ -167,6 +170,11 @@ class _MainLayoutStandardState extends State<MainLayoutStandard> {
             icon: Icon(Icons.add_circle_outline),
             activeIcon: Icon(Icons.add_circle),
             label: 'Create',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.swap_horiz_outlined),
+            activeIcon: Icon(Icons.swap_horiz),
+            label: 'Trades',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
@@ -213,7 +221,7 @@ class _MainLayoutAdvancedState extends State<MainLayoutAdvanced>
 
     _tabs = [
       TabConfig(
-        screen:  const HomeScreen(),
+        screen: const HomeScreen(),
         navItem: const BottomNavItem(
           icon: Icons.home_outlined,
           activeIcon: Icons.home,
@@ -222,7 +230,7 @@ class _MainLayoutAdvancedState extends State<MainLayoutAdvanced>
         title: 'Home',
       ),
       TabConfig(
-        screen:  const ProductsScreen(),
+        screen: const ProductsScreen(),
         navItem: const BottomNavItem(
           icon: Icons.inventory_2_outlined,
           activeIcon: Icons.inventory_2,
@@ -238,6 +246,15 @@ class _MainLayoutAdvancedState extends State<MainLayoutAdvanced>
           label: 'Create',
         ),
         title: 'Create Product',
+      ),
+      TabConfig(
+        screen: const TradeManagementScreen(),
+        navItem: const BottomNavItem(
+          icon: Icons.swap_horiz_outlined,
+          activeIcon: Icons.swap_horiz,
+          label: 'Trades',
+        ),
+        title: 'Manage Trades',
       ),
       TabConfig(
         screen: const ProfileScreen(),
@@ -268,13 +285,11 @@ class _MainLayoutAdvancedState extends State<MainLayoutAdvanced>
         duration: const Duration(milliseconds: 200),
         child: _tabs[_currentIndex].screen,
       ),
-      bottomNavigationBar:
-         CustomBottomNav(
-          currentIndex: _currentIndex,
-          onTap: _onTabTapped,
-          items: _tabs.map((tab) => tab.navItem).toList(),
-        ),
-
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: _currentIndex,
+        onTap: _onTabTapped,
+        items: _tabs.map((tab) => tab.navItem).toList(),
+      ),
     );
   }
 }

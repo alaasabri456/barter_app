@@ -5,8 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/routes_manager/routes_manager.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
-import '../../models/user_model.dart';
-import '../../provider/theme_provider.dart';
+import '../../features/authentication/models/user_model.dart';
+import '../../core/theme/theme_provider.dart';
 import '../authentication/widgets/auth_button.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -40,10 +40,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       UserModel.currentUser = null;
 
       if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          RoutesManager.login,
-              (route) => false,
-        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(RoutesManager.login, (route) => false);
       }
     } catch (e) {
       if (mounted) {
@@ -92,7 +91,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(
             'Version 1.0.0',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+              color: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.color?.withOpacity(0.7),
             ),
           ),
           SizedBox(height: 16.h),
@@ -104,7 +105,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(
             '© 2024 Barter App. All rights reserved.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+              color: Theme.of(
+                context,
+              ).textTheme.bodySmall?.color?.withOpacity(0.7),
             ),
           ),
         ],
@@ -157,15 +160,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Text(
             title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           SizedBox(height: 8.h),
-          Text(
-            content,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+          Text(content, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
     );
@@ -180,10 +180,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: CustomAppBar(
         title: 'Profile',
         actions: [
-          IconButton(
-            onPressed: _editProfile,
-            icon: Icon(Icons.edit_outlined),
-          ),
+          IconButton(onPressed: _editProfile, icon: Icon(Icons.edit_outlined)),
         ],
       ),
       body: SingleChildScrollView(
@@ -212,16 +209,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.white.withOpacity(0.2),
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 3,
-                      ),
+                      border: Border.all(color: Colors.white, width: 3),
                     ),
-                    child: Icon(
-                      Icons.person,
-                      size: 50.w,
-                      color: Colors.white,
-                    ),
+                    child: Icon(Icons.person, size: 50.w, color: Colors.white),
                   ),
 
                   SizedBox(height: 16.h),
@@ -251,7 +241,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildStatItem('Products', '${user?.favouriteEventsId.length ?? 0}'),
+                      _buildStatItem(
+                        'Products',
+                        '${user?.favouriteProductIds.length ?? 0}',
+                      ),
                       Container(
                         height: 40.h,
                         width: 1,
@@ -293,7 +286,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Favorites',
                     subtitle: 'View your favorite products',
                     onTap: () {
-                      // Navigate to favorites
+                      Navigator.of(context).pushNamed(RoutesManager.favourites);
                     },
                   ),
 
@@ -302,7 +295,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Trade History',
                     subtitle: 'View your trading history',
                     onTap: () {
-                      // Navigate to trade history
+                      Navigator.of(
+                        context,
+                      ).pushNamed(RoutesManager.tradeHistory);
                     },
                   ),
 
@@ -313,7 +308,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   SizedBox(height: 12.h),
 
                   _buildSettingItem(
-                    icon: themeProvider.isDark ? Icons.light_mode : Icons.dark_mode,
+                    icon: themeProvider.isDark
+                        ? Icons.light_mode
+                        : Icons.dark_mode,
                     title: 'Theme',
                     subtitle: themeProvider.isDark ? 'Dark mode' : 'Light mode',
                     trailing: Switch(
@@ -381,11 +378,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onPressed: _signOut,
                     isLoading: _isLoading,
                     backgroundColor: Theme.of(context).colorScheme.error,
-                    icon: Icon(
-                      Icons.logout,
-                      size: 18.w,
-                      color: Colors.white,
-                    ),
+                    icon: Icon(Icons.logout, size: 18.w, color: Colors.white),
                   ),
 
                   SizedBox(height: 40.h),
@@ -451,25 +444,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: Theme.of(context).primaryColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8.r),
           ),
-          child: Icon(
-            icon,
-            color: Theme.of(context).primaryColor,
-            size: 20.w,
-          ),
+          child: Icon(icon, color: Theme.of(context).primaryColor, size: 20.w),
         ),
         title: Text(
           title,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
         subtitle: Text(
           subtitle,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+            color: Theme.of(
+              context,
+            ).textTheme.bodySmall?.color?.withOpacity(0.7),
           ),
         ),
-        trailing: trailing ??
+        trailing:
+            trailing ??
             Icon(
               Icons.chevron_right,
               color: Theme.of(context).iconTheme.color?.withOpacity(0.5),

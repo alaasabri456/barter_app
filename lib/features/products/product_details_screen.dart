@@ -1,15 +1,14 @@
 // features/product_details/product_details_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:provider/provider.dart';
 
 import '../../core/routes_manager/routes_manager.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
 import '../../core/widgets/loading_widget.dart';
 import '../../firebase/firebase_service.dart';
-import '../../models/product_model.dart';
-import '../../models/user_model.dart';
+import '../../features/products/models/product_model.dart';
+import '../../features/authentication/models/user_model.dart';
 import '../authentication/widgets/auth_button.dart';
 import '../trade/trade_initiation_screen.dart';
 
@@ -27,6 +26,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   bool _isLoading = true;
   bool _errorLoading = false;
   int _selectedImageIndex = 0;
+  bool _isFavourite = false;
+  bool _isFavouriteLoading = false;
 
   @override
   void initState() {
@@ -37,16 +38,94 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   Future<void> _loadProductDetails() async {
     try {
       // You'll need to implement getProductById in FirebaseService
-      final product = await FirebaseService.getProductById(widget.productId,context);
+      final product = await FirebaseService.getProductById(
+        widget.productId,
+        context,
+      );
       setState(() {
         _product = product;
         _isLoading = false;
       });
+
+      // Load favorite status
+      await _loadFavouriteStatus();
     } catch (e) {
       setState(() {
         _errorLoading = true;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadFavouriteStatus() async {
+    final userId = UserModel.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      final isFav = await FirebaseService.isFavourite(userId, widget.productId);
+      if (mounted) {
+        setState(() {
+          _isFavourite = isFav;
+        });
+      }
+    } catch (e) {
+      // Silently fail - not critical
+    }
+  }
+
+  Future<void> _toggleFavourite() async {
+    final userId = UserModel.currentUser?.id;
+    if (userId == null) {
+      showInfoDialog(
+        context: context,
+        title: 'Sign in Required',
+        message: 'Please sign in to add products to your favorites.',
+        icon: Icons.login,
+      );
+      return;
+    }
+
+    setState(() {
+      _isFavouriteLoading = true;
+    });
+
+    try {
+      final newStatus = await FirebaseService.toggleFavourite(
+        userId,
+        widget.productId,
+      );
+      if (mounted) {
+        setState(() {
+          _isFavourite = newStatus;
+          _isFavouriteLoading = false;
+        });
+
+        // Show feedback
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              newStatus ? 'Added to favorites' : 'Removed from favorites',
+            ),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isFavouriteLoading = false;
+        });
+
+        // Show detailed error for debugging
+        showInfoDialog(
+          context: context,
+          title: 'Error',
+          message: 'Failed to update favorites: ${e.toString()}',
+          icon: Icons.error_outline,
+          iconColor: Theme.of(context).colorScheme.error,
+        );
+      }
     }
   }
 
@@ -75,9 +154,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 borderRadius: BorderRadius.circular(12.r),
                 image: _product!.images.isNotEmpty
                     ? DecorationImage(
-                  image: NetworkImage(_product!.images[_selectedImageIndex]),
-                  fit: BoxFit.contain,
-                )
+                        image: NetworkImage(
+                          _product!.images[_selectedImageIndex],
+                        ),
+                        fit: BoxFit.contain,
+                      )
                     : null,
               ),
             ),
@@ -139,7 +220,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     showInfoDialog(
       context: context,
       title: 'Contact Owner',
-      message: 'Contact feature coming soon!\n\n'
+      message:
+          'Contact feature coming soon!\n\n'
           'Owner: ${_product?.ownerName}\n'
           'You can initiate a trade to start communication.',
       icon: Icons.message,
@@ -160,7 +242,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         showInfoDialog(
           context: context,
           title: 'Report Submitted',
-          message: 'Thank you for reporting. We will review this product shortly.',
+          message:
+              'Thank you for reporting. We will review this product shortly.',
           icon: Icons.check_circle,
           iconColor: Colors.green,
         );
@@ -184,15 +267,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   title,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w500,
-                    color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                    color: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.color?.withOpacity(0.7),
                   ),
                 ),
                 SizedBox(height: 2.h),
                 Text(
                   value,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -308,19 +393,76 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Title and Category
-                      Text(
-                        product.title,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              product.title,
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          // Status badge
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12.w,
+                              vertical: 6.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: product.status == ProductStatus.available
+                                  ? Colors.green.withOpacity(0.1)
+                                  : Colors.grey.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(16.r),
+                              border: Border.all(
+                                color: product.status == ProductStatus.available
+                                    ? Colors.green
+                                    : Colors.grey,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  product.status == ProductStatus.available
+                                      ? Icons.check_circle
+                                      : Icons.block,
+                                  size: 14.w,
+                                  color:
+                                      product.status == ProductStatus.available
+                                      ? Colors.green
+                                      : Colors.grey,
+                                ),
+                                SizedBox(width: 4.w),
+                                Text(
+                                  product.status.displayName,
+                                  style: TextStyle(
+                                    fontSize: 12.sp,
+                                    fontWeight: FontWeight.w600,
+                                    color:
+                                        product.status ==
+                                            ProductStatus.available
+                                        ? Colors.green
+                                        : Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                       SizedBox(height: 8.h),
                       Row(
                         children: [
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12.w,
+                              vertical: 6.h,
+                            ),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).primaryColor.withOpacity(0.1),
+                              color: Theme.of(
+                                context,
+                              ).primaryColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(16.r),
                             ),
                             child: Text(
@@ -334,9 +476,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           ),
                           SizedBox(width: 8.w),
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12.w,
+                              vertical: 6.h,
+                            ),
                             decoration: BoxDecoration(
-                              color: _getConditionColor(product.condition).withOpacity(0.1),
+                              color: _getConditionColor(
+                                product.condition,
+                              ).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(16.r),
                             ),
                             child: Text(
@@ -355,33 +502,52 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       // Description
                       Text(
                         'Description',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       SizedBox(height: 8.h),
                       Text(
                         product.description,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          height: 1.5,
-                        ),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(height: 1.5),
                       ),
                       SizedBox(height: 24.h),
 
                       // Product Details
                       Text(
                         'Product Details',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       SizedBox(height: 12.h),
-                      _buildInfoRow(Icons.person_outline, 'Owner', product.ownerName),
-                      _buildInfoRow(Icons.category_outlined, 'Category', product.category),
-                      _buildInfoRow(Icons.construction_outlined, 'Condition', product.condition),
-                      _buildInfoRow(Icons.calendar_today_outlined, 'Listed', _formatDate(product.createdAt)),
-                      if (product.location != null && product.location!.isNotEmpty)
-                        _buildInfoRow(Icons.location_on_outlined, 'Location', product.location!),
+                      _buildInfoRow(
+                        Icons.person_outline,
+                        'Owner',
+                        product.ownerName,
+                      ),
+                      _buildInfoRow(
+                        Icons.category_outlined,
+                        'Category',
+                        product.category,
+                      ),
+                      _buildInfoRow(
+                        Icons.construction_outlined,
+                        'Condition',
+                        product.condition,
+                      ),
+                      _buildInfoRow(
+                        Icons.calendar_today_outlined,
+                        'Listed',
+                        _formatDate(product.createdAt),
+                      ),
+                      if (product.location != null &&
+                          product.location!.isNotEmpty)
+                        _buildInfoRow(
+                          Icons.location_on_outlined,
+                          'Location',
+                          product.location!,
+                        ),
                       if (product.tags.isNotEmpty) ...[
                         _buildInfoRow(
                           Icons.label_outlined,
@@ -404,9 +570,18 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
-                            _buildStatItem(Icons.visibility_outlined, '${product.viewCount} views'),
-                            _buildStatItem(Icons.people_outline, '${product.interestedUsers.length} interested'),
-                            _buildStatItem(Icons.inventory_2_outlined, product.status.displayName),
+                            _buildStatItem(
+                              Icons.visibility_outlined,
+                              '${product.viewCount} views',
+                            ),
+                            _buildStatItem(
+                              Icons.people_outline,
+                              '${product.interestedUsers.length} interested',
+                            ),
+                            _buildStatItem(
+                              Icons.inventory_2_outlined,
+                              product.status.displayName,
+                            ),
                           ],
                         ),
                       ),
@@ -424,15 +599,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           decoration: BoxDecoration(
             color: Theme.of(context).scaffoldBackgroundColor,
             border: Border(
-              top: BorderSide(
-                color: Theme.of(context).dividerColor,
-                width: 1,
-              ),
+              top: BorderSide(color: Theme.of(context).dividerColor, width: 1),
             ),
           ),
-          child: isOwnProduct
-              ? _buildOwnerActions()
-              : _buildVisitorActions(),
+          child: isOwnProduct ? _buildOwnerActions() : _buildVisitorActions(),
         ),
       ],
     );
@@ -451,29 +621,31 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               color: Theme.of(context).primaryColor.withOpacity(0.05),
               image: product.images.isNotEmpty
                   ? DecorationImage(
-                image: NetworkImage(product.images[_selectedImageIndex]),
-                fit: BoxFit.cover,
-              )
+                      image: NetworkImage(product.images[_selectedImageIndex]),
+                      fit: BoxFit.cover,
+                    )
                   : null,
             ),
             child: product.images.isEmpty
                 ? Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.image_outlined,
-                  size: 64.w,
-                  color: Theme.of(context).primaryColor.withOpacity(0.3),
-                ),
-                SizedBox(height: 8.h),
-                Text(
-                  'No Image',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
-                  ),
-                ),
-              ],
-            )
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.image_outlined,
+                        size: 64.w,
+                        color: Theme.of(context).primaryColor.withOpacity(0.3),
+                      ),
+                      SizedBox(height: 8.h),
+                      Text(
+                        'No Image',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                        ),
+                      ),
+                    ],
+                  )
                 : null,
           ),
         ),
@@ -523,58 +695,97 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Widget _buildOwnerActions() {
-    return Row(
-      children: [
-        Expanded(
-          child: AuthButton(
-            text: 'Edit Product',
-            onPressed: () {
-              // Navigate to edit product screen
-              showInfoDialog(
-                context: context,
-                title: 'Edit Product',
-                message: 'Edit feature coming soon!',
-                icon: Icons.edit_outlined,
-              );
-            },
-            isOutlined: true,
-          ),
-        ),
-        SizedBox(width: 12.w),
-        Expanded(
-          child: AuthButton(
-            text: 'Manage Trades',
-            onPressed: () {
-              // Navigate to trade management
-              Navigator.of(context).pushNamed(RoutesManager.tradeManagement);
-            },
-          ),
-        ),
-      ],
+    return SizedBox(
+      width: double.infinity,
+      child: AuthButton(
+        text: 'Edit Product',
+        onPressed: () {
+          // Navigate to edit product screen
+          showInfoDialog(
+            context: context,
+            title: 'Edit Product',
+            message: 'Edit feature coming soon!',
+            icon: Icons.edit_outlined,
+          );
+        },
+      ),
     );
   }
 
   Widget _buildVisitorActions() {
-    return Row(
+    final product = _product!;
+    final isAvailable = product.status == ProductStatus.available;
+
+    return Column(
       children: [
-        Expanded(
-          flex: 2,
+        // Primary action - Initiate Trade
+        SizedBox(
+          width: double.infinity,
           child: AuthButton(
-            text: 'Initiate Trade',
-            onPressed: _initiateTrade,
-            icon: Icon(Icons.swap_horiz, size: 18.w),
+            text: isAvailable ? 'Initiate Trade' : 'Not Available for Trade',
+            onPressed: isAvailable ? _initiateTrade : null,
+            icon: Icon(
+              isAvailable ? Icons.swap_horiz : Icons.block,
+              size: 20.w,
+            ),
           ),
         ),
-        SizedBox(width: 12.w),
-        Expanded(
-          flex: 1,
-          child: OutlinedButton(
-            onPressed: _contactOwner,
-            style: OutlinedButton.styleFrom(
-              padding: EdgeInsets.symmetric(vertical: 16.h),
+        if (!isAvailable) ...[
+          SizedBox(height: 8.h),
+          Text(
+            'This product is ${product.status.displayName.toLowerCase()}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(
+                context,
+              ).textTheme.bodySmall?.color?.withOpacity(0.6),
             ),
-            child: Icon(Icons.message_outlined),
+            textAlign: TextAlign.center,
           ),
+        ],
+        SizedBox(height: 12.h),
+        // Secondary actions row
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _contactOwner,
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(vertical: 14.h),
+                ),
+                icon: Icon(Icons.message_outlined, size: 18.w),
+                label: Text('Contact'),
+              ),
+            ),
+            SizedBox(width: 12.w),
+            OutlinedButton(
+              onPressed: _isFavouriteLoading ? null : _toggleFavourite,
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.symmetric(vertical: 14.h, horizontal: 16.w),
+                backgroundColor: _isFavourite
+                    ? Theme.of(context).primaryColor.withOpacity(0.1)
+                    : null,
+                side: _isFavourite
+                    ? BorderSide(
+                        color: Theme.of(context).primaryColor,
+                        width: 2,
+                      )
+                    : null,
+              ),
+              child: _isFavouriteLoading
+                  ? SizedBox(
+                      width: 20.w,
+                      height: 20.w,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      _isFavourite ? Icons.favorite : Icons.favorite_outline,
+                      size: 20.w,
+                      color: _isFavourite
+                          ? Theme.of(context).primaryColor
+                          : null,
+                    ),
+            ),
+          ],
         ),
       ],
     );
@@ -587,9 +798,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         SizedBox(height: 4.h),
         Text(
           text,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
           textAlign: TextAlign.center,
         ),
       ],

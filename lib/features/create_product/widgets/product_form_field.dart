@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../../../models/product_model.dart';
+import '../../products/models/product_model.dart';
 
 class ProductCategoryDropdown extends StatelessWidget {
   final String label;
@@ -326,9 +326,7 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
   void _addImage() {
     if (widget.selectedImages.length >= widget.maxImages) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Maximum ${widget.maxImages} images allowed'),
-        ),
+        SnackBar(content: Text('Maximum ${widget.maxImages} images allowed')),
       );
       return;
     }
@@ -411,9 +409,7 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
                 margin: EdgeInsets.only(right: 8.w),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12.r),
-                  border: Border.all(
-                    color: Theme.of(context).dividerColor,
-                  ),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
                 child: Stack(
                   children: [
@@ -426,7 +422,9 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
                         child: Icon(
                           Icons.image,
                           size: 32.w,
-                          color: Theme.of(context).primaryColor.withOpacity(0.5),
+                          color: Theme.of(
+                            context,
+                          ).primaryColor.withOpacity(0.5),
                         ),
                       ),
                     ),
@@ -454,7 +452,10 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
                         bottom: 4.w,
                         left: 4.w,
                         child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 6.w,
+                            vertical: 2.h,
+                          ),
                           decoration: BoxDecoration(
                             color: Theme.of(context).primaryColor,
                             borderRadius: BorderRadius.circular(4.r),
@@ -481,7 +482,9 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
         Text(
           '${widget.selectedImages.length}/${widget.maxImages} images selected',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+            color: Theme.of(
+              context,
+            ).textTheme.bodySmall?.color?.withOpacity(0.7),
           ),
         ),
       ],

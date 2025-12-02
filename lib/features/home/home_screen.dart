@@ -5,10 +5,10 @@ import 'package:provider/provider.dart';
 
 import '../../core/routes_manager/routes_manager.dart';
 import '../../core/widgets/custom_app_bar.dart';
-import '../../core/widgets/loading_widget.dart';
-import '../../models/product_model.dart';
-import '../../models/user_model.dart';
-import '../../provider/theme_provider.dart';
+
+import '../../features/products/models/product_model.dart';
+import '../../features/authentication/models/user_model.dart';
+import '../../core/theme/theme_provider.dart';
 import '../authentication/widgets/auth_text_field.dart';
 import '../trade/trade_initiation_screen.dart';
 
@@ -91,7 +91,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 themeProvider.isDark ? ThemeMode.light : ThemeMode.dark,
               );
             },
-            icon: Icon(themeProvider.isDark ? Icons.light_mode : Icons.dark_mode),
+            icon: Icon(
+              themeProvider.isDark ? Icons.light_mode : Icons.dark_mode,
+            ),
           ),
         ],
       ),
@@ -101,7 +103,8 @@ class _HomeScreenState extends State<HomeScreen> {
           future: _productsFuture,
           builder: (context, snapshot) {
             // Loading state
-            if (snapshot.connectionState == ConnectionState.waiting && !_isRefreshing) {
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !_isRefreshing) {
               return Center(child: CircularProgressIndicator());
             }
 
@@ -140,17 +143,21 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Text(
                           'Welcome back,',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: Theme.of(context).textTheme.titleLarge?.color?.withOpacity(0.7),
-                          ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).textTheme.titleLarge?.color?.withOpacity(0.7),
+                              ),
                         ),
                         SizedBox(height: 4.h),
                         Text(
                           user?.name ?? 'User',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).primaryColor,
-                          ),
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).primaryColor,
+                              ),
                         ),
                         SizedBox(height: 20.h),
 
@@ -179,23 +186,49 @@ class _HomeScreenState extends State<HomeScreen> {
                         SizedBox(height: 12.h),
                         Text(
                           'Categories',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         SizedBox(height: 12.h),
                         SizedBox(
                           height: 110.h,
                           child: ListView(
                             scrollDirection: Axis.horizontal,
-                            padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 4.w),
+                            padding: EdgeInsets.symmetric(
+                              vertical: 8.h,
+                              horizontal: 4.w,
+                            ),
                             children: [
-                              _buildCategoryCard('Electronics', Icons.phone_android, Colors.blue),
-                              _buildCategoryCard('Clothing', Icons.checkroom, Colors.purple),
-                              _buildCategoryCard('Books', Icons.menu_book, Colors.brown),
-                              _buildCategoryCard('Sports', Icons.sports_football, Colors.green),
-                              _buildCategoryCard('Home', Icons.home, Colors.orange),
-                              _buildCategoryCard('Others', Icons.more_horiz, Colors.grey),
+                              _buildCategoryCard(
+                                'Electronics',
+                                Icons.phone_android,
+                                Colors.blue,
+                              ),
+                              _buildCategoryCard(
+                                'Clothing',
+                                Icons.checkroom,
+                                Colors.purple,
+                              ),
+                              _buildCategoryCard(
+                                'Books',
+                                Icons.menu_book,
+                                Colors.brown,
+                              ),
+                              _buildCategoryCard(
+                                'Sports',
+                                Icons.sports_football,
+                                Colors.green,
+                              ),
+                              _buildCategoryCard(
+                                'Home',
+                                Icons.home,
+                                Colors.orange,
+                              ),
+                              _buildCategoryCard(
+                                'Others',
+                                Icons.more_horiz,
+                                Colors.grey,
+                              ),
                             ],
                           ),
                         ),
@@ -214,7 +247,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Text(
                           'Recent Products',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         TextButton(
                           onPressed: () {
@@ -232,14 +266,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   SliverFillRemaining(
                     hasScrollBody: false,
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 40.h),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20.w,
+                        vertical: 40.h,
+                      ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.start,
                         children: [
-                          Icon(Icons.inventory_2_outlined, size: 64.w, color: Colors.grey),
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            size: 64.w,
+                            color: Colors.grey,
+                          ),
                           SizedBox(height: 16.h),
                           Text(
-                            products.isEmpty ? 'No products yet.' : 'No products match your search.',
+                            products.isEmpty
+                                ? 'No products yet.'
+                                : 'No products match your search.',
                             style: Theme.of(context).textTheme.bodyLarge,
                             textAlign: TextAlign.center,
                           ),
@@ -248,18 +291,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   )
                 else
-                // Products list
+                  // Products list
                   SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                        final product = filtered[index];
-                        return Container(
-                          margin: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
-                          child: _buildProductCard(product),
-                        );
-                      },
-                      childCount: filtered.length,
-                    ),
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final product = filtered[index];
+                      return Container(
+                        margin: EdgeInsets.symmetric(
+                          horizontal: 20.w,
+                          vertical: 8.h,
+                        ),
+                        child: _buildProductCard(product),
+                      );
+                    }, childCount: filtered.length),
                   ),
 
                 // Bottom padding
@@ -278,7 +321,9 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: EdgeInsets.only(right: 12.w),
       child: Card(
         elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12.r),
+        ),
         child: InkWell(
           onTap: () {
             // Navigate to category products
@@ -320,6 +365,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
   Widget _buildProductCard(ProductModel product) {
     final firstImage = product.images.isNotEmpty ? product.images.first : null;
     final createdAgo = _formatDate(product.createdAt);
@@ -329,9 +375,9 @@ class _HomeScreenState extends State<HomeScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
       child: InkWell(
         onTap: () {
-          Navigator.of(context).pushNamed(
-              RoutesManager.productDetails,
-              arguments: product.id,);
+          Navigator.of(
+            context,
+          ).pushNamed(RoutesManager.productDetails, arguments: product.id);
         },
         borderRadius: BorderRadius.circular(12.r),
         child: Padding(
@@ -347,11 +393,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: Theme.of(context).primaryColor.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(8.r),
                   image: firstImage != null
-                      ? DecorationImage(image: NetworkImage(firstImage), fit: BoxFit.cover)
+                      ? DecorationImage(
+                          image: NetworkImage(firstImage),
+                          fit: BoxFit.cover,
+                        )
                       : null,
                 ),
                 child: firstImage == null
-                    ? Icon(Icons.image, color: Theme.of(context).primaryColor.withOpacity(0.5), size: 32.w)
+                    ? Icon(
+                        Icons.image,
+                        color: Theme.of(context).primaryColor.withOpacity(0.5),
+                        size: 32.w,
+                      )
                     : null,
               ),
 
@@ -365,7 +418,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     // Title
                     Text(
                       product.title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -376,7 +431,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     Text(
                       product.description,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                        color: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.color?.withOpacity(0.7),
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -388,32 +445,50 @@ class _HomeScreenState extends State<HomeScreen> {
                     Row(
                       children: [
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8.w,
+                            vertical: 4.h,
+                          ),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).primaryColor.withOpacity(0.08),
+                            color: Theme.of(
+                              context,
+                            ).primaryColor.withOpacity(0.08),
                             borderRadius: BorderRadius.circular(4.r),
                           ),
                           child: Text(
                             product.category,
-                            style: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.w500, color: Theme.of(context).primaryColor),
+                            style: TextStyle(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context).primaryColor,
+                            ),
                           ),
                         ),
                         SizedBox(width: 8.w),
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8.w,
+                            vertical: 4.h,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.green.withOpacity(0.08),
                             borderRadius: BorderRadius.circular(4.r),
                           ),
                           child: Text(
                             product.condition,
-                            style: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.w500, color: Colors.green),
+                            style: TextStyle(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.green,
+                            ),
                           ),
                         ),
                         const Spacer(),
                         Text(
                           createdAgo,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11.sp),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(fontSize: 11.sp),
                         ),
                       ],
                     ),
@@ -431,13 +506,15 @@ class _HomeScreenState extends State<HomeScreen> {
                         // Navigate to initiate trade screen
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (context) => InitiateTradeScreen(
-                              targetProduct: product,
-                            ),
+                            builder: (context) =>
+                                InitiateTradeScreen(targetProduct: product),
                           ),
                         );
                       },
-                      icon: Icon(Icons.swap_horiz, color: Theme.of(context).primaryColor),
+                      icon: Icon(
+                        Icons.swap_horiz,
+                        color: Theme.of(context).primaryColor,
+                      ),
                       tooltip: 'Make Trade Offer',
                     ),
                   ],
@@ -446,7 +523,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     onPressed: () {
                       // Toggle favorite logic (update UI & backend as needed)
                     },
-                    icon: Icon(Icons.favorite_border, color: Theme.of(context).iconTheme.color?.withOpacity(0.6)),
+                    icon: Icon(
+                      Icons.favorite_border,
+                      color: Theme.of(
+                        context,
+                      ).iconTheme.color?.withOpacity(0.6),
+                    ),
                     tooltip: 'Add to favorites',
                   ),
                 ],

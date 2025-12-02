@@ -5,8 +5,8 @@ import '../../../core/routes_manager/routes_manager.dart';
 import '../../../core/validators.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import '../../../firebase/firebase_service.dart';
-import '../../../models/login_request.dart';
-import '../../../models/user_model.dart';
+import '../models/login_request.dart';
+import '../models/user_model.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
 
@@ -46,7 +46,9 @@ class _LoginState extends State<Login> {
       );
 
       // Sign in with Firebase Auth
-      final UserCredential userCredential = await FirebaseService.login(loginRequest);
+      final UserCredential userCredential = await FirebaseService.login(
+        loginRequest,
+      );
 
       if (userCredential.user != null) {
         // Get user data from Firestore
@@ -56,10 +58,9 @@ class _LoginState extends State<Login> {
 
         if (mounted) {
           // Navigate to main layout
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            RoutesManager.mainLayout,
-                (route) => false,
-          );
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil(RoutesManager.mainLayout, (route) => false);
         }
       }
     } on FirebaseAuthException catch (e) {
@@ -177,7 +178,9 @@ class _LoginState extends State<Login> {
                 Text(
                   'Sign in to continue to Barter',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.7),
+                    color: Theme.of(
+                      context,
+                    ).textTheme.bodyLarge?.color?.withOpacity(0.7),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -242,7 +245,9 @@ class _LoginState extends State<Login> {
                       child: Text(
                         'OR',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6),
+                          color: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.color?.withOpacity(0.6),
                         ),
                       ),
                     ),

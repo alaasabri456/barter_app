@@ -1,32 +1,32 @@
 import 'dart:io';
-import 'dart:convert';
 
-import 'package:image/image.dart' as img;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 
-import '../models/login_request.dart';
-import '../models/product_model.dart';
-import '../models/register_request.dart';
-import '../models/trade_offer.dart';
-import '../models/user_model.dart';
-
+import '../features/authentication/models/login_request.dart';
+import '../features/products/models/product_model.dart';
+import '../features/authentication/models/register_request.dart';
+import '../features/trade/models/trade_offer.dart';
+import '../features/authentication/models/user_model.dart';
 
 class FirebaseService {
   static Future<UserCredential> register(RegisterRequest request) async {
     UserCredential userCredential = await FirebaseAuth.instance
         .createUserWithEmailAndPassword(
-        email: request.email, password: request.password);
+          email: request.email,
+          password: request.password,
+        );
     return userCredential;
   }
-
 
   static Future<UserCredential> login(LoginRequest request) async {
     UserCredential userCredential = await FirebaseAuth.instance
         .signInWithEmailAndPassword(
-        email: request.email, password: request.password);
+          email: request.email,
+          password: request.password,
+        );
     return userCredential;
   }
 
@@ -35,37 +35,43 @@ class FirebaseService {
     CollectionReference<UserModel> usersCollection = db
         .collection("Users")
         .withConverter<UserModel>(
-      fromFirestore: (snapshot, _) => UserModel.fromJson(snapshot.data()!),
-      toFirestore: (user, _) => user.toJson(),
-    );
+          fromFirestore: (snapshot, _) => UserModel.fromJson(snapshot.data()!),
+          toFirestore: (user, _) => user.toJson(),
+        );
     return usersCollection;
   }
 
   static Future<void> addUserToFireStore(UserModel user) {
     CollectionReference<UserModel> usersCollection = _getUsersCollection();
-    DocumentReference<UserModel> usersDocument=usersCollection.doc(user.id);
+    DocumentReference<UserModel> usersDocument = usersCollection.doc(user.id);
     return usersDocument.set(user);
   }
 
   static Future<UserModel?> getUserFromFireStore(String uid) async {
     CollectionReference<UserModel> usersCollection = _getUsersCollection();
-    DocumentReference<UserModel> usersDocument=usersCollection.doc(uid);
-    DocumentSnapshot<UserModel> documentSnapshot =await usersDocument.get();
+    DocumentReference<UserModel> usersDocument = usersCollection.doc(uid);
+    DocumentSnapshot<UserModel> documentSnapshot = await usersDocument.get();
     return documentSnapshot.data();
   }
-  static CollectionReference<ProductModel> _getProductsCollection(BuildContext context) {
+
+  static CollectionReference<ProductModel> _getProductsCollection(
+    BuildContext context,
+  ) {
     FirebaseFirestore db = FirebaseFirestore.instance;
     CollectionReference<ProductModel> productsCollection = db
         .collection("Products")
         .withConverter<ProductModel>(
-      fromFirestore: (snapshot, _) => ProductModel.fromJson(snapshot.data()!),
-      toFirestore: (product, _) => product.toJson(),
-    );
+          fromFirestore: (snapshot, _) =>
+              ProductModel.fromJson(snapshot.data()!),
+          toFirestore: (product, _) => product.toJson(),
+        );
     return productsCollection;
   }
 
-
-  static Future<void> addProductToFireStore(ProductModel product, BuildContext context,) {
+  static Future<void> addProductToFireStore(
+    ProductModel product,
+    BuildContext context,
+  ) {
     final productsCollection = _getProductsCollection(context);
     final productDocument = productsCollection.doc();
 
@@ -80,14 +86,24 @@ class FirebaseService {
     return productDocument.set(updatedProduct);
   }
 
+  static Future<List<ProductModel>> getProductsFromFireStore(
+    BuildContext context,
+  ) async {
+    CollectionReference<ProductModel> productsCollection =
+        _getProductsCollection(context);
+    QuerySnapshot<ProductModel> querySnapshot = await productsCollection
+        .orderBy("createdAt", descending: true)
+        .get();
+    List<ProductModel> products = querySnapshot.docs
+        .map((documentSnapshot) => documentSnapshot.data())
+        .toList();
+    return products;
+  }
 
-   static  Future<List<ProductModel>>  getProductsFromFireStore(BuildContext context)async{
-    CollectionReference<ProductModel> productsCollection =_getProductsCollection(context);
-    QuerySnapshot<ProductModel> querySnapshot=await productsCollection.orderBy("createdAt",descending: true).get();
-    List<ProductModel>products= querySnapshot.docs.map((documentSnapshot)=>documentSnapshot.data()).toList();
-     return products;
-   }
-  static Future<String> uploadProductImage(File imageFile, String fileName) async {
+  static Future<String> uploadProductImage(
+    File imageFile,
+    String fileName,
+  ) async {
     try {
       final Reference storageRef = FirebaseStorage.instance
           .ref()
@@ -103,14 +119,22 @@ class FirebaseService {
       throw Exception('Failed to upload image: $e');
     }
   }
-  static Future<List<String>> uploadProductImages(List<String> imagePaths, String userId) async {
+
+  static Future<List<String>> uploadProductImages(
+    List<String> imagePaths,
+    String userId,
+  ) async {
     try {
       List<String> uploadedUrls = [];
 
       for (int i = 0; i < imagePaths.length; i++) {
         final File imageFile = File(imagePaths[i]);
-        final String fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}_$i';
-        final String downloadUrl = await uploadProductImage(imageFile, fileName);
+        final String fileName =
+            '${userId}_${DateTime.now().millisecondsSinceEpoch}_$i';
+        final String downloadUrl = await uploadProductImage(
+          imageFile,
+          fileName,
+        );
         uploadedUrls.add(downloadUrl);
       }
 
@@ -118,10 +142,7 @@ class FirebaseService {
     } catch (e) {
       throw Exception('Failed to upload images: $e');
     }
-
   }
-
-
 
   // static const int maxImageSize = 800; // Max width/height for compressed images
   // static const int imageQuality = 80; // JPEG quality (0-100)
@@ -186,22 +207,25 @@ class FirebaseService {
   // }
   // }
 
-
-
   static CollectionReference<TradeOffer> _getTradesCollection() {
-  FirebaseFirestore db = FirebaseFirestore.instance;
-  return db.collection("Trades").withConverter<TradeOffer>(
-  fromFirestore: (snapshot, _) => TradeOffer.fromJson(snapshot.data()!),
-  toFirestore: (trade, _) => trade.toJson(),
-  );
+    FirebaseFirestore db = FirebaseFirestore.instance;
+    return db
+        .collection("Trades")
+        .withConverter<TradeOffer>(
+          fromFirestore: (snapshot, _) => TradeOffer.fromJson(snapshot.data()!),
+          toFirestore: (trade, _) => trade.toJson(),
+        );
   }
 
   static CollectionReference<TradeHistory> _getTradeHistoryCollection() {
-  FirebaseFirestore db = FirebaseFirestore.instance;
-  return db.collection("TradeHistory").withConverter<TradeHistory>(
-  fromFirestore: (snapshot, _) => TradeHistory.fromJson(snapshot.data()!),
-  toFirestore: (history, _) => history.toJson(),
-  );
+    FirebaseFirestore db = FirebaseFirestore.instance;
+    return db
+        .collection("TradeHistory")
+        .withConverter<TradeHistory>(
+          fromFirestore: (snapshot, _) =>
+              TradeHistory.fromJson(snapshot.data()!),
+          toFirestore: (history, _) => history.toJson(),
+        );
   }
 
   static Future<String> createTradeOffer(TradeOffer trade) async {
@@ -236,7 +260,9 @@ class FirebaseService {
         },
       );
 
-      print('=== DEBUG: Trade created successfully with ID: ${tradeDoc.id} ===');
+      print(
+        '=== DEBUG: Trade created successfully with ID: ${tradeDoc.id} ===',
+      );
 
       return tradeDoc.id;
     } catch (e) {
@@ -255,7 +281,9 @@ class FirebaseService {
           .where('toUserId', isEqualTo: userId)
           .get();
 
-      print('=== DEBUG: Found ${querySnapshot.docs.length} trades for user $userId ===');
+      print(
+        '=== DEBUG: Found ${querySnapshot.docs.length} trades for user $userId ===',
+      );
 
       for (final doc in querySnapshot.docs) {
         final trade = doc.data();
@@ -268,234 +296,241 @@ class FirebaseService {
         print('  Expires: ${trade.expiresAt}');
         print('  ---');
       }
-
     } catch (e) {
       print('=== DEBUG: ERROR checking received trades: $e ===');
     }
   }
 
   static Future<List<TradeOffer>> getReceivedTrades(String userId) async {
-  try {
-  final tradesCollection = _getTradesCollection();
-  final querySnapshot = await tradesCollection
-      .where('toUserId', isEqualTo: userId)
-      .where('status', whereIn: ['pending', 'accepted'])
-      .orderBy('createdAt', descending: true)
-      .get();
+    try {
+      final tradesCollection = _getTradesCollection();
+      final querySnapshot = await tradesCollection
+          .where('toUserId', isEqualTo: userId)
+          .where('status', whereIn: ['pending', 'accepted'])
+          .orderBy('createdAt', descending: true)
+          .get();
 
-  return querySnapshot.docs.map((doc) => doc.data()).toList();
-  } catch (e) {
-  throw Exception('Failed to get received trades: $e');
-  }
+      return querySnapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      throw Exception('Failed to get received trades: $e');
+    }
   }
 
   static Future<List<TradeOffer>> getSentTrades(String userId) async {
-  try {
-  final tradesCollection = _getTradesCollection();
-  final querySnapshot = await tradesCollection
-      .where('fromUserId', isEqualTo: userId)
-      .orderBy('createdAt', descending: true)
-      .get();
+    try {
+      final tradesCollection = _getTradesCollection();
+      final querySnapshot = await tradesCollection
+          .where('fromUserId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .get();
 
-  return querySnapshot.docs.map((doc) => doc.data()).toList();
-  } catch (e) {
-  throw Exception('Failed to get sent trades: $e');
-  }
+      return querySnapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      throw Exception('Failed to get sent trades: $e');
+    }
   }
 
   static Future<void> updateTradeStatus({
-  required String tradeId,
-  required TradeStatus newStatus,
-  required String userId,
-  required String userName,
+    required String tradeId,
+    required TradeStatus newStatus,
+    required String userId,
+    required String userName,
   }) async {
-  try {
-  final tradesCollection = _getTradesCollection();
-  final tradeDoc = tradesCollection.doc(tradeId);
+    try {
+      final tradesCollection = _getTradesCollection();
+      final tradeDoc = tradesCollection.doc(tradeId);
 
-  await tradeDoc.update({
-  'status': newStatus.name,
-  'updatedAt': Timestamp.now(),
-  });
+      await tradeDoc.update({
+        'status': newStatus.name,
+        'updatedAt': Timestamp.now(),
+      });
 
-  // Add to trade history
-  await _addTradeHistory(
-  tradeId: tradeId,
-  action: 'STATUS_CHANGED',
-  performedByUserId: userId,
-  performedByUserName: userName,
-  details: {'newStatus': newStatus.name},
-  );
-  } catch (e) {
-  throw Exception('Failed to update trade status: $e');
-  }
+      // Add to trade history
+      await _addTradeHistory(
+        tradeId: tradeId,
+        action: 'STATUS_CHANGED',
+        performedByUserId: userId,
+        performedByUserName: userName,
+        details: {'newStatus': newStatus.name},
+      );
+    } catch (e) {
+      throw Exception('Failed to update trade status: $e');
+    }
   }
 
   static Future<void> addCounterOffer({
-  required String tradeId,
-  required TradeCounterOffer counterOffer,
-  required String userId,
-  required String userName,
+    required String tradeId,
+    required TradeCounterOffer counterOffer,
+    required String userId,
+    required String userName,
   }) async {
-  try {
-  final tradesCollection = _getTradesCollection();
-  final tradeDoc = tradesCollection.doc(tradeId);
+    try {
+      final tradesCollection = _getTradesCollection();
+      final tradeDoc = tradesCollection.doc(tradeId);
 
-  // Get current trade
-  final tradeSnapshot = await tradeDoc.get();
-  final currentTrade = tradeSnapshot.data();
+      // Get current trade
+      final tradeSnapshot = await tradeDoc.get();
+      final currentTrade = tradeSnapshot.data();
 
-  if (currentTrade != null) {
-  final updatedCounterOffers = [...currentTrade.counterOffers, counterOffer];
+      if (currentTrade != null) {
+        final updatedCounterOffers = [
+          ...currentTrade.counterOffers,
+          counterOffer,
+        ];
 
-  await tradeDoc.update({
-  'counterOffers': updatedCounterOffers.map((co) => co.toJson()).toList(),
-  'updatedAt': Timestamp.now(),
-  });
+        await tradeDoc.update({
+          'counterOffers': updatedCounterOffers
+              .map((co) => co.toJson())
+              .toList(),
+          'updatedAt': Timestamp.now(),
+        });
 
-  // Add to trade history
-  await _addTradeHistory(
-  tradeId: tradeId,
-  action: 'COUNTER_OFFER_ADDED',
-  performedByUserId: userId,
-  performedByUserName: userName,
-  details: {'counterOfferId': counterOffer.id},
-  );
-  }
-  } catch (e) {
-  throw Exception('Failed to add counter offer: $e');
-  }
+        // Add to trade history
+        await _addTradeHistory(
+          tradeId: tradeId,
+          action: 'COUNTER_OFFER_ADDED',
+          performedByUserId: userId,
+          performedByUserName: userName,
+          details: {'counterOfferId': counterOffer.id},
+        );
+      }
+    } catch (e) {
+      throw Exception('Failed to add counter offer: $e');
+    }
   }
 
   static Future<void> acceptCounterOffer({
-  required String tradeId,
-  required String counterOfferId,
-  required String userId,
-  required String userName,
+    required String tradeId,
+    required String counterOfferId,
+    required String userId,
+    required String userName,
   }) async {
-  try {
-  final tradesCollection = _getTradesCollection();
-  final tradeDoc = tradesCollection.doc(tradeId);
+    try {
+      final tradesCollection = _getTradesCollection();
+      final tradeDoc = tradesCollection.doc(tradeId);
 
-  final tradeSnapshot = await tradeDoc.get();
-  final currentTrade = tradeSnapshot.data();
+      final tradeSnapshot = await tradeDoc.get();
+      final currentTrade = tradeSnapshot.data();
 
-  if (currentTrade != null) {
-  final updatedCounterOffers = currentTrade.counterOffers.map((co) {
-  if (co.id == counterOfferId) {
-  return co.copyWith(isAccepted: true);
-  }
-  return co;
-  }).toList();
+      if (currentTrade != null) {
+        final updatedCounterOffers = currentTrade.counterOffers.map((co) {
+          if (co.id == counterOfferId) {
+            return co.copyWith(isAccepted: true);
+          }
+          return co;
+        }).toList();
 
-  // Update the trade with the accepted counter offer
-  final acceptedCounterOffer = updatedCounterOffers.firstWhere(
-  (co) => co.id == counterOfferId
-  );
+        // Update the trade with the accepted counter offer
+        final acceptedCounterOffer = updatedCounterOffers.firstWhere(
+          (co) => co.id == counterOfferId,
+        );
 
-  final updatedTrade = currentTrade.copyWith(
-  offeredProductIds: acceptedCounterOffer.offeredProductIds,
-  requestedProductIds: acceptedCounterOffer.requestedProductIds,
-  counterOffers: updatedCounterOffers,
-  status: TradeStatus.accepted,
-  updatedAt: DateTime.now(),
-  );
+        final updatedTrade = currentTrade.copyWith(
+          offeredProductIds: acceptedCounterOffer.offeredProductIds,
+          requestedProductIds: acceptedCounterOffer.requestedProductIds,
+          counterOffers: updatedCounterOffers,
+          status: TradeStatus.accepted,
+          updatedAt: DateTime.now(),
+        );
 
-  await tradeDoc.set(updatedTrade);
+        await tradeDoc.set(updatedTrade);
 
-  // Add to trade history
-  await _addTradeHistory(
-  tradeId: tradeId,
-  action: 'COUNTER_OFFER_ACCEPTED',
-  performedByUserId: userId,
-  performedByUserName: userName,
-  details: {'counterOfferId': counterOfferId},
-  );
-  }
-  } catch (e) {
-  throw Exception('Failed to accept counter offer: $e');
-  }
+        // Add to trade history
+        await _addTradeHistory(
+          tradeId: tradeId,
+          action: 'COUNTER_OFFER_ACCEPTED',
+          performedByUserId: userId,
+          performedByUserName: userName,
+          details: {'counterOfferId': counterOfferId},
+        );
+      }
+    } catch (e) {
+      throw Exception('Failed to accept counter offer: $e');
+    }
   }
 
   static Future<List<TradeHistory>> getTradeHistory(String tradeId) async {
-  try {
-  final historyCollection = _getTradeHistoryCollection();
-  final querySnapshot = await historyCollection
-      .where('tradeId', isEqualTo: tradeId)
-      .orderBy('timestamp', descending: true)
-      .get();
+    try {
+      final historyCollection = _getTradeHistoryCollection();
+      final querySnapshot = await historyCollection
+          .where('tradeId', isEqualTo: tradeId)
+          .orderBy('timestamp', descending: true)
+          .get();
 
-  return querySnapshot.docs.map((doc) => doc.data()).toList();
-  } catch (e) {
-  throw Exception('Failed to get trade history: $e');
-  }
+      return querySnapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      throw Exception('Failed to get trade history: $e');
+    }
   }
 
   static Future<void> _addTradeHistory({
-  required String tradeId,
-  required String action,
-  required String performedByUserId,
-  required String performedByUserName,
-  Map<String, dynamic>? details,
+    required String tradeId,
+    required String action,
+    required String performedByUserId,
+    required String performedByUserName,
+    Map<String, dynamic>? details,
   }) async {
-  try {
-  final historyCollection = _getTradeHistoryCollection();
-  final historyDoc = historyCollection.doc();
+    try {
+      final historyCollection = _getTradeHistoryCollection();
+      final historyDoc = historyCollection.doc();
 
-  final history = TradeHistory(
-  id: historyDoc.id,
-  tradeId: tradeId,
-  action: action,
-  performedByUserId: performedByUserId,
-  performedByUserName: performedByUserName,
-  timestamp: DateTime.now(),
-  details: details,
-  );
+      final history = TradeHistory(
+        id: historyDoc.id,
+        tradeId: tradeId,
+        action: action,
+        performedByUserId: performedByUserId,
+        performedByUserName: performedByUserName,
+        timestamp: DateTime.now(),
+        details: details,
+      );
 
-  await historyDoc.set(history);
-  } catch (e) {
-  print('Failed to add trade history: $e');
-  }
+      await historyDoc.set(history);
+    } catch (e) {
+      print('Failed to add trade history: $e');
+    }
   }
 
   // Check for expired trades
   static Future<void> checkAndExpireTrades() async {
-  try {
-  final tradesCollection = _getTradesCollection();
-  final now = Timestamp.now();
+    try {
+      final tradesCollection = _getTradesCollection();
+      final now = Timestamp.now();
 
-  final querySnapshot = await tradesCollection
-      .where('status', isEqualTo: 'pending')
-      .where('expiresAt', isLessThan: now)
-      .get();
+      final querySnapshot = await tradesCollection
+          .where('status', isEqualTo: 'pending')
+          .where('expiresAt', isLessThan: now)
+          .get();
 
-  final batch = FirebaseFirestore.instance.batch();
+      final batch = FirebaseFirestore.instance.batch();
 
-  for (final doc in querySnapshot.docs) {
-  final tradeDoc = tradesCollection.doc(doc.id);
-  batch.update(tradeDoc, {
-  'status': TradeStatus.expired.name,
-  'updatedAt': now,
-  });
+      for (final doc in querySnapshot.docs) {
+        final tradeDoc = tradesCollection.doc(doc.id);
+        batch.update(tradeDoc, {
+          'status': TradeStatus.expired.name,
+          'updatedAt': now,
+        });
 
-  // Add to history for each expired trade
-  final trade = doc.data();
-  _addTradeHistory(
-  tradeId: doc.id,
-  action: 'TRADE_EXPIRED',
-  performedByUserId: 'system',
-  performedByUserName: 'System',
-  );
-  }
+        // Add to history for each expired trade
+        final trade = doc.data();
+        _addTradeHistory(
+          tradeId: doc.id,
+          action: 'TRADE_EXPIRED',
+          performedByUserId: 'system',
+          performedByUserName: 'System',
+        );
+      }
 
-  await batch.commit();
-  } catch (e) {
-  print('Failed to expire trades: $e');
-  }
+      await batch.commit();
+    } catch (e) {
+      print('Failed to expire trades: $e');
+    }
   }
 
   // In firebase_service.dart - update the getUserProducts method
-  static Future<List<ProductModel>> getUserProducts(String userId,BuildContext context) async {
+  static Future<List<ProductModel>> getUserProducts(
+    String userId,
+    BuildContext context,
+  ) async {
     try {
       print('=== DEBUG: Getting products for user: $userId ===');
 
@@ -503,7 +538,7 @@ class FirebaseService {
         throw Exception('User ID is empty');
       }
 
-      final productsCollection = _getProductsCollection( context);
+      final productsCollection = _getProductsCollection(context);
       print('=== DEBUG: Products collection reference created ===');
 
       // First, try a simple query to see if we can get any data
@@ -516,7 +551,9 @@ class FirebaseService {
           .orderBy('createdAt', descending: true)
           .get();
 
-      print('=== DEBUG: Query completed, found ${querySnapshot.docs.length} documents ===');
+      print(
+        '=== DEBUG: Query completed, found ${querySnapshot.docs.length} documents ===',
+      );
 
       if (querySnapshot.docs.isEmpty) {
         print('=== DEBUG: No products found for user $userId ===');
@@ -528,23 +565,19 @@ class FirebaseService {
       for (final doc in querySnapshot.docs) {
         try {
           final product = doc.data();
-          print('=== DEBUG: Product ${product.title} - Available: ${product.isAvailable}, Status: ${product.status}');
+          print(
+            '=== DEBUG: Product ${product.title} - Available: ${product.isAvailable}, Status: ${product.status}',
+          );
           products.add(product);
         } catch (e) {
           print('=== DEBUG: Error parsing product document: $e ===');
         }
       }
 
-      // Filter available products
-      final availableProducts = products.where((p) =>
-      p.isAvailable &&
-          p.status == ProductStatus.available
-      ).toList();
+      print('=== DEBUG: Returning ${products.length} total products ===');
 
-      print('=== DEBUG: ${availableProducts.length} available products after filtering ===');
-
-      return availableProducts;
-
+      // Return ALL products, let the UI filter by status
+      return products;
     } catch (e) {
       print('=== DEBUG: ERROR in getUserProducts: $e ===');
       print('=== DEBUG: Error type: ${e.runtimeType} ===');
@@ -554,11 +587,17 @@ class FirebaseService {
         print('=== DEBUG: Firebase error message: ${e.message} ===');
       }
 
-      throw Exception('Failed to load your products. Please check your connection and try again.');
+      throw Exception(
+        'Failed to load your products. Please check your connection and try again.',
+      );
     }
   }
+
   // If you need to get products by IDs (for trade details)
-  static Future<List<ProductModel>> getProductsByIds(List<String> productIds,BuildContext context) async {
+  static Future<List<ProductModel>> getProductsByIds(
+    List<String> productIds,
+    BuildContext context,
+  ) async {
     try {
       if (productIds.isEmpty) return [];
 
@@ -575,8 +614,11 @@ class FirebaseService {
 
   // Also need to fix the _getProductsCollection method to accept context properly
 
-// Add this to your firebase_service.dart
-  static Future<ProductModel?> getProductById(String productId,BuildContext context) async {
+  // Add this to your firebase_service.dart
+  static Future<ProductModel?> getProductById(
+    String productId,
+    BuildContext context,
+  ) async {
     try {
       final productsCollection = _getProductsCollection(context);
       final productDoc = productsCollection.doc(productId);
@@ -596,16 +638,21 @@ class FirebaseService {
   static Future<void> updateProductAvailability({
     required String productId,
     required bool isAvailable,
+    ProductStatus? newStatus,
   }) async {
     try {
+      final status =
+          newStatus ??
+          (isAvailable ? ProductStatus.available : ProductStatus.unavailable);
+
       await FirebaseFirestore.instance
-          .collection('products')
+          .collection('Products')
           .doc(productId)
           .update({
-        'isAvailable': isAvailable,
-        'status': isAvailable ? 'available' : 'unavailable',
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'isAvailable': isAvailable,
+            'status': status.name,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
     } catch (e) {
       throw Exception('Failed to update product availability: $e');
     }
@@ -643,4 +690,113 @@ class FirebaseService {
     }
   }
 
+  // Favourites Management Methods
+  static Future<void> addToFavourites(String userId, String productId) async {
+    try {
+      print('=== DEBUG: Adding to favourites ===');
+      print('User ID: $userId');
+      print('Product ID: $productId');
+
+      final usersCollection = _getUsersCollection();
+      final userDoc = usersCollection.doc(userId);
+
+      await userDoc.update({
+        'favouriteProductIds': FieldValue.arrayUnion([productId]),
+      });
+
+      print('=== DEBUG: Successfully added to favourites ===');
+
+      // Update current user if it's the same user
+      if (UserModel.currentUser?.id == userId) {
+        final updatedUser = await getUserFromFireStore(userId);
+        if (updatedUser != null) {
+          UserModel.currentUser = updatedUser;
+        }
+      }
+    } catch (e) {
+      print('=== DEBUG: Error adding to favourites: $e ===');
+      throw Exception('Failed to add to favourites: $e');
+    }
+  }
+
+  static Future<void> removeFromFavourites(
+    String userId,
+    String productId,
+  ) async {
+    try {
+      final usersCollection = _getUsersCollection();
+      final userDoc = usersCollection.doc(userId);
+
+      await userDoc.update({
+        'favouriteProductIds': FieldValue.arrayRemove([productId]),
+      });
+
+      // Update current user if it's the same user
+      if (UserModel.currentUser?.id == userId) {
+        final updatedUser = await getUserFromFireStore(userId);
+        if (updatedUser != null) {
+          UserModel.currentUser = updatedUser;
+        }
+      }
+    } catch (e) {
+      throw Exception('Failed to remove from favourites: $e');
+    }
+  }
+
+  static Future<bool> toggleFavourite(String userId, String productId) async {
+    try {
+      final user = await getUserFromFireStore(userId);
+      if (user == null) throw Exception('User not found');
+
+      final isFavourite = user.favouriteProductIds.contains(productId);
+
+      if (isFavourite) {
+        await removeFromFavourites(userId, productId);
+        return false;
+      } else {
+        await addToFavourites(userId, productId);
+        return true;
+      }
+    } catch (e) {
+      throw Exception('Failed to toggle favourite: $e');
+    }
+  }
+
+  static Future<List<ProductModel>> getFavouriteProducts(
+    String userId,
+    BuildContext context,
+  ) async {
+    try {
+      final user = await getUserFromFireStore(userId);
+      if (user == null || user.favouriteProductIds.isEmpty) {
+        return [];
+      }
+
+      // Firebase 'whereIn' has a limit of 10 items, so we need to batch requests
+      final favouriteIds = user.favouriteProductIds;
+      final List<ProductModel> favouriteProducts = [];
+
+      // Process in batches of 10
+      for (int i = 0; i < favouriteIds.length; i += 10) {
+        final batch = favouriteIds.skip(i).take(10).toList();
+        final products = await getProductsByIds(batch, context);
+        favouriteProducts.addAll(products);
+      }
+
+      return favouriteProducts;
+    } catch (e) {
+      throw Exception('Failed to get favourite products: $e');
+    }
+  }
+
+  static Future<bool> isFavourite(String userId, String productId) async {
+    try {
+      final user = await getUserFromFireStore(userId);
+      if (user == null) return false;
+
+      return user.favouriteProductIds.contains(productId);
+    } catch (e) {
+      return false;
+    }
+  }
 }
