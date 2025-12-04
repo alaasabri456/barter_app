@@ -59,7 +59,13 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
           .where(
             (p) =>
                 p.id !=
-                widget.targetProduct.id, // Don't allow trading the same product
+                    widget
+                        .targetProduct
+                        .id && // Don't allow trading the same product
+                p.status.name.toLowerCase() !=
+                    'traded' && // Don't allow traded products
+                p.status.name.toLowerCase() !=
+                    'accepted', // Don't allow accepted products
           )
           .toList();
 
@@ -130,6 +136,27 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
       final user = UserModel.currentUser;
       if (user == null) {
         throw Exception('User not logged in');
+      }
+
+      // Check for duplicate trade
+      final isDuplicate = await FirebaseService.isDuplicateTrade(
+        userId: user.id,
+        targetProductId: widget.targetProduct.id,
+        offeredProductIds: _selectedOfferedProducts.map((p) => p.id).toList(),
+      );
+
+      if (isDuplicate) {
+        if (mounted) {
+          await showInfoDialog(
+            context: context,
+            title: 'Duplicate Offer',
+            message:
+                'You have already sent this exact trade offer for this item. Please wait for a response or offer different items.',
+            icon: Icons.copy,
+            iconColor: Colors.orange,
+          );
+        }
+        return;
       }
 
       final tradeOffer = TradeOffer(

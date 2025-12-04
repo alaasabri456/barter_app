@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../firebase/firebase_service.dart';
 import '../../core/routes_manager/routes_manager.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
@@ -18,6 +19,30 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = false;
+  int _createdProductsCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCreatedProductsCount();
+  }
+
+  Future<void> _loadCreatedProductsCount() async {
+    final userId = UserModel.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      final products = await FirebaseService.getUserProducts(userId, context);
+      if (mounted) {
+        setState(() {
+          _createdProductsCount = products.length;
+        });
+      }
+    } catch (e) {
+      // Silently fail or log error
+      print('Error loading created products count: $e');
+    }
+  }
 
   Future<void> _signOut() async {
     final confirmed = await showConfirmationDialog(
@@ -241,10 +266,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildStatItem(
-                        'Products',
-                        '${user?.favouriteProductIds.length ?? 0}',
-                      ),
+                      _buildStatItem('Products', '$_createdProductsCount'),
                       Container(
                         height: 40.h,
                         width: 1,

@@ -15,6 +15,7 @@ class ProductModel {
   final ProductStatus status;
   final int viewCount;
   final List<String> interestedUsers;
+  final List<String> viewedUserIds;
 
   ProductModel({
     required this.id,
@@ -33,6 +34,7 @@ class ProductModel {
     this.status = ProductStatus.available,
     this.viewCount = 0,
     this.interestedUsers = const [],
+    this.viewedUserIds = const [],
   });
 
   ProductModel.fromJson(Map<String, dynamic> json)
@@ -65,6 +67,11 @@ class ProductModel {
         viewCount: json["viewCount"] ?? 0,
         interestedUsers:
             (json["interestedUsers"] as List<dynamic>?)
+                ?.map((obj) => obj.toString())
+                .toList() ??
+            [],
+        viewedUserIds:
+            (json["viewedUserIds"] as List<dynamic>?)
                 ?.map((obj) => obj.toString())
                 .toList() ??
             [],
@@ -104,6 +111,7 @@ class ProductModel {
     "status": status.name,
     "viewCount": viewCount,
     "interestedUsers": interestedUsers,
+    "viewedUserIds": viewedUserIds,
   };
 
   ProductModel copyWith({
@@ -123,6 +131,7 @@ class ProductModel {
     ProductStatus? status,
     int? viewCount,
     List<String>? interestedUsers,
+    List<String>? viewedUserIds,
   }) {
     return ProductModel(
       id: id ?? this.id,
@@ -141,6 +150,7 @@ class ProductModel {
       status: status ?? this.status,
       viewCount: viewCount ?? this.viewCount,
       interestedUsers: interestedUsers ?? this.interestedUsers,
+      viewedUserIds: viewedUserIds ?? this.viewedUserIds,
     );
   }
 

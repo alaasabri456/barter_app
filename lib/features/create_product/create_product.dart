@@ -152,8 +152,6 @@ class _CreateProductState extends State<CreateProduct> {
 
     final List<String> uploadedUrls = [];
 
-
-
     setState(() {
       _isUploadingImages = false;
     });
@@ -277,19 +275,19 @@ class _CreateProductState extends State<CreateProduct> {
                 borderRadius: BorderRadius.circular(12.r),
                 child: isLocalFile
                     ? Image.file(
-                  File(imagePath!),
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return _buildImageErrorWidget();
-                  },
-                )
+                        File(imagePath!),
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildImageErrorWidget();
+                        },
+                      )
                     : Image.network(
-                  imagePath!,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return _buildImageErrorWidget();
-                  },
-                ),
+                        imagePath!,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildImageErrorWidget();
+                        },
+                      ),
               ),
             ),
             Positioned(
@@ -399,7 +397,9 @@ class _CreateProductState extends State<CreateProduct> {
 
         // If ImgBB fails, try Firebase Storage
         if (uploadedUrls.isEmpty && _selectedImageFiles.isNotEmpty) {
-          final firebaseUrls = await _uploadImagesToFirebase(_selectedImageFiles);
+          final firebaseUrls = await _uploadImagesToFirebase(
+            _selectedImageFiles,
+          );
           finalImageUrls.addAll(firebaseUrls);
         } else {
           finalImageUrls.addAll(uploadedUrls);
@@ -452,7 +452,9 @@ class _CreateProductState extends State<CreateProduct> {
           iconColor: Colors.green,
         );
 
-        Navigator.of(context).pop(product);
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(RoutesManager.mainLayout, (route) => false);
       }
     } catch (e) {
       if (mounted) {
@@ -484,7 +486,9 @@ class _CreateProductState extends State<CreateProduct> {
     );
 
     if (confirmed == true && mounted) {
-      Navigator.of(context).pop();
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(RoutesManager.mainLayout, (route) => false);
     }
   }
 
@@ -556,7 +560,8 @@ class _CreateProductState extends State<CreateProduct> {
                     value: _selectedCategory,
                     onChanged: (value) {
                       setState(() {
-                        _selectedCategory = value ?? ProductCategory.others.name;
+                        _selectedCategory =
+                            value ?? ProductCategory.others.name;
                       });
                     },
                   ),
@@ -569,7 +574,8 @@ class _CreateProductState extends State<CreateProduct> {
                     value: _selectedCondition,
                     onChanged: (value) {
                       setState(() {
-                        _selectedCondition = value ?? ProductCondition.good.name;
+                        _selectedCondition =
+                            value ?? ProductCondition.good.name;
                       });
                     },
                   ),
@@ -607,7 +613,9 @@ class _CreateProductState extends State<CreateProduct> {
                             context,
                           ).primaryColor.withOpacity(0.1),
                           side: BorderSide(
-                            color: Theme.of(context).primaryColor.withOpacity(0.3),
+                            color: Theme.of(
+                              context,
+                            ).primaryColor.withOpacity(0.3),
                           ),
                           deleteIcon: const Icon(Icons.close, size: 16),
                           onDeleted: () {
@@ -647,10 +655,7 @@ class _CreateProductState extends State<CreateProduct> {
                       SizedBox(height: 16.h),
                       Text(
                         'Uploading images...',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16.sp,
-                        ),
+                        style: TextStyle(color: Colors.white, fontSize: 16.sp),
                       ),
                     ],
                   ),
@@ -753,23 +758,23 @@ class _CreateProductState extends State<CreateProduct> {
                         borderRadius: BorderRadius.circular(12.r),
                         child: isLocalFile
                             ? Image.file(
-                          File(imagePath),
-                          width: double.infinity,
-                          height: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return _buildImageContainerError();
-                          },
-                        )
+                                File(imagePath),
+                                width: double.infinity,
+                                height: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return _buildImageContainerError();
+                                },
+                              )
                             : Image.network(
-                          imagePath,
-                          width: double.infinity,
-                          height: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return _buildImageContainerError();
-                          },
-                        ),
+                                imagePath,
+                                width: double.infinity,
+                                height: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return _buildImageContainerError();
+                                },
+                              ),
                       ),
                       Positioned(
                         top: 4.w,
@@ -859,7 +864,7 @@ class _CreateProductState extends State<CreateProduct> {
                   ],
                 ),
               ),
-            ]
+            ],
           ],
         ),
       ],

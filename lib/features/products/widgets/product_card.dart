@@ -82,9 +82,7 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.only(bottom: 16.h),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.r),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12.r),
@@ -106,19 +104,19 @@ class ProductCard extends StatelessWidget {
                       color: Theme.of(context).colorScheme.surfaceVariant,
                       image: imageUrl != null
                           ? DecorationImage(
-                        image: NetworkImage(imageUrl!),
-                        fit: BoxFit.cover,
-                      )
+                              image: NetworkImage(imageUrl!),
+                              fit: BoxFit.cover,
+                            )
                           : null,
                     ),
                     child: imageUrl == null
                         ? Center(
-                      child: Icon(
-                        Icons.image_outlined,
-                        size: 32.w,
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
-                    )
+                            child: Icon(
+                              Icons.image_outlined,
+                              size: 32.w,
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
+                          )
                         : null,
                   ),
                   SizedBox(width: 16.w),
@@ -132,12 +130,8 @@ class ProductCard extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 title,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.bold),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -153,19 +147,24 @@ class ProductCard extends StatelessWidget {
                                 color: _getStatusColor(status).withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(6.r),
                                 border: Border.all(
-                                  color: _getStatusColor(status).withOpacity(0.3),
+                                  color: _getStatusColor(
+                                    status,
+                                  ).withOpacity(0.3),
                                   width: 1,
                                 ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
-                                    _getStatusIcon(status),
-                                    size: 12.w,
-                                    color: _getStatusColor(status),
-                                  ),
-                                  SizedBox(width: 4.w),
+                                  if (status.toLowerCase() != 'traded' &&
+                                      status.toLowerCase() != 'accepted') ...[
+                                    Icon(
+                                      _getStatusIcon(status),
+                                      size: 12.w,
+                                      color: _getStatusColor(status),
+                                    ),
+                                    SizedBox(width: 4.w),
+                                  ],
                                   Text(
                                     status.toUpperCase(),
                                     style: TextStyle(
@@ -189,8 +188,9 @@ class ProductCard extends StatelessWidget {
                                 vertical: 2.h,
                               ),
                               decoration: BoxDecoration(
-                                color:
-                                Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(4.r),
                               ),
                               child: Text(
@@ -209,15 +209,18 @@ class ProductCard extends StatelessWidget {
                                 vertical: 2.h,
                               ),
                               decoration: BoxDecoration(
-                                color:
-                                Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.secondary.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(4.r),
                               ),
                               child: Text(
                                 condition,
                                 style: TextStyle(
                                   fontSize: 10.sp,
-                                  color: Theme.of(context).colorScheme.secondary,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.secondary,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -256,9 +259,10 @@ class ProductCard extends StatelessWidget {
                           SizedBox(width: 4.w),
                           Text(
                             '$viewCount',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.outline,
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
                           ),
                         ],
                       ),
@@ -274,9 +278,10 @@ class ProductCard extends StatelessWidget {
                           SizedBox(width: 4.w),
                           Text(
                             '$interestedCount',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.outline,
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
                           ),
                         ],
                       ),

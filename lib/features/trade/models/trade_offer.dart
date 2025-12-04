@@ -1,20 +1,13 @@
 // models/trade_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum TradeStatus {
-  pending,
-  accepted,
-  rejected,
-  expired,
-  completed,
-  cancelled
-}
+enum TradeStatus { pending, accepted, rejected, expired, completed, cancelled }
 
 enum TradeType {
   itemForItem,
   serviceForItem,
   serviceForService,
-  multiForSingle
+  multiForSingle,
 }
 
 class TradeOffer {
@@ -34,6 +27,12 @@ class TradeOffer {
   final List<TradeCounterOffer> counterOffers;
   final bool isCounterOffer;
 
+  // Chat related fields
+  final String? lastMessage;
+  final DateTime? lastMessageTime;
+  final String? lastMessageSenderId;
+  final bool hasUnreadMessages;
+
   TradeOffer({
     required this.id,
     required this.fromUserId,
@@ -50,6 +49,10 @@ class TradeOffer {
     this.updatedAt,
     this.counterOffers = const [],
     this.isCounterOffer = false,
+    this.lastMessage,
+    this.lastMessageTime,
+    this.lastMessageSenderId,
+    this.hasUnreadMessages = false,
   });
 
   factory TradeOffer.fromJson(Map<String, dynamic> json) {
@@ -63,11 +66,11 @@ class TradeOffer {
       requestedProductIds: List<String>.from(json['requestedProductIds'] ?? []),
       message: json['message'],
       status: TradeStatus.values.firstWhere(
-            (e) => e.name == json['status'],
+        (e) => e.name == json['status'],
         orElse: () => TradeStatus.pending,
       ),
       type: TradeType.values.firstWhere(
-            (e) => e.name == json['type'],
+        (e) => e.name == json['type'],
         orElse: () => TradeType.itemForItem,
       ),
       createdAt: (json['createdAt'] as Timestamp).toDate(),
@@ -75,10 +78,18 @@ class TradeOffer {
       updatedAt: json['updatedAt'] != null
           ? (json['updatedAt'] as Timestamp).toDate()
           : null,
-      counterOffers: (json['counterOffers'] as List<dynamic>?)
-          ?.map((e) => TradeCounterOffer.fromJson(e))
-          .toList() ?? [],
+      counterOffers:
+          (json['counterOffers'] as List<dynamic>?)
+              ?.map((e) => TradeCounterOffer.fromJson(e))
+              .toList() ??
+          [],
       isCounterOffer: json['isCounterOffer'] ?? false,
+      lastMessage: json['lastMessage'],
+      lastMessageTime: json['lastMessageTime'] != null
+          ? (json['lastMessageTime'] as Timestamp).toDate()
+          : null,
+      lastMessageSenderId: json['lastMessageSenderId'],
+      hasUnreadMessages: json['hasUnreadMessages'] ?? false,
     );
   }
 
@@ -99,6 +110,12 @@ class TradeOffer {
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
       'counterOffers': counterOffers.map((e) => e.toJson()).toList(),
       'isCounterOffer': isCounterOffer,
+      'lastMessage': lastMessage,
+      'lastMessageTime': lastMessageTime != null
+          ? Timestamp.fromDate(lastMessageTime!)
+          : null,
+      'lastMessageSenderId': lastMessageSenderId,
+      'hasUnreadMessages': hasUnreadMessages,
     };
   }
 
@@ -118,6 +135,10 @@ class TradeOffer {
     DateTime? updatedAt,
     List<TradeCounterOffer>? counterOffers,
     bool? isCounterOffer,
+    String? lastMessage,
+    DateTime? lastMessageTime,
+    String? lastMessageSenderId,
+    bool? hasUnreadMessages,
   }) {
     return TradeOffer(
       id: id ?? this.id,
@@ -135,6 +156,10 @@ class TradeOffer {
       updatedAt: updatedAt ?? this.updatedAt,
       counterOffers: counterOffers ?? this.counterOffers,
       isCounterOffer: isCounterOffer ?? this.isCounterOffer,
+      lastMessage: lastMessage ?? this.lastMessage,
+      lastMessageTime: lastMessageTime ?? this.lastMessageTime,
+      lastMessageSenderId: lastMessageSenderId ?? this.lastMessageSenderId,
+      hasUnreadMessages: hasUnreadMessages ?? this.hasUnreadMessages,
     );
   }
 }
@@ -185,6 +210,7 @@ class TradeCounterOffer {
       'isAccepted': isAccepted,
     };
   }
+
   TradeCounterOffer copyWith({
     String? id,
     String? fromUserId,
@@ -207,7 +233,6 @@ class TradeCounterOffer {
     );
   }
 }
-
 
 class TradeHistory {
   final String id;

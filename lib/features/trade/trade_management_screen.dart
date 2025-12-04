@@ -10,6 +10,7 @@ import '../../features/trade/models/trade_offer.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../../features/products/models/product_model.dart';
 import '../authentication/widgets/auth_button.dart';
+import '../../core/routes_manager/routes_manager.dart';
 
 class TradeManagementScreen extends StatefulWidget {
   const TradeManagementScreen({super.key});
@@ -381,9 +382,63 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                       ),
                     ),
                   ),
-                  Text(
-                    _getTimeAgo(trade.createdAt),
-                    style: Theme.of(context).textTheme.bodySmall,
+                  Row(
+                    children: [
+                      // Chat Button with Notification Badge
+                      Stack(
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              Icons.chat_bubble_outline,
+                              size: 20.w,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                            onPressed: () async {
+                              await Navigator.pushNamed(
+                                context,
+                                RoutesManager.chat,
+                                arguments: {
+                                  'tradeId': trade.id,
+                                  'otherUserId': isReceived
+                                      ? trade.fromUserId
+                                      : trade.toUserId,
+                                  'otherUserName': isReceived
+                                      ? trade.fromUserName
+                                      : trade.toUserName,
+                                },
+                              );
+                              _loadTrades(); // Reload to clear badge
+                            },
+                            padding: EdgeInsets.zero,
+                            constraints: BoxConstraints(),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          if (trade.hasUnreadMessages &&
+                              trade.lastMessageSenderId !=
+                                  UserModel.currentUser?.id)
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: Container(
+                                padding: EdgeInsets.all(4.w),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                constraints: BoxConstraints(
+                                  minWidth: 8.w,
+                                  minHeight: 8.w,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        _getTimeAgo(trade.createdAt),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -429,7 +484,11 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                         ),
                         SizedBox(height: 4.h),
                         FutureBuilder<List<String>>(
-                          future: _getProductNames(trade.requestedProductIds),
+                          future: _getProductNames(
+                            isReceived
+                                ? trade.offeredProductIds
+                                : trade.offeredProductIds,
+                          ),
                           builder: (context, snapshot) {
                             final names = snapshot.data ?? ['Loading...'];
                             return Column(
@@ -480,7 +539,11 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                         ),
                         SizedBox(height: 4.h),
                         FutureBuilder<List<String>>(
-                          future: _getProductNames(trade.offeredProductIds),
+                          future: _getProductNames(
+                            isReceived
+                                ? trade.requestedProductIds
+                                : trade.requestedProductIds,
+                          ),
                           builder: (context, snapshot) {
                             final names = snapshot.data ?? ['Loading...'];
                             return Column(
@@ -519,37 +582,6 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
               ),
 
               SizedBox(height: 12.h),
-
-              // Trade message
-              if (trade.message != null && trade.message!.isNotEmpty) ...[
-                Container(
-                  padding: EdgeInsets.all(8.w),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(8.r),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.message_outlined,
-                        size: 16.w,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                      SizedBox(width: 8.w),
-                      Expanded(
-                        child: Text(
-                          trade.message!,
-                          style: Theme.of(context).textTheme.bodySmall,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 12.h),
-              ],
 
               // Counter offers indicator
               if (trade.counterOffers.isNotEmpty) ...[
@@ -645,26 +677,33 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                   backgroundColor: Theme.of(context).colorScheme.error,
                 ),
               ] else if (trade.status == TradeStatus.accepted) ...[
-                Container(
-                  padding: EdgeInsets.all(8.w),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8.r),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.check_circle, size: 16.w, color: Colors.green),
-                      SizedBox(width: 8.w),
-                      Expanded(
-                        child: Text(
-                          'Trade accepted! Coordinate with the other user to complete the exchange.',
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(color: Colors.green),
-                        ),
+                Column(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(8.w),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8.r),
                       ),
-                    ],
-                  ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle,
+                            size: 16.w,
+                            color: Colors.green,
+                          ),
+                          SizedBox(width: 8.w),
+                          Expanded(
+                            child: Text(
+                              'Trade accepted! Coordinate with the other user to complete the exchange.',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: Colors.green),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ],

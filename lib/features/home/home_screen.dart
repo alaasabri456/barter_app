@@ -25,10 +25,36 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<List<ProductModel>>? _productsFuture;
   bool _isRefreshing = false;
 
+  // Track favorite states for each product
+  Map<String, bool> _favouriteStates = {};
+  Map<String, bool> _favouriteLoading = {};
+
   @override
   void initState() {
     super.initState();
     _productsFuture = FirebaseService.getProductsFromFireStore(context);
+    _loadFavouriteStates();
+  }
+
+  Future<void> _loadFavouriteStates() async {
+    final userId = UserModel.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      final products = await _productsFuture;
+      if (products != null) {
+        for (var product in products) {
+          final isFav = await FirebaseService.isFavourite(userId, product.id);
+          if (mounted) {
+            setState(() {
+              _favouriteStates[product.id] = isFav;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      // Silently fail - not critical
+    }
   }
 
   @override
@@ -74,6 +100,58 @@ class _HomeScreenState extends State<HomeScreen> {
           desc.contains(_searchQuery) ||
           category.contains(_searchQuery);
     }).toList();
+  }
+
+  Future<void> _toggleFavourite(ProductModel product) async {
+    final userId = UserModel.currentUser?.id;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in to add favorites')),
+      );
+      return;
+    }
+
+    // Optimistic update
+    setState(() {
+      _favouriteLoading[product.id] = true;
+    });
+
+    try {
+      final newStatus = await FirebaseService.toggleFavourite(
+        userId,
+        product.id,
+      );
+
+      if (mounted) {
+        setState(() {
+          _favouriteStates[product.id] = newStatus;
+          _favouriteLoading[product.id] = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              newStatus ? 'Added to favorites ❤️' : 'Removed from favorites',
+            ),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _favouriteLoading[product.id] = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update favorite: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -306,7 +384,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
 
                 // Bottom padding
-                SliverToBoxAdapter(child: SizedBox(height: 20.h)),
+                SliverToBoxAdapter(child: SizedBox(height: 110.h)),
               ],
             );
           },
@@ -499,8 +577,10 @@ class _HomeScreenState extends State<HomeScreen> {
               // Favorite / actions column - UPDATED WITH TRADE BUTTON
               Column(
                 children: [
-                  // Trade button - only show if it's not the user's own product
-                  if (UserModel.currentUser?.id != product.ownerId) ...[
+                  // Trade button - only show if it's not the user's own product AND not traded
+                  if (UserModel.currentUser?.id != product.ownerId &&
+                      product.status.name.toLowerCase() != 'traded' &&
+                      product.status.name.toLowerCase() != 'accepted') ...[
                     IconButton(
                       onPressed: () {
                         // Navigate to initiate trade screen
@@ -520,16 +600,28 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                   // Favorite button
                   IconButton(
-                    onPressed: () {
-                      // Toggle favorite logic (update UI & backend as needed)
-                    },
-                    icon: Icon(
-                      Icons.favorite_border,
-                      color: Theme.of(
-                        context,
-                      ).iconTheme.color?.withOpacity(0.6),
-                    ),
-                    tooltip: 'Add to favorites',
+                    onPressed: _favouriteLoading[product.id] == true
+                        ? null
+                        : () => _toggleFavourite(product),
+                    icon: _favouriteLoading[product.id] == true
+                        ? SizedBox(
+                            width: 20.w,
+                            height: 20.w,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            _favouriteStates[product.id] == true
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                            color: _favouriteStates[product.id] == true
+                                ? Colors.red
+                                : Theme.of(
+                                    context,
+                                  ).iconTheme.color?.withOpacity(0.6),
+                          ),
+                    tooltip: _favouriteStates[product.id] == true
+                        ? 'Remove from favorites'
+                        : 'Add to favorites',
                   ),
                 ],
               ),

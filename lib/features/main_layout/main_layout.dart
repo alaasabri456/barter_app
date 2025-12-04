@@ -1,12 +1,10 @@
-import 'package:barter/features/main_layout/widgets/bottom_nav_item.dart';
+import 'package:barter/features/home/home_screen.dart';
+import 'package:barter/features/products/products_screen.dart';
+import 'package:barter/features/profile/profile_screen.dart';
+import 'package:barter/features/trade/trade_management_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import '../home/home_screen.dart';
-import '../products/products_screen.dart';
-import '../create_product/create_product.dart';
-import '../trade/trade_management_screen.dart';
-import '../profile/profile_screen.dart';
-import 'widgets/custom_bottom_nav.dart';
+
+import '../../core/routes_manager/routes_manager.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -15,281 +13,315 @@ class MainLayout extends StatefulWidget {
   State<MainLayout> createState() => _MainLayoutState();
 }
 
-class _MainLayoutState extends State<MainLayout> {
-  int _currentIndex = 0;
-  late PageController _pageController;
+class _MainLayoutState extends State<MainLayout>
+    with TickerProviderStateMixin {
+  List<Widget> tabs = [
+    HomeScreen(),
+    ProductsScreen(),
+    TradeManagementScreen(),
+    ProfileScreen()
+  ];
+  int selectedIndex = 0;
 
-  // Define the screens for each tab
-  late List<Widget> _screens;
+  // Animation controllers for the FAB
+  late AnimationController _rotationController;
+  late Animation<double> _rotationAnimation;
+
+  late AnimationController _scaleController;
+  late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: _currentIndex);
-    _screens = [
-      const HomeScreen(),
-      const ProductsScreen(),
-      const CreateProduct(),
-      const TradeManagementScreen(),
-      const ProfileScreen(),
-    ];
+
+    // Initialize rotation animation controller (on tap only)
+    _rotationController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+
+    _rotationAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _rotationController,
+      curve: Curves.easeInOut,
+    ));
+
+    // Initialize scale animation controller (on tap)
+    _scaleController = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.85,
+    ).animate(CurvedAnimation(
+      parent: _scaleController,
+      curve: Curves.easeInOut,
+    ));
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _rotationController.dispose();
+    _scaleController.dispose();
     super.dispose();
   }
 
-  void _onTabTapped(int index) {
-    if (index == _currentIndex) return;
-
-    // Provide haptic feedback
-    HapticFeedback.lightImpact();
-
-    setState(() {
-      _currentIndex = index;
+  void _onFabPressed() {
+    // Trigger rotation animation
+    _rotationController.forward().then((_) {
+      _rotationController.reset();
     });
 
-    // Animate to the selected page
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
+    // Trigger scale animation
+    _scaleController.forward().then((_) {
+      _scaleController.reverse();
+    });
 
-  void _onPageChanged(int index) {
-    if (index != _currentIndex) {
-      setState(() {
-        _currentIndex = index;
-      });
-    }
-  }
-
-  // Define bottom navigation items
-  final List<BottomNavItem> _navItems = [
-    const BottomNavItem(
-      icon: Icons.home_outlined,
-      activeIcon: Icons.home,
-      label: 'Home',
-    ),
-    const BottomNavItem(
-      icon: Icons.inventory_2_outlined,
-      activeIcon: Icons.inventory_2,
-      label: 'Products',
-    ),
-    const BottomNavItem(
-      icon: Icons.add_circle_outline,
-      activeIcon: Icons.add_circle,
-      label: 'Create',
-    ),
-    const BottomNavItem(
-      icon: Icons.swap_horiz_outlined,
-      activeIcon: Icons.swap_horiz,
-      label: 'Trades',
-    ),
-    const BottomNavItem(
-      icon: Icons.person_outline,
-      activeIcon: Icons.person,
-      label: 'Profile',
-    ),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: _onPageChanged,
-        physics:
-            const NeverScrollableScrollPhysics(), // Disable swipe navigation
-        children: _screens,
-      ),
-      bottomNavigationBar: AnimatedBottomNav(
-        currentIndex: _currentIndex,
-        onTap: _onTabTapped,
-        items: _navItems,
-      ),
-    );
-  }
-}
-
-// Alternative implementation with standard BottomNavigationBar
-class MainLayoutStandard extends StatefulWidget {
-  const MainLayoutStandard({super.key});
-
-  @override
-  State<MainLayoutStandard> createState() => _MainLayoutStandardState();
-}
-
-class _MainLayoutStandardState extends State<MainLayoutStandard> {
-  int _currentIndex = 0;
-
-  // Define the screens for each tab
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const ProductsScreen(),
-    const CreateProduct(),
-    const TradeManagementScreen(),
-    const ProfileScreen(),
-  ];
-
-  void _onTabTapped(int index) {
-    if (index == _currentIndex) return;
-
-    // Provide haptic feedback
-    HapticFeedback.lightImpact();
-
-    setState(() {
-      _currentIndex = index;
+    // Navigate after a brief delay
+    Future.delayed(const Duration(milliseconds: 100), () {
+      Navigator.pushNamed(context, RoutesManager.createProduct);
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: _onTabTapped,
-        type: BottomNavigationBarType.fixed,
-        elevation: 8,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.inventory_2_outlined),
-            activeIcon: Icon(Icons.inventory_2),
-            label: 'Products',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle_outline),
-            activeIcon: Icon(Icons.add_circle),
-            label: 'Create',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.swap_horiz_outlined),
-            activeIcon: Icon(Icons.swap_horiz),
-            label: 'Trades',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+      extendBody: true,
+      body: tabs[selectedIndex],
+      floatingActionButton: _buildFloatingActionButton(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: _buildBottomAppBar(),
+    );
+  }
+
+  BottomAppBar _buildBottomAppBar() {
+    return BottomAppBar(
+      notchMargin: 8,
+      height: 70,
+      color: Colors.white,
+      shape: const CircularNotchedRectangle(),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Left side - HOME and PRODUCTS
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(
+                    icon: selectedIndex == 0 ? Icons.home : Icons.home_outlined,
+                    label: 'HOME',
+                    isSelected: selectedIndex == 0,
+                    onTap: () => _onTap(0),
+                  ),
+                  _buildNavItem(
+                    icon: selectedIndex == 1
+                        ? Icons.inventory_2
+                        : Icons.inventory_2_outlined,
+                    label: 'Products',
+                    isSelected: selectedIndex == 1,
+                    onTap: () => _onTap(1),
+                  ),
+                ],
+              ),
+            ),
+
+            // Empty space for FAB (center)
+            SizedBox(width: 60),
+
+            // Right side - TRADES and PROFILE
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(
+                    icon: selectedIndex == 2
+                        ? Icons.swap_horiz
+                        : Icons.swap_horiz_outlined,
+                    label: 'Trades',
+                    isSelected: selectedIndex == 2,
+                    onTap: () => _onTap(2),
+                  ),
+                  _buildNavItem(
+                    icon:
+                    selectedIndex == 3 ? Icons.person : Icons.person_outline,
+                    label: 'Profile',
+                    isSelected: selectedIndex == 3,
+                    onTap: () => _onTap(3),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
-}
 
-// Tab configuration class for better organization
-class TabConfig {
-  final Widget screen;
-  final BottomNavItem navItem;
-  final String title;
-  final bool maintainState;
-
-  const TabConfig({
-    required this.screen,
-    required this.navItem,
-    required this.title,
-    this.maintainState = true,
-  });
-}
-
-// Advanced main layout with tab configuration
-class MainLayoutAdvanced extends StatefulWidget {
-  const MainLayoutAdvanced({super.key});
-
-  @override
-  State<MainLayoutAdvanced> createState() => _MainLayoutAdvancedState();
-}
-
-class _MainLayoutAdvancedState extends State<MainLayoutAdvanced>
-    with TickerProviderStateMixin {
-  int _currentIndex = 0;
-  late List<TabConfig> _tabs;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _tabs = [
-      TabConfig(
-        screen: const HomeScreen(),
-        navItem: const BottomNavItem(
-          icon: Icons.home_outlined,
-          activeIcon: Icons.home,
-          label: 'Home',
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        constraints: BoxConstraints(
+          minHeight: 70,
         ),
-        title: 'Home',
-      ),
-      TabConfig(
-        screen: const ProductsScreen(),
-        navItem: const BottomNavItem(
-          icon: Icons.inventory_2_outlined,
-          activeIcon: Icons.inventory_2,
-          label: 'Products',
+        padding: EdgeInsets.symmetric(horizontal: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? Color(0xFF5B6CF2) : Color(0xFF9E9E9E),
+              size: 24,
+            ),
+            SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                color: isSelected ? Color(0xFF5B6CF2) : Color(0xFF9E9E9E),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
-        title: 'My Products',
       ),
-      TabConfig(
-        screen: const CreateProduct(),
-        navItem: const BottomNavItem(
-          icon: Icons.add_circle_outline,
-          activeIcon: Icons.add_circle,
-          label: 'Create',
-        ),
-        title: 'Create Product',
-      ),
-      TabConfig(
-        screen: const TradeManagementScreen(),
-        navItem: const BottomNavItem(
-          icon: Icons.swap_horiz_outlined,
-          activeIcon: Icons.swap_horiz,
-          label: 'Trades',
-        ),
-        title: 'Manage Trades',
-      ),
-      TabConfig(
-        screen: const ProfileScreen(),
-        navItem: const BottomNavItem(
-          icon: Icons.person_outline,
-          activeIcon: Icons.person,
-          label: 'Profile',
-        ),
-        title: 'Profile',
-      ),
-    ];
+    );
   }
 
-  void _onTabTapped(int index) {
-    if (index == _currentIndex) return;
+  Widget _buildFloatingActionButton() {
+    return AnimatedBuilder(
+      animation: _scaleAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: Container(
+            height: 68,
+            width: 68,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                // Animated rotating three-color circular border
+                AnimatedBuilder(
+                  animation: _rotationAnimation,
+                  builder: (context, child) {
+                    return Transform.rotate(
+                      angle: _rotationAnimation.value * 2 * 3.14159,
+                      child: CustomPaint(
+                        size: Size(68, 68),
+                        painter: _ThreeColorCirclePainter(),
+                      ),
+                    );
+                  },
+                ),
+                // Inner white circle with icon (doesn't rotate)
+                Center(
+                  child: Container(
+                    width: 58,
+                    height: 58,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: Icon(Icons.add, color: Color(0xFF9E9E9E), size: 26),
+                      onPressed: _onFabPressed,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
-    HapticFeedback.lightImpact();
-
+  void _onTap(int newIndex) {
     setState(() {
-      _currentIndex = index;
+      selectedIndex = newIndex;
     });
   }
+}
 
+// Custom painter for three-color circle border
+class _ThreeColorCirclePainter extends CustomPainter {
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        child: _tabs[_currentIndex].screen,
-      ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: _currentIndex,
-        onTap: _onTabTapped,
-        items: _tabs.map((tab) => tab.navItem).toList(),
-      ),
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+    final strokeWidth = 5.0;
+
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    // Define three colors
+    const color1 = Color(0xFF25E4DA); // Teal
+    const color2 = Color(0xFFFFC425); // Orange
+    const color3 = Color(0xFF3B77FE); // Blue
+
+    // Draw three arcs (120 degrees each)
+    const startAngle1 = -90.0 * 3.14159 / 180; // Top
+    const startAngle2 = 30.0 * 3.14159 / 180; // Bottom right
+    const startAngle3 = 150.0 * 3.14159 / 180; // Bottom left
+    const sweepAngle = 120.0 * 3.14159 / 180;
+
+    // First arc (Teal)
+    paint.color = color1;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius - strokeWidth / 2),
+      startAngle1,
+      sweepAngle,
+      false,
+      paint,
+    );
+
+    // Second arc (Orange)
+    paint.color = color2;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius - strokeWidth / 2),
+      startAngle2,
+      sweepAngle,
+      false,
+      paint,
+    );
+
+    // Third arc (Blue)
+    paint.color = color3;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius - strokeWidth / 2),
+      startAngle3,
+      sweepAngle,
+      false,
+      paint,
     );
   }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

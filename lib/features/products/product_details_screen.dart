@@ -37,7 +37,16 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   Future<void> _loadProductDetails() async {
     try {
-      // You'll need to implement getProductById in FirebaseService
+      // Increment view count
+      final userId = UserModel.currentUser?.id ?? '';
+      if (userId.isNotEmpty) {
+        await FirebaseService.incrementProductViewCount(
+          widget.productId,
+          userId,
+        );
+      }
+
+      // Load product details
       final product = await FirebaseService.getProductById(
         widget.productId,
         context,
@@ -74,8 +83,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Future<void> _toggleFavourite() async {
+    print('=== FAVORITE BUTTON CLICKED ===');
+
     final userId = UserModel.currentUser?.id;
+    print('User ID: $userId');
+
     if (userId == null) {
+      print('User not logged in');
       showInfoDialog(
         context: context,
         title: 'Sign in Required',
@@ -85,21 +99,42 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       return;
     }
 
+    print('Setting loading state...');
     setState(() {
       _isFavouriteLoading = true;
     });
 
     try {
+      print('Calling toggleFavourite for product: ${widget.productId}');
       final newStatus = await FirebaseService.toggleFavourite(
         userId,
         widget.productId,
       );
+      print('Toggle successful! New status: $newStatus');
+
       if (mounted) {
         setState(() {
           _isFavourite = newStatus;
           _isFavouriteLoading = false;
+
+          // Update local product interested count
+          if (_product != null) {
+            final currentInterested = List<String>.from(
+              _product!.interestedUsers,
+            );
+            if (newStatus) {
+              if (!currentInterested.contains(userId)) {
+                currentInterested.add(userId);
+              }
+            } else {
+              currentInterested.remove(userId);
+            }
+
+            _product = _product!.copyWith(interestedUsers: currentInterested);
+          }
         });
 
+        print('Showing snackbar...');
         // Show feedback
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -112,6 +147,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         );
       }
     } catch (e) {
+      print('=== ERROR TOGGLING FAVORITE: $e ===');
       if (mounted) {
         setState(() {
           _isFavouriteLoading = false;

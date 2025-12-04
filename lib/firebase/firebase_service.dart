@@ -10,6 +10,7 @@ import '../features/products/models/product_model.dart';
 import '../features/authentication/models/register_request.dart';
 import '../features/trade/models/trade_offer.dart';
 import '../features/authentication/models/user_model.dart';
+import '../features/chat/models/chat_message.dart';
 
 class FirebaseService {
   static Future<UserCredential> register(RegisterRequest request) async {
@@ -55,7 +56,7 @@ class FirebaseService {
   }
 
   static CollectionReference<ProductModel> _getProductsCollection(
-    BuildContext context,
+    BuildContext? context,
   ) {
     FirebaseFirestore db = FirebaseFirestore.instance;
     CollectionReference<ProductModel> productsCollection = db
@@ -212,7 +213,11 @@ class FirebaseService {
     return db
         .collection("Trades")
         .withConverter<TradeOffer>(
-          fromFirestore: (snapshot, _) => TradeOffer.fromJson(snapshot.data()!),
+          fromFirestore: (snapshot, _) {
+            final data = snapshot.data()!;
+            data['id'] = snapshot.id;
+            return TradeOffer.fromJson(data);
+          },
           toFirestore: (trade, _) => trade.toJson(),
         );
   }
@@ -271,7 +276,69 @@ class FirebaseService {
     }
   }
 
-  // In FirebaseService
+  static Future<bool> isDuplicateTrade({
+    required String userId,
+    required String targetProductId,
+    required List<String> offeredProductIds,
+  }) async {
+    try {
+      final tradesCollection = _getTradesCollection();
+
+      // Check 1: Get all pending trades FROM this user that involve the target product
+      final sentTrades = await tradesCollection
+          .where('fromUserId', isEqualTo: userId)
+          .where('status', isEqualTo: 'pending')
+          .where('requestedProductIds', arrayContains: targetProductId)
+          .get();
+
+      // Check if any of these trades have the exact same offered items
+      for (final doc in sentTrades.docs) {
+        final trade = doc.data();
+
+        // Check if offered lists are identical (ignoring order)
+        final existingOffered = Set<String>.from(trade.offeredProductIds);
+        final newOffered = Set<String>.from(offeredProductIds);
+
+        if (existingOffered.length == newOffered.length &&
+            existingOffered.containsAll(newOffered)) {
+          return true;
+        }
+      }
+
+      // Check 2: Get all pending trades TO this user (reverse trades)
+      // where someone else is offering what we're requesting and requesting what we're offering
+      final receivedTrades = await tradesCollection
+          .where('toUserId', isEqualTo: userId)
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      for (final doc in receivedTrades.docs) {
+        final trade = doc.data();
+
+        // Check if this is a reverse trade:
+        // - They're offering what we're requesting (targetProductId)
+        // - They're requesting what we're offering (offeredProductIds)
+        final theyOffer = Set<String>.from(trade.offeredProductIds);
+        final theyRequest = Set<String>.from(trade.requestedProductIds);
+        final weOffer = Set<String>.from(offeredProductIds);
+        final weRequest = {targetProductId};
+
+        // If they're offering what we want AND requesting what we're offering, it's a reverse trade
+        if (theyOffer.containsAll(weRequest) &&
+            theyRequest.containsAll(weOffer) &&
+            theyOffer.length == weRequest.length &&
+            theyRequest.length == weOffer.length) {
+          return true;
+        }
+      }
+
+      return false;
+    } catch (e) {
+      print('Error checking for duplicate trades: $e');
+      return false; // Fail safe: allow trade if check fails
+    }
+  }
+
   static Future<void> debugCheckReceivedTrades(String userId) async {
     try {
       print('=== DEBUG: Checking received trades for user: $userId ===');
@@ -744,22 +811,62 @@ class FirebaseService {
   }
 
   static Future<bool> toggleFavourite(String userId, String productId) async {
-    try {
-      final user = await getUserFromFireStore(userId);
-      if (user == null) throw Exception('User not found');
+    final userRef = _getUsersCollection().doc(userId);
+    final productRef = _getProductsCollection(null).doc(productId);
 
-      final isFavourite = user.favouriteProductIds.contains(productId);
-
-      if (isFavourite) {
-        await removeFromFavourites(userId, productId);
-        return false;
-      } else {
-        await addToFavourites(userId, productId);
-        return true;
+    return FirebaseFirestore.instance.runTransaction((transaction) async {
+      final userDoc = await transaction.get(userRef);
+      if (!userDoc.exists) {
+        throw Exception("User does not exist!");
       }
-    } catch (e) {
-      throw Exception('Failed to toggle favourite: $e');
-    }
+
+      final user = userDoc.data()!;
+      final List<String> currentFavourites = List<String>.from(
+        user.favouriteProductIds,
+      );
+      final bool isCurrentlyFavourite = currentFavourites.contains(productId);
+
+      if (isCurrentlyFavourite) {
+        currentFavourites.remove(productId);
+        transaction.update(userRef, {'favouriteProductIds': currentFavourites});
+        transaction.update(productRef, {
+          'interestedUsers': FieldValue.arrayRemove([userId]),
+        });
+      } else {
+        currentFavourites.add(productId);
+        transaction.update(userRef, {'favouriteProductIds': currentFavourites});
+        transaction.update(productRef, {
+          'interestedUsers': FieldValue.arrayUnion([userId]),
+        });
+      }
+
+      return !isCurrentlyFavourite;
+    });
+  }
+
+  static Future<void> incrementProductViewCount(
+    String productId,
+    String userId,
+  ) async {
+    if (userId.isEmpty) return;
+
+    final productRef = _getProductsCollection(null).doc(productId);
+
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final productDoc = await transaction.get(productRef);
+      if (!productDoc.exists) return;
+
+      final product = productDoc.data()!;
+      final viewedUserIds = List<String>.from(product.viewedUserIds);
+
+      if (!viewedUserIds.contains(userId)) {
+        viewedUserIds.add(userId);
+        transaction.update(productRef, {
+          'viewCount': FieldValue.increment(1),
+          'viewedUserIds': viewedUserIds,
+        });
+      }
+    });
   }
 
   static Future<List<ProductModel>> getFavouriteProducts(
@@ -797,6 +904,77 @@ class FirebaseService {
       return user.favouriteProductIds.contains(productId);
     } catch (e) {
       return false;
+    }
+  }
+
+  // Chat Methods
+  static Future<void> sendMessage(ChatMessage message) async {
+    try {
+      print('=== DEBUG: Sending message to trade: ${message.tradeId} ===');
+      final tradesCollection = _getTradesCollection();
+      final messagesCollection = tradesCollection
+          .doc(message.tradeId)
+          .collection('messages');
+
+      await messagesCollection.doc(message.id).set(message.toJson());
+
+      // Update trade with last message info for preview
+      await tradesCollection.doc(message.tradeId).update({
+        'lastMessage': message.text,
+        'lastMessageTime': Timestamp.fromDate(message.timestamp),
+        'lastMessageSenderId': message.senderId,
+        'hasUnreadMessages': true,
+      });
+      print('=== DEBUG: Message sent successfully ===');
+    } catch (e) {
+      print('=== DEBUG: Failed to send message: $e ===');
+      throw Exception('Failed to send message: $e');
+    }
+  }
+
+  static Stream<List<ChatMessage>> getMessages(String tradeId) {
+    print('=== DEBUG: Listening to messages for trade: $tradeId ===');
+    final tradesCollection = _getTradesCollection();
+    return tradesCollection
+        .doc(tradeId)
+        .collection('messages')
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          print(
+            '=== DEBUG: Received ${snapshot.docs.length} messages for trade $tradeId ===',
+          );
+          return snapshot.docs
+              .map((doc) => ChatMessage.fromJson(doc.data()))
+              .toList();
+        });
+  }
+
+  static Future<void> markMessagesAsRead(String tradeId, String userId) async {
+    try {
+      final tradesCollection = _getTradesCollection();
+      final messagesCollection = tradesCollection
+          .doc(tradeId)
+          .collection('messages');
+
+      final unreadMessages = await messagesCollection
+          .where('isRead', isEqualTo: false)
+          .where('senderId', isNotEqualTo: userId)
+          .get();
+
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (final doc in unreadMessages.docs) {
+        batch.update(doc.reference, {'isRead': true});
+      }
+
+      await batch.commit();
+
+      // Update trade unread status
+      // This is a simplification; ideally we'd check if there are any other unread messages
+      await tradesCollection.doc(tradeId).update({'hasUnreadMessages': false});
+    } catch (e) {
+      print('Failed to mark messages as read: $e');
     }
   }
 }

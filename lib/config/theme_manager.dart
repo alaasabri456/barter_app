@@ -1,11 +1,7 @@
-import 'package:flutter/material.dart' show ThemeData;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/resources/colors_manager.dart';
-
 import '../core/resources/text_styles_manager.dart';
-
 
 class ThemeManager {
   static final ThemeData light = ThemeData(
@@ -26,33 +22,32 @@ class ThemeManager {
     // Card Theme
     cardTheme: CardThemeData(
       color: ColorsManager.cardLight,
-      elevation: 2,
-      shadowColor: ColorsManager.shadowLight,
-      shape: RoundedRectangleBorder(
-         borderRadius: BorderRadius.circular(12),
-       ),
-     ),
+      elevation: 3,
+      shadowColor: ColorsManager.primaryLight.withOpacity(0.1),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    ),
 
     // Bottom Navigation Bar Theme
-    bottomNavigationBarTheme: BottomNavigationBarThemeData(
-      backgroundColor: ColorsManager.surfaceLight,
-      selectedItemColor: ColorsManager.primaryLight,
-      unselectedItemColor: ColorsManager.grey600,
-      type: BottomNavigationBarType.fixed,
-      elevation: 8,
-      selectedLabelStyle: TextStylesManager.tabSelected,
-      unselectedLabelStyle: TextStylesManager.tabUnselected,
-    ),
+    // bottomNavigationBarTheme: BottomNavigationBarThemeData(
+    //   elevation: 0,
+    //   backgroundColor: Colors.white,
+    //   selectedItemColor: Colors.blue,
+    //   unselectedItemColor: Colors.grey,
+    // ),
+    // floatingActionButtonTheme: const FloatingActionButtonThemeData(
+    //   backgroundColor: Colors.orange,
+    //   foregroundColor: Colors.white,
+    //   shape: CircleBorder(),
+    // ),
 
     // Elevated Button Theme
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: ColorsManager.primaryLight,
         foregroundColor: Colors.white,
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        elevation: 4,
+        shadowColor: ColorsManager.primaryLight.withOpacity(0.4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         textStyle: TextStylesManager.buttonLarge,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       ),
@@ -63,9 +58,7 @@ class ThemeManager {
       style: OutlinedButton.styleFrom(
         foregroundColor: ColorsManager.primaryLight,
         side: BorderSide(color: ColorsManager.primaryLight, width: 1),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         textStyle: TextStylesManager.buttonLarge,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       ),
@@ -155,13 +148,11 @@ class ThemeManager {
     ),
 
     // Card Theme
-     cardTheme: CardThemeData(
+    cardTheme: CardThemeData(
       color: ColorsManager.cardDark,
-      elevation: 2,
-      shadowColor: ColorsManager.shadowDark,
-      shape: RoundedRectangleBorder(
-       borderRadius: BorderRadius.circular(12),
-      ),
+      elevation: 3,
+      shadowColor: ColorsManager.primaryDark.withOpacity(0.2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),
 
     // Bottom Navigation Bar Theme
@@ -184,10 +175,9 @@ class ThemeManager {
       style: ElevatedButton.styleFrom(
         backgroundColor: ColorsManager.primaryDark,
         foregroundColor: Colors.white,
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        elevation: 4,
+        shadowColor: ColorsManager.primaryDark.withOpacity(0.4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         textStyle: TextStylesManager.buttonLarge,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       ),
@@ -198,9 +188,7 @@ class ThemeManager {
       style: OutlinedButton.styleFrom(
         foregroundColor: ColorsManager.primaryDark,
         side: BorderSide(color: ColorsManager.primaryDark, width: 1),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         textStyle: TextStylesManager.buttonLarge,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       ),

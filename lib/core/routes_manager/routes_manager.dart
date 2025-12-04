@@ -13,6 +13,8 @@ import '../../features/products/product_details_screen.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/trade/trade_management_screen.dart';
 import '../../features/profile/trade_history_screen.dart';
+import '../../features/favourites/favourites_screen.dart';
+import '../../features/chat/chat_screen.dart';
 
 class RoutesManager {
   static const String register = "/register";
@@ -28,6 +30,7 @@ class RoutesManager {
   static const String tradeManagement = '/trade-management';
   static const String tradeDetails = '/trade-details';
   static const String tradeHistory = '/trade-history';
+  static const String chat = '/chat';
 
   static Route? router(RouteSettings setting) {
     switch (setting.name) {
@@ -91,6 +94,23 @@ class RoutesManager {
           );
         }
 
+      case favourites:
+        {
+          return MaterialPageRoute(
+            builder: (context) => const FavouritesScreen(),
+          );
+        }
+      case chat:
+        {
+          final args = setting.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              tradeId: args['tradeId'],
+              otherUserId: args['otherUserId'],
+              otherUserName: args['otherUserName'],
+            ),
+          );
+        }
     }
   }
 }
