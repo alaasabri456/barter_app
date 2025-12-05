@@ -7,6 +7,8 @@ import '../../core/widgets/loading_widget.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../../features/trade/models/trade_offer.dart';
 import '../../firebase/firebase_service.dart';
+import '../reviews/leave_review_screen.dart';
+import 'public_profile_screen.dart';
 
 class TradeHistoryScreen extends StatefulWidget {
   const TradeHistoryScreen({super.key});
@@ -245,12 +247,28 @@ class _TradeHistoryScreenState extends State<TradeHistoryScreen>
                   ),
                   SizedBox(width: 8.w),
                   Expanded(
-                    child: Text(
-                      isSent
-                          ? 'Traded with $otherUserName'
-                          : 'Received from $otherUserName',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => PublicProfileScreen(
+                              userId: isSent
+                                  ? trade.toUserId
+                                  : trade.fromUserId,
+                              userName: otherUserName,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        isSent
+                            ? 'Traded with $otherUserName'
+                            : 'Received from $otherUserName',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              decoration: TextDecoration.underline,
+                            ),
                       ),
                     ),
                   ),
@@ -337,6 +355,34 @@ class _TradeHistoryScreenState extends State<TradeHistoryScreen>
                   ),
                 ],
               ),
+
+              if (trade.status == TradeStatus.completed ||
+                  trade.status == TradeStatus.accepted) ...[
+                SizedBox(height: 16.h),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => LeaveReviewScreen(
+                            trade: trade,
+                            targetUserId: isSent
+                                ? trade.toUserId
+                                : trade.fromUserId,
+                            targetUserName: otherUserName,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: Icon(Icons.rate_review_outlined, size: 18.w),
+                    label: Text('Leave a Review'),
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: 8.h),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

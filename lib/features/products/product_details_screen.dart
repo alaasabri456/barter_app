@@ -10,7 +10,10 @@ import '../../firebase/firebase_service.dart';
 import '../../features/products/models/product_model.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../authentication/widgets/auth_button.dart';
+import '../chat/chat_screen.dart';
 import '../trade/trade_initiation_screen.dart';
+import '../create_product/create_product.dart';
+import '../profile/public_profile_screen.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final String productId;
@@ -37,13 +40,15 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   Future<void> _loadProductDetails() async {
     try {
-      // Increment view count
+      // Increment view count (fire and forget - don't block loading)
       final userId = UserModel.currentUser?.id ?? '';
       if (userId.isNotEmpty) {
-        await FirebaseService.incrementProductViewCount(
+        FirebaseService.incrementProductViewCount(
           widget.productId,
           userId,
-        );
+        ).catchError((e) {
+          print('Failed to increment view count: $e');
+        });
       }
 
       // Load product details
@@ -251,16 +256,31 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     }
   }
 
-  void _contactOwner() {
-    // Implement contact functionality (email, chat, etc.)
-    showInfoDialog(
-      context: context,
-      title: 'Contact Owner',
-      message:
-          'Contact feature coming soon!\n\n'
-          'Owner: ${_product?.ownerName}\n'
-          'You can initiate a trade to start communication.',
-      icon: Icons.message,
+  void _contactOwner() async {
+    final currentUserId = UserModel.currentUser?.id;
+
+    if (currentUserId == null) {
+      showInfoDialog(
+        context: context,
+        title: 'Sign in Required',
+        message: 'Please sign in to contact the product owner.',
+        icon: Icons.login,
+      );
+      return;
+    }
+
+    if (_product == null) return;
+
+    // Navigate directly to chat screen with product context
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(
+          otherUserId: _product!.ownerId,
+          otherUserName: _product!.ownerName,
+          productTitle: _product!.title,
+          productId: _product!.id,
+        ),
+      ),
     );
   }
 
@@ -287,38 +307,53 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     });
   }
 
-  Widget _buildInfoRow(IconData icon, String title, String value) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8.h),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20.w, color: Theme.of(context).primaryColor),
-          SizedBox(width: 12.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.color?.withOpacity(0.7),
+  Widget _buildInfoRow(
+    IconData icon,
+    String title,
+    String value, {
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8.r),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 4.w),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20.w, color: Theme.of(context).primaryColor),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.color?.withOpacity(0.7),
+                    ),
                   ),
-                ),
-                SizedBox(height: 2.h),
-                Text(
-                  value,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                ),
-              ],
+                  SizedBox(height: 2.h),
+                  Text(
+                    value,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            if (onTap != null)
+              Icon(
+                Icons.chevron_right,
+                size: 16.w,
+                color: Theme.of(context).iconTheme.color?.withOpacity(0.5),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -561,6 +596,16 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                         Icons.person_outline,
                         'Owner',
                         product.ownerName,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => PublicProfileScreen(
+                                userId: product.ownerId,
+                                userName: product.ownerName,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       _buildInfoRow(
                         Icons.category_outlined,
@@ -736,13 +781,18 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       child: AuthButton(
         text: 'Edit Product',
         onPressed: () {
-          // Navigate to edit product screen
-          showInfoDialog(
-            context: context,
-            title: 'Edit Product',
-            message: 'Edit feature coming soon!',
-            icon: Icons.edit_outlined,
-          );
+          if (_product != null) {
+            Navigator.of(context)
+                .push(
+                  MaterialPageRoute(
+                    builder: (context) => CreateProduct(product: _product!),
+                  ),
+                )
+                .then((_) {
+                  // Reload product details when returning from edit screen
+                  _loadProductDetails();
+                });
+          }
         },
       ),
     );

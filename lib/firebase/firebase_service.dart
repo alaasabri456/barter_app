@@ -11,6 +11,7 @@ import '../features/authentication/models/register_request.dart';
 import '../features/trade/models/trade_offer.dart';
 import '../features/authentication/models/user_model.dart';
 import '../features/chat/models/chat_message.dart';
+import '../features/reviews/models/review_model.dart';
 
 class FirebaseService {
   static Future<UserCredential> register(RegisterRequest request) async {
@@ -814,34 +815,68 @@ class FirebaseService {
     final userRef = _getUsersCollection().doc(userId);
     final productRef = _getProductsCollection(null).doc(productId);
 
-    return FirebaseFirestore.instance.runTransaction((transaction) async {
-      final userDoc = await transaction.get(userRef);
+    try {
+      // 1. Get current state (standard get allows cache usage)
+      final userDoc = await userRef.get();
+
+      // 2. Prepare batch (works offline/optimistically)
+      final batch = FirebaseFirestore.instance.batch();
+      bool isCurrentlyFavourite = false;
+
       if (!userDoc.exists) {
-        throw Exception("User does not exist!");
+        // Create user doc if it doesn't exist
+        final user = UserModel(
+          id: userId,
+          email:
+              UserModel.currentUser?.email ??
+              FirebaseAuth.instance.currentUser?.email ??
+              '',
+          name:
+              UserModel.currentUser?.name ??
+              FirebaseAuth.instance.currentUser?.displayName ??
+              'User',
+          favouriteProductIds: [productId], // Add directly
+        );
+        batch.set(userRef, user);
+
+        // Add to product interested users
+        batch.update(productRef, {
+          'interestedUsers': FieldValue.arrayUnion([userId]),
+        });
+
+        await batch.commit();
+        return true;
       }
 
+      // User exists, check current state
       final user = userDoc.data()!;
       final List<String> currentFavourites = List<String>.from(
         user.favouriteProductIds,
       );
-      final bool isCurrentlyFavourite = currentFavourites.contains(productId);
+      isCurrentlyFavourite = currentFavourites.contains(productId);
 
       if (isCurrentlyFavourite) {
-        currentFavourites.remove(productId);
-        transaction.update(userRef, {'favouriteProductIds': currentFavourites});
-        transaction.update(productRef, {
+        batch.update(userRef, {
+          'favouriteProductIds': FieldValue.arrayRemove([productId]),
+        });
+        batch.update(productRef, {
           'interestedUsers': FieldValue.arrayRemove([userId]),
         });
       } else {
-        currentFavourites.add(productId);
-        transaction.update(userRef, {'favouriteProductIds': currentFavourites});
-        transaction.update(productRef, {
+        batch.update(userRef, {
+          'favouriteProductIds': FieldValue.arrayUnion([productId]),
+        });
+        batch.update(productRef, {
           'interestedUsers': FieldValue.arrayUnion([userId]),
         });
       }
 
+      await batch.commit();
       return !isCurrentlyFavourite;
-    });
+    } catch (e) {
+      print('Error toggling favorite: $e');
+      rethrow;
+    }
   }
 
   static Future<void> incrementProductViewCount(
@@ -975,6 +1010,223 @@ class FirebaseService {
       await tradesCollection.doc(tradeId).update({'hasUnreadMessages': false});
     } catch (e) {
       print('Failed to mark messages as read: $e');
+    }
+  }
+
+  // Find an accepted trade between two users involving a specific product
+  static Future<TradeOffer?> getAcceptedTradeBetweenUsers({
+    required String userId1,
+    required String userId2,
+    required String productId,
+  }) async {
+    try {
+      final tradesCollection = _getTradesCollection();
+
+      // Check trades where userId1 is the sender and userId2 is the receiver
+      final sentTrades = await tradesCollection
+          .where('fromUserId', isEqualTo: userId1)
+          .where('toUserId', isEqualTo: userId2)
+          .where('status', isEqualTo: 'accepted')
+          .get();
+
+      for (final doc in sentTrades.docs) {
+        final trade = doc.data();
+        if (trade.requestedProductIds.contains(productId) ||
+            trade.offeredProductIds.contains(productId)) {
+          return trade;
+        }
+      }
+
+      // Check trades where userId2 is the sender and userId1 is the receiver
+      final receivedTrades = await tradesCollection
+          .where('fromUserId', isEqualTo: userId2)
+          .where('toUserId', isEqualTo: userId1)
+          .where('status', isEqualTo: 'accepted')
+          .get();
+
+      for (final doc in receivedTrades.docs) {
+        final trade = doc.data();
+        if (trade.requestedProductIds.contains(productId) ||
+            trade.offeredProductIds.contains(productId)) {
+          return trade;
+        }
+      }
+
+      return null;
+    } catch (e) {
+      print('Failed to find accepted trade: $e');
+      return null;
+    }
+  }
+
+  // ============ CONVERSATION-BASED MESSAGING (Direct Chat) ============
+
+  /// Generate a consistent conversation ID from two user IDs
+  static String getConversationId(String userId1, String userId2) {
+    final sortedIds = [userId1, userId2]..sort();
+    return 'conversation_${sortedIds[0]}_${sortedIds[1]}';
+  }
+
+  /// Get conversations collection reference
+  static CollectionReference _getConversationsCollection() {
+    return FirebaseFirestore.instance.collection('Conversations');
+  }
+
+  /// Get or create a conversation between two users
+  static Future<void> getOrCreateConversation(
+    String userId1,
+    String userId2,
+  ) async {
+    try {
+      final conversationId = getConversationId(userId1, userId2);
+      final conversationsCollection = _getConversationsCollection();
+      final conversationDoc = conversationsCollection.doc(conversationId);
+
+      final snapshot = await conversationDoc.get();
+
+      if (!snapshot.exists) {
+        // Create new conversation
+        await conversationDoc.set({
+          'id': conversationId,
+          'participants': [userId1, userId2],
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'lastMessage': null,
+          'lastMessageTime': null,
+          'lastMessageSenderId': null,
+        });
+      }
+    } catch (e) {
+      print('Failed to get or create conversation: $e');
+      throw Exception('Failed to initialize conversation: $e');
+    }
+  }
+
+  /// Send a message in a conversation
+  static Future<void> sendConversationMessage(
+    ChatMessage message,
+    String conversationId,
+  ) async {
+    try {
+      print('=== DEBUG: Sending message to conversation: $conversationId ===');
+      final conversationsCollection = _getConversationsCollection();
+      final messagesCollection = conversationsCollection
+          .doc(conversationId)
+          .collection('messages');
+
+      await messagesCollection.doc(message.id).set(message.toJson());
+
+      // Update conversation with last message info
+      await conversationsCollection.doc(conversationId).update({
+        'lastMessage': message.text,
+        'lastMessageTime': Timestamp.fromDate(message.timestamp),
+        'lastMessageSenderId': message.senderId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      print('=== DEBUG: Conversation message sent successfully ===');
+    } catch (e) {
+      print('=== DEBUG: Failed to send conversation message: $e ===');
+      throw Exception('Failed to send message: $e');
+    }
+  }
+
+  /// Get messages stream for a conversation
+  static Stream<List<ChatMessage>> getConversationMessages(
+    String conversationId,
+  ) {
+    print(
+      '=== DEBUG: Listening to messages for conversation: $conversationId ===',
+    );
+    final conversationsCollection = _getConversationsCollection();
+    return conversationsCollection
+        .doc(conversationId)
+        .collection('messages')
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          print(
+            '=== DEBUG: Received ${snapshot.docs.length} messages for conversation $conversationId ===',
+          );
+          return snapshot.docs
+              .map((doc) => ChatMessage.fromJson(doc.data()))
+              .toList();
+        });
+  }
+
+  /// Mark messages as read in a conversation
+  static Future<void> markConversationMessagesAsRead(
+    String conversationId,
+    String userId,
+  ) async {
+    try {
+      final conversationsCollection = _getConversationsCollection();
+      final messagesCollection = conversationsCollection
+          .doc(conversationId)
+          .collection('messages');
+
+      final unreadMessages = await messagesCollection
+          .where('isRead', isEqualTo: false)
+          .where('senderId', isNotEqualTo: userId)
+          .get();
+
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (final doc in unreadMessages.docs) {
+        batch.update(doc.reference, {'isRead': true});
+      }
+
+      await batch.commit();
+    } catch (e) {
+      print('Failed to mark conversation messages as read: $e');
+    }
+  }
+
+  static Future<void> updateProductInFireStore(
+    ProductModel product,
+    BuildContext context,
+  ) async {
+    try {
+      final productsCollection = _getProductsCollection(context);
+      final productDocument = productsCollection.doc(product.id);
+
+      // Ensure we don't overwrite critical fields like createdAt or ownerId if they are missing (though they shouldn't be)
+      // We also want to update 'updatedAt'
+      final updatedProduct = product.copyWith(updatedAt: DateTime.now());
+
+      await productDocument.update(updatedProduct.toJson());
+    } catch (e) {
+      throw Exception('Failed to update product: $e');
+    }
+  }
+
+  // Review Methods
+  static Future<void> addReview(ReviewModel review) async {
+    try {
+      final reviewsCollection = FirebaseFirestore.instance.collection(
+        'reviews',
+      );
+      await reviewsCollection.doc(review.id).set(review.toJson());
+    } catch (e) {
+      throw Exception('Failed to add review: $e');
+    }
+  }
+
+  static Future<List<ReviewModel>> getUserReviews(String userId) async {
+    try {
+      final reviewsCollection = FirebaseFirestore.instance.collection(
+        'reviews',
+      );
+      final snapshot = await reviewsCollection
+          .where('targetUserId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => ReviewModel.fromJson(doc.data()))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get user reviews: $e');
     }
   }
 }

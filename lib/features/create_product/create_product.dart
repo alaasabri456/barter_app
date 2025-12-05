@@ -439,7 +439,11 @@ class _CreateProductState extends State<CreateProduct> {
         interestedUsers: _isEditing ? widget.product!.interestedUsers : [],
       );
 
-      await FirebaseService.addProductToFireStore(product, context);
+      if (_isEditing) {
+        await FirebaseService.updateProductInFireStore(product, context);
+      } else {
+        await FirebaseService.addProductToFireStore(product, context);
+      }
 
       if (mounted) {
         await showInfoDialog(

@@ -7,6 +7,8 @@ import '../../features/products/models/product_model.dart';
 import '../../firebase/firebase_service.dart';
 import '../authentication/widgets/auth_text_field.dart';
 import 'widgets/product_card.dart';
+import '../create_product/create_product.dart';
+import 'product_details_screen.dart';
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
@@ -419,19 +421,25 @@ class _ProductsScreenState extends State<ProductsScreen>
             interestedCount: product.interestedUsers.length,
             createdAt: product.createdAt,
             imageUrl: product.images.isNotEmpty ? product.images.first : null,
+            location: product.location,
             onTap: () {
-              // Navigate to product details
-              // Navigator.of(context).pushNamed(
-              //   RoutesManager.productDetails,
-              //   arguments: product.id,
-              // );
+              Navigator.of(context)
+                  .push(
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          ProductDetailsScreen(productId: product.id),
+                    ),
+                  )
+                  .then((_) => _loadProducts());
             },
             onEdit: () {
-              // Navigate to edit product
-              // Navigator.of(context).pushNamed(
-              //   RoutesManager.createProduct,
-              //   arguments: product,
-              // );
+              Navigator.of(context)
+                  .push(
+                    MaterialPageRoute(
+                      builder: (context) => CreateProduct(product: product),
+                    ),
+                  )
+                  .then((_) => _loadProducts());
             },
             onDelete: () async {
               // Show delete confirmation

@@ -105,9 +105,12 @@ class RoutesManager {
           final args = setting.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
             builder: (context) => ChatScreen(
-              tradeId: args['tradeId'],
+              tradeId: args['tradeId'], // Optional
               otherUserId: args['otherUserId'],
               otherUserName: args['otherUserName'],
+              conversationId: args['conversationId'], // Optional
+              productTitle: args['productTitle'], // Optional
+              productId: args['productId'], // Optional
             ),
           );
         }

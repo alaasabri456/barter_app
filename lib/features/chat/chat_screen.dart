@@ -5,15 +5,21 @@ import '../../features/chat/models/chat_message.dart';
 import '../../firebase/firebase_service.dart';
 
 class ChatScreen extends StatefulWidget {
-  final String tradeId;
+  final String? tradeId; // Optional - only present when opened from trade
   final String otherUserId;
   final String otherUserName;
+  final String? conversationId; // Optional - will be generated if not provided
+  final String? productTitle; // Optional - product context
+  final String? productId; // Optional - product context
 
   const ChatScreen({
     super.key,
-    required this.tradeId,
+    this.tradeId,
     required this.otherUserId,
     required this.otherUserName,
+    this.conversationId,
+    this.productTitle,
+    this.productId,
   });
 
   @override
@@ -24,18 +30,41 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isSending = false;
+  late String _conversationId;
 
   @override
   void initState() {
     super.initState();
-    // Mark messages as read when entering the screen
-    _markAsRead();
+    // Generate conversation ID if not provided
+    final currentUserId = UserModel.currentUser?.id ?? '';
+    _conversationId =
+        widget.conversationId ??
+        FirebaseService.getConversationId(currentUserId, widget.otherUserId);
+
+    // Initialize conversation and mark messages as read
+    _initializeChat();
+  }
+
+  Future<void> _initializeChat() async {
+    final currentUserId = UserModel.currentUser?.id;
+    if (currentUserId != null) {
+      // Create conversation if it doesn't exist
+      await FirebaseService.getOrCreateConversation(
+        currentUserId,
+        widget.otherUserId,
+      );
+      // Mark messages as read
+      _markAsRead();
+    }
   }
 
   Future<void> _markAsRead() async {
     final currentUser = UserModel.currentUser;
     if (currentUser != null) {
-      await FirebaseService.markMessagesAsRead(widget.tradeId, currentUser.id);
+      await FirebaseService.markConversationMessagesAsRead(
+        _conversationId,
+        currentUser.id,
+      );
     }
   }
 
@@ -53,13 +82,14 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final message = ChatMessage(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        tradeId: widget.tradeId,
+        conversationId: _conversationId,
+        tradeId: widget.tradeId, // Optional - only set if opened from trade
         senderId: currentUser.id,
         text: text,
         timestamp: DateTime.now(),
       );
 
-      await FirebaseService.sendMessage(message);
+      await FirebaseService.sendConversationMessage(message, _conversationId);
       _messageController.clear();
 
       // Scroll to bottom
@@ -93,10 +123,44 @@ class _ChatScreenState extends State<ChatScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(widget.otherUserName),
-            Text(
-              'ID: ${widget.tradeId.substring(0, 4)}...',
-              style: TextStyle(fontSize: 10.sp, color: Colors.grey),
-            ),
+            // Show trade badge if opened from trade
+            if (widget.tradeId != null)
+              Container(
+                margin: EdgeInsets.only(top: 2.h),
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Text(
+                  'Trade #${widget.tradeId!.substring(0, 6)}',
+                  style: TextStyle(
+                    fontSize: 10.sp,
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+            // Show product badge if opened from product details
+            else if (widget.productTitle != null)
+              Container(
+                margin: EdgeInsets.only(top: 2.h),
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Text(
+                  '${widget.productTitle!}${widget.productId != null ? " #${widget.productId!.substring(0, 6)}" : ""}',
+                  style: TextStyle(
+                    fontSize: 10.sp,
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
           ],
         ),
         elevation: 0,
@@ -105,7 +169,7 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             child: StreamBuilder<List<ChatMessage>>(
-              stream: FirebaseService.getMessages(widget.tradeId),
+              stream: FirebaseService.getConversationMessages(_conversationId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());

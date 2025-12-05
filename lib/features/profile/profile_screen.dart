@@ -10,6 +10,9 @@ import '../../features/authentication/models/user_model.dart';
 import '../../core/theme/theme_provider.dart';
 import '../authentication/widgets/auth_button.dart';
 
+import '../../features/trade/models/trade_offer.dart';
+import '../reviews/reviews_screen.dart';
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -20,27 +23,48 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = false;
   int _createdProductsCount = 0;
+  int _completedTradesCount = 0;
+  int _reviewsCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadCreatedProductsCount();
+    _loadProfileStats();
   }
 
-  Future<void> _loadCreatedProductsCount() async {
+  Future<void> _loadProfileStats() async {
     final userId = UserModel.currentUser?.id;
     if (userId == null) return;
 
     try {
+      // Load products count
       final products = await FirebaseService.getUserProducts(userId, context);
+
+      // Load trades count
+      final sentTrades = await FirebaseService.getSentTrades(userId);
+      final receivedTrades = await FirebaseService.getReceivedTrades(userId);
+
+      final completedTrades = [...sentTrades, ...receivedTrades]
+          .where(
+            (t) =>
+                t.status == TradeStatus.accepted ||
+                t.status == TradeStatus.completed,
+          )
+          .length;
+
+      // Load reviews count
+      final reviews = await FirebaseService.getUserReviews(userId);
+
       if (mounted) {
         setState(() {
           _createdProductsCount = products.length;
+          _completedTradesCount = completedTrades;
+          _reviewsCount = reviews.length;
         });
       }
     } catch (e) {
       // Silently fail or log error
-      print('Error loading created products count: $e');
+      print('Error loading profile stats: $e');
     }
   }
 
@@ -272,13 +296,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         width: 1,
                         color: Colors.white.withOpacity(0.3),
                       ),
-                      _buildStatItem('Trades', '0'),
+                      _buildStatItem('Trades', '$_completedTradesCount'),
                       Container(
                         height: 40.h,
                         width: 1,
                         color: Colors.white.withOpacity(0.3),
                       ),
-                      _buildStatItem('Reviews', '0'),
+                      _buildStatItem(
+                        'Reviews',
+                        '$_reviewsCount',
+                        onTap: () {
+                          if (user != null) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    ReviewsScreen(userId: user.id),
+                              ),
+                            );
+                          }
+                        },
+                      ),
                     ],
                   ),
                 ],
@@ -413,26 +450,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildStatItem(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 20.sp,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+  Widget _buildStatItem(String label, String value, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8.r),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 20.sp,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.sp,
+                color: Colors.white.withOpacity(0.9),
+              ),
+            ),
+          ],
         ),
-        SizedBox(height: 4.h),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.sp,
-            color: Colors.white.withOpacity(0.9),
-          ),
-        ),
-      ],
+      ),
     );
   }
 

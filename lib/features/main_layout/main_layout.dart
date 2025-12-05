@@ -13,13 +13,12 @@ class MainLayout extends StatefulWidget {
   State<MainLayout> createState() => _MainLayoutState();
 }
 
-class _MainLayoutState extends State<MainLayout>
-    with TickerProviderStateMixin {
+class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   List<Widget> tabs = [
     HomeScreen(),
     ProductsScreen(),
     TradeManagementScreen(),
-    ProfileScreen()
+    ProfileScreen(),
   ];
   int selectedIndex = 0;
 
@@ -40,13 +39,9 @@ class _MainLayoutState extends State<MainLayout>
       vsync: this,
     );
 
-    _rotationAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _rotationController,
-      curve: Curves.easeInOut,
-    ));
+    _rotationAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _rotationController, curve: Curves.easeInOut),
+    );
 
     // Initialize scale animation controller (on tap)
     _scaleController = AnimationController(
@@ -54,13 +49,9 @@ class _MainLayoutState extends State<MainLayout>
       vsync: this,
     );
 
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.85,
-    ).animate(CurvedAnimation(
-      parent: _scaleController,
-      curve: Curves.easeInOut,
-    ));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.85).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -102,7 +93,7 @@ class _MainLayoutState extends State<MainLayout>
     return BottomAppBar(
       notchMargin: 8,
       height: 70,
-      color: Colors.white,
+      color: Theme.of(context).bottomNavigationBarTheme.backgroundColor,
       shape: const CircularNotchedRectangle(),
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16),
@@ -149,8 +140,9 @@ class _MainLayoutState extends State<MainLayout>
                     onTap: () => _onTap(2),
                   ),
                   _buildNavItem(
-                    icon:
-                    selectedIndex == 3 ? Icons.person : Icons.person_outline,
+                    icon: selectedIndex == 3
+                        ? Icons.person
+                        : Icons.person_outline,
                     label: 'Profile',
                     isSelected: selectedIndex == 3,
                     onTap: () => _onTap(3),
@@ -170,12 +162,15 @@ class _MainLayoutState extends State<MainLayout>
     required bool isSelected,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context).bottomNavigationBarTheme;
+    final selectedColor =
+        theme.selectedItemColor ?? Theme.of(context).primaryColor;
+    final unselectedColor = theme.unselectedItemColor ?? Colors.grey;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        constraints: BoxConstraints(
-          minHeight: 70,
-        ),
+        constraints: BoxConstraints(minHeight: 70),
         padding: EdgeInsets.symmetric(horizontal: 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -183,7 +178,7 @@ class _MainLayoutState extends State<MainLayout>
           children: [
             Icon(
               icon,
-              color: isSelected ? Color(0xFF5B6CF2) : Color(0xFF9E9E9E),
+              color: isSelected ? selectedColor : unselectedColor,
               size: 24,
             ),
             SizedBox(height: 4),
@@ -192,7 +187,7 @@ class _MainLayoutState extends State<MainLayout>
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                color: isSelected ? Color(0xFF5B6CF2) : Color(0xFF9E9E9E),
+                color: isSelected ? selectedColor : unselectedColor,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

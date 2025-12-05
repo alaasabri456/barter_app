@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ChatMessage {
   final String id;
-  final String tradeId;
+  final String conversationId;
+  final String?
+  tradeId; // Optional - only present when opened from trade context
   final String senderId;
   final String text;
   final DateTime timestamp;
@@ -10,7 +12,8 @@ class ChatMessage {
 
   ChatMessage({
     required this.id,
-    required this.tradeId,
+    required this.conversationId,
+    this.tradeId,
     required this.senderId,
     required this.text,
     required this.timestamp,
@@ -20,7 +23,11 @@ class ChatMessage {
   ChatMessage.fromJson(Map<String, dynamic> json)
     : this(
         id: json['id'] ?? '',
-        tradeId: json['tradeId'] ?? '',
+        conversationId:
+            json['conversationId'] ??
+            json['tradeId'] ??
+            '', // Fallback for old messages
+        tradeId: json['tradeId'],
         senderId: json['senderId'] ?? '',
         text: json['text'] ?? '',
         timestamp: _parseDateTime(json['timestamp']),
@@ -39,17 +46,27 @@ class ChatMessage {
     }
   }
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'tradeId': tradeId,
-    'senderId': senderId,
-    'text': text,
-    'timestamp': Timestamp.fromDate(timestamp),
-    'isRead': isRead,
-  };
+  Map<String, dynamic> toJson() {
+    final json = {
+      'id': id,
+      'conversationId': conversationId,
+      'senderId': senderId,
+      'text': text,
+      'timestamp': Timestamp.fromDate(timestamp),
+      'isRead': isRead,
+    };
+
+    // Only include tradeId if it's not null
+    if (tradeId != null) {
+      json['tradeId'] = tradeId!;
+    }
+
+    return json;
+  }
 
   ChatMessage copyWith({
     String? id,
+    String? conversationId,
     String? tradeId,
     String? senderId,
     String? text,
@@ -58,6 +75,7 @@ class ChatMessage {
   }) {
     return ChatMessage(
       id: id ?? this.id,
+      conversationId: conversationId ?? this.conversationId,
       tradeId: tradeId ?? this.tradeId,
       senderId: senderId ?? this.senderId,
       text: text ?? this.text,

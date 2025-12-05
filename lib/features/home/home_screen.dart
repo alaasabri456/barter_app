@@ -10,7 +10,8 @@ import '../../features/products/models/product_model.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../../core/theme/theme_provider.dart';
 import '../authentication/widgets/auth_text_field.dart';
-import '../trade/trade_initiation_screen.dart';
+
+import '../products/widgets/product_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,6 +23,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  String? _selectedCategory;
   Future<List<ProductModel>>? _productsFuture;
   bool _isRefreshing = false;
 
@@ -91,8 +93,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<ProductModel> _applySearchFilter(List<ProductModel> products) {
-    if (_searchQuery.isEmpty) return products;
-    return products.where((p) {
+    var filtered = products;
+
+    // Apply category filter
+    if (_selectedCategory != null) {
+      filtered = filtered
+          .where(
+            (p) => p.category.toLowerCase() == _selectedCategory!.toLowerCase(),
+          )
+          .toList();
+    }
+
+    // Apply search filter
+    if (_searchQuery.isEmpty) return filtered;
+
+    return filtered.where((p) {
       final title = p.title.toLowerCase();
       final desc = p.description.toLowerCase();
       final category = p.category.toLowerCase();
@@ -394,46 +409,61 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCategoryCard(String title, IconData icon, Color color) {
+    final isSelected = _selectedCategory == title;
+
     return Container(
       width: 90.w,
       margin: EdgeInsets.only(right: 12.w),
       child: Card(
-        elevation: 2,
+        elevation: isSelected ? 4 : 2,
+        color: isSelected ? Theme.of(context).primaryColor : null,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.r),
+          side: isSelected
+              ? BorderSide(color: Colors.white, width: 2)
+              : BorderSide.none,
         ),
         child: InkWell(
           onTap: () {
-            // Navigate to category products
+            setState(() {
+              if (_selectedCategory == title) {
+                _selectedCategory = null; // Deselect if already selected
+              } else {
+                _selectedCategory = title;
+              }
+            });
           },
           borderRadius: BorderRadius.circular(12.r),
           child: Padding(
-            padding: EdgeInsets.all(8.w), // Reduced padding
+            padding: EdgeInsets.all(8.w),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min, // Add this to minimize size
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: EdgeInsets.all(8.w), // Reduced padding
+                  padding: EdgeInsets.all(8.w),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: isSelected
+                        ? Colors.white.withOpacity(0.2)
+                        : color.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     icon,
-                    color: color,
-                    size: 20.w, // Reduced icon size
+                    color: isSelected ? Colors.white : color,
+                    size: 20.w,
                   ),
                 ),
-                SizedBox(height: 4.h), // Reduced spacing
+                SizedBox(height: 4.h),
                 Text(
                   title,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 10.sp, // Explicitly set smaller font size
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    fontSize: 10.sp,
+                    color: isSelected ? Colors.white : null,
                   ),
                   textAlign: TextAlign.center,
-                  maxLines: 2, // Allow 2 lines instead of 1
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -445,208 +475,24 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildProductCard(ProductModel product) {
-    final firstImage = product.images.isNotEmpty ? product.images.first : null;
-    final createdAgo = _formatDate(product.createdAt);
-
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-      child: InkWell(
-        onTap: () {
-          Navigator.of(
-            context,
-          ).pushNamed(RoutesManager.productDetails, arguments: product.id);
-        },
-        borderRadius: BorderRadius.circular(12.r),
-        child: Padding(
-          padding: EdgeInsets.all(16.w),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Product image
-              Container(
-                width: 80.w,
-                height: 80.w,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(8.r),
-                  image: firstImage != null
-                      ? DecorationImage(
-                          image: NetworkImage(firstImage),
-                          fit: BoxFit.cover,
-                        )
-                      : null,
-                ),
-                child: firstImage == null
-                    ? Icon(
-                        Icons.image,
-                        color: Theme.of(context).primaryColor.withOpacity(0.5),
-                        size: 32.w,
-                      )
-                    : null,
-              ),
-
-              SizedBox(width: 12.w),
-
-              // Product details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title
-                    Text(
-                      product.title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    SizedBox(height: 6.h),
-
-                    // Short description
-                    Text(
-                      product.description,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.color?.withOpacity(0.7),
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    SizedBox(height: 8.h),
-
-                    // Category & condition & meta
-                    Row(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 8.w,
-                            vertical: 4.h,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).primaryColor.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(4.r),
-                          ),
-                          child: Text(
-                            product.category,
-                            style: TextStyle(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w500,
-                              color: Theme.of(context).primaryColor,
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: 8.w),
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 8.w,
-                            vertical: 4.h,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(4.r),
-                          ),
-                          child: Text(
-                            product.condition,
-                            style: TextStyle(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.green,
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          createdAgo,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(fontSize: 11.sp),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // Favorite / actions column - UPDATED WITH TRADE BUTTON
-              Column(
-                children: [
-                  // Trade button - only show if it's not the user's own product AND not traded
-                  if (UserModel.currentUser?.id != product.ownerId &&
-                      product.status.name.toLowerCase() != 'traded' &&
-                      product.status.name.toLowerCase() != 'accepted') ...[
-                    IconButton(
-                      onPressed: () {
-                        // Navigate to initiate trade screen
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                InitiateTradeScreen(targetProduct: product),
-                          ),
-                        );
-                      },
-                      icon: Icon(
-                        Icons.swap_horiz,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                      tooltip: 'Make Trade Offer',
-                    ),
-                  ],
-                  // Favorite button
-                  IconButton(
-                    onPressed: _favouriteLoading[product.id] == true
-                        ? null
-                        : () => _toggleFavourite(product),
-                    icon: _favouriteLoading[product.id] == true
-                        ? SizedBox(
-                            width: 20.w,
-                            height: 20.w,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(
-                            _favouriteStates[product.id] == true
-                                ? Icons.favorite
-                                : Icons.favorite_border,
-                            color: _favouriteStates[product.id] == true
-                                ? Colors.red
-                                : Theme.of(
-                                    context,
-                                  ).iconTheme.color?.withOpacity(0.6),
-                          ),
-                    tooltip: _favouriteStates[product.id] == true
-                        ? 'Remove from favorites'
-                        : 'Add to favorites',
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    return ProductCard(
+      title: product.title,
+      description: product.description,
+      category: product.category,
+      condition: product.condition,
+      status: product.status.name,
+      viewCount: product.viewCount,
+      interestedCount: product.interestedUsers.length,
+      createdAt: product.createdAt,
+      imageUrl: product.images.isNotEmpty ? product.images.first : null,
+      location: product.location,
+      isFavorite: _favouriteStates[product.id] ?? false,
+      onFavoriteToggle: () => _toggleFavourite(product),
+      onTap: () {
+        Navigator.of(
+          context,
+        ).pushNamed(RoutesManager.productDetails, arguments: product.id);
+      },
     );
-  }
-
-  String _formatDate(DateTime dt) {
-    final now = DateTime.now();
-    final diff = now.difference(dt);
-
-    if (diff.inDays >= 7) {
-      // show date if older than a week
-      return '${dt.day}/${dt.month}/${dt.year}';
-    } else if (diff.inDays >= 1) {
-      return '${diff.inDays}d';
-    } else if (diff.inHours >= 1) {
-      return '${diff.inHours}h';
-    } else if (diff.inMinutes >= 1) {
-      return '${diff.inMinutes}m';
-    } else {
-      return 'now';
-    }
   }
 }
