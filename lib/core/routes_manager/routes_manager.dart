@@ -15,6 +15,7 @@ import '../../features/trade/trade_management_screen.dart';
 import '../../features/profile/trade_history_screen.dart';
 import '../../features/favourites/favourites_screen.dart';
 import '../../features/chat/chat_screen.dart';
+import '../../features/admin/screens/admin_dashboard_screen.dart';
 
 class RoutesManager {
   static const String register = "/register";
@@ -31,6 +32,7 @@ class RoutesManager {
   static const String tradeDetails = '/trade-details';
   static const String tradeHistory = '/trade-history';
   static const String chat = '/chat';
+  static const String adminDashboard = '/admin-dashboard';
 
   static Route? router(RouteSettings setting) {
     switch (setting.name) {
@@ -112,6 +114,12 @@ class RoutesManager {
               productTitle: args['productTitle'], // Optional
               productId: args['productId'], // Optional
             ),
+          );
+        }
+      case adminDashboard:
+        {
+          return MaterialPageRoute(
+            builder: (context) => const AdminDashboardScreen(),
           );
         }
     }

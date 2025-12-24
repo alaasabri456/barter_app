@@ -26,6 +26,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _selectedCategory;
   Future<List<ProductModel>>? _productsFuture;
   bool _isRefreshing = false;
+  List<String> _allCategories = []; // Combined default + custom categories
+  bool _categoriesLoaded = false;
 
   // Track favorite states for each product
   Map<String, bool> _favouriteStates = {};
@@ -36,6 +38,37 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _productsFuture = FirebaseService.getProductsFromFireStore(context);
     _loadFavouriteStates();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      // Get default categories
+      final defaultCategories = ProductCategory.values
+          .map((c) => c.displayName)
+          .toList();
+
+      // Get approved custom categories
+      final customCategories = await FirebaseService.getApprovedCategories();
+      final customNames = customCategories.map((c) => c.name).toList();
+
+      if (mounted) {
+        setState(() {
+          _allCategories = [...defaultCategories, ...customNames];
+          _categoriesLoaded = true;
+        });
+      }
+    } catch (e) {
+      // Fallback to default categories only
+      if (mounted) {
+        setState(() {
+          _allCategories = ProductCategory.values
+              .map((c) => c.displayName)
+              .toList();
+          _categoriesLoaded = true;
+        });
+      }
+    }
   }
 
   Future<void> _loadFavouriteStates() async {
@@ -77,6 +110,9 @@ class _HomeScreenState extends State<HomeScreen> {
       // reassign the future so the FutureBuilder re-runs
       _productsFuture = FirebaseService.getProductsFromFireStore(context);
     });
+
+    // Also reload categories in case new ones were approved
+    _loadCategories();
 
     try {
       // Await the current fetch so RefreshIndicator spinner shows until complete
@@ -269,7 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
 
-                // Categories horizontal list (static for now)
+                // Categories horizontal list (dynamic)
                 SliverToBoxAdapter(
                   child: Container(
                     padding: EdgeInsets.symmetric(horizontal: 20.w),
@@ -285,45 +321,24 @@ class _HomeScreenState extends State<HomeScreen> {
                         SizedBox(height: 12.h),
                         SizedBox(
                           height: 110.h,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            padding: EdgeInsets.symmetric(
-                              vertical: 8.h,
-                              horizontal: 4.w,
-                            ),
-                            children: [
-                              _buildCategoryCard(
-                                'Electronics',
-                                Icons.phone_android,
-                                Colors.blue,
-                              ),
-                              _buildCategoryCard(
-                                'Clothing',
-                                Icons.checkroom,
-                                Colors.purple,
-                              ),
-                              _buildCategoryCard(
-                                'Books',
-                                Icons.menu_book,
-                                Colors.brown,
-                              ),
-                              _buildCategoryCard(
-                                'Sports',
-                                Icons.sports_football,
-                                Colors.green,
-                              ),
-                              _buildCategoryCard(
-                                'Home',
-                                Icons.home,
-                                Colors.orange,
-                              ),
-                              _buildCategoryCard(
-                                'Others',
-                                Icons.more_horiz,
-                                Colors.grey,
-                              ),
-                            ],
-                          ),
+                          child: _categoriesLoaded
+                              ? ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: 8.h,
+                                    horizontal: 4.w,
+                                  ),
+                                  itemCount: _allCategories.length,
+                                  itemBuilder: (context, index) {
+                                    final category = _allCategories[index];
+                                    return _buildCategoryCard(
+                                      category,
+                                      _getCategoryIcon(category),
+                                      _getCategoryColor(category, index),
+                                    );
+                                  },
+                                )
+                              : Center(child: CircularProgressIndicator()),
                         ),
                         SizedBox(height: 8.h),
                       ],
@@ -408,11 +423,75 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'electronics':
+        return Icons.devices;
+      case 'clothing':
+        return Icons.checkroom;
+      case 'books':
+        return Icons.auto_stories;
+      case 'sports':
+        return Icons.sports_basketball;
+      case 'home':
+        return Icons.home_outlined;
+      case 'furniture':
+        return Icons.chair_outlined;
+      case 'toys':
+        return Icons.toys_outlined;
+      case 'tools':
+        return Icons.construction_outlined;
+      case 'jewelry':
+        return Icons.diamond_outlined;
+      case 'art':
+        return Icons.palette_outlined;
+      case 'music':
+        return Icons.music_note_outlined;
+      case 'games':
+        return Icons.sports_esports_outlined;
+      case 'others':
+        return Icons.category_outlined;
+      default:
+        // Custom categories get a sparkle icon
+        return Icons.auto_awesome_outlined;
+    }
+  }
+
+  Color _getCategoryColor(String category, int index) {
+    switch (category.toLowerCase()) {
+      case 'electronics':
+        return Colors.blue;
+      case 'clothing':
+        return Colors.purple;
+      case 'books':
+        return Colors.brown;
+      case 'sports':
+        return Colors.green;
+      case 'home':
+        return Colors.orange;
+      case 'others':
+        return Colors.grey;
+      default:
+        // Custom categories get colors from a palette
+        final colors = [
+          Colors.teal,
+          Colors.pink,
+          Colors.indigo,
+          Colors.amber,
+          Colors.cyan,
+          Colors.deepOrange,
+          Colors.lime,
+          Colors.deepPurple,
+        ];
+        return colors[index % colors.length];
+    }
+  }
+
   Widget _buildCategoryCard(String title, IconData icon, Color color) {
     final isSelected = _selectedCategory == title;
 
     return Container(
-      width: 90.w,
+      width: 95.w,
       margin: EdgeInsets.only(right: 12.w),
       child: Card(
         elevation: isSelected ? 4 : 2,
@@ -435,13 +514,13 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           borderRadius: BorderRadius.circular(12.r),
           child: Padding(
-            padding: EdgeInsets.all(8.w),
+            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 8.h),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: EdgeInsets.all(8.w),
+                  padding: EdgeInsets.all(10.w),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? Colors.white.withOpacity(0.2)
@@ -451,20 +530,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Icon(
                     icon,
                     color: isSelected ? Colors.white : color,
-                    size: 20.w,
+                    size: 22.w,
                   ),
                 ),
-                SizedBox(height: 4.h),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    fontSize: 10.sp,
-                    color: isSelected ? Colors.white : null,
+                SizedBox(height: 6.h),
+                Flexible(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.w500,
+                      fontSize: 10.sp,
+                      color: isSelected ? Colors.white : null,
+                      height: 1.2,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),

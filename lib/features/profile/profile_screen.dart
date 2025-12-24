@@ -333,6 +333,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildSectionTitle('Account'),
                   SizedBox(height: 12.h),
 
+                  // Admin Panel (only for admins)
+                  if (user?.isAdmin == true)
+                    _buildSettingItem(
+                      icon: Icons.admin_panel_settings,
+                      title: 'Admin Panel',
+                      subtitle: 'Manage users and moderate content',
+                      onTap: () {
+                        Navigator.of(
+                          context,
+                        ).pushNamed(RoutesManager.adminDashboard);
+                      },
+                    ),
+
                   _buildSettingItem(
                     icon: Icons.person_outline,
                     title: 'Edit Profile',

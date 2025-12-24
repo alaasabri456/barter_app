@@ -3,6 +3,7 @@ class ProductModel {
   final String title;
   final String description;
   final String category;
+  final String? customCategory; // For pending custom categories
   final String condition;
   final String ownerId;
   final String ownerName;
@@ -22,6 +23,7 @@ class ProductModel {
     required this.title,
     required this.description,
     required this.category,
+    this.customCategory,
     required this.condition,
     required this.ownerId,
     required this.ownerName,
@@ -43,6 +45,7 @@ class ProductModel {
         title: json["title"] ?? '',
         description: json["description"] ?? '',
         category: json["category"] ?? '',
+        customCategory: json["customCategory"],
         condition: json["condition"] ?? '',
         ownerId: json["ownerId"] ?? '',
         ownerName: json["ownerName"] ?? '',
@@ -99,6 +102,7 @@ class ProductModel {
     "title": title,
     "description": description,
     "category": category,
+    "customCategory": customCategory,
     "condition": condition,
     "ownerId": ownerId,
     "ownerName": ownerName,
@@ -119,6 +123,7 @@ class ProductModel {
     String? title,
     String? description,
     String? category,
+    String? customCategory,
     String? condition,
     String? ownerId,
     String? ownerName,
@@ -138,6 +143,7 @@ class ProductModel {
       title: title ?? this.title,
       description: description ?? this.description,
       category: category ?? this.category,
+      customCategory: customCategory ?? this.customCategory,
       condition: condition ?? this.condition,
       ownerId: ownerId ?? this.ownerId,
       ownerName: ownerName ?? this.ownerName,

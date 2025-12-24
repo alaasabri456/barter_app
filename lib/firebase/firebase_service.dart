@@ -12,6 +12,8 @@ import '../features/trade/models/trade_offer.dart';
 import '../features/authentication/models/user_model.dart';
 import '../features/chat/models/chat_message.dart';
 import '../features/reviews/models/review_model.dart';
+import '../features/admin/models/admin_stats_model.dart';
+import '../features/admin/models/category_suggestion_model.dart';
 
 class FirebaseService {
   static Future<UserCredential> register(RegisterRequest request) async {
@@ -145,69 +147,6 @@ class FirebaseService {
       throw Exception('Failed to upload images: $e');
     }
   }
-
-  // static const int maxImageSize = 800; // Max width/height for compressed images
-  // static const int imageQuality = 80; // JPEG quality (0-100)
-  //
-  // static Future<String> compressAndConvertToBase64(File imageFile) async {
-  // try {
-  // final originalBytes = await imageFile.readAsBytes();
-  //
-  // // Check file size - if it's too large, compress it
-  // if (originalBytes.length > 1024 * 1024) { // 1MB
-  // final originalImage = img.decodeImage(originalBytes);
-  // if (originalImage == null) {
-  // throw Exception('Failed to decode image');
-  // }
-  //
-  // // Resize image if it's too large
-  // final resizedImage = img.copyResize(
-  // originalImage,
-  // width: maxImageSize,
-  // height: maxImageSize,
-  // maintainAspect: true,
-  // );
-
-  // // Convert to JPEG with compression
-  // final compressedBytes = img.encodeJpg(resizedImage, quality: imageQuality);
-  // return base64Encode(compressedBytes);
-  // } else {
-  // // Image is small enough, use as-is
-  // return base64Encode(originalBytes);
-  // }
-  // } catch (e) {
-  // throw Exception('Failed to process image: $e');
-  // }
-  // }
-  //
-  // static Future<List<String>> uploadProductImages(List<String> imagePaths, String userId) async {
-  // try {
-  // List<String> base64Images = [];
-  //
-  // for (int i = 0; i < imagePaths.length; i++) {
-  // final File imageFile = File(imagePaths[i]);
-  // final String base64String = await compressAndConvertToBase64(imageFile);
-  // // Store with data URL format for easy display
-  // base64Images.add('data:image/jpeg;base64,$base64String');
-  // }
-  //
-  // return base64Images;
-  // } catch (e) {
-  // throw Exception('Failed to process images: $e');
-  // }
-  // }
-  //
-  // // Your existing method for adding product to Firestore
-  // static Future<void> addProductToFireStore(ProductModel product, BuildContext context) async {
-  // try {
-  // await FirebaseFirestore.instance
-  //     .collection('products')
-  //     .doc(product.id)
-  //     .set(product.toJson());
-  // } catch (e) {
-  // throw Exception('Failed to save product: $e');
-  // }
-  // }
 
   static CollectionReference<TradeOffer> _getTradesCollection() {
     FirebaseFirestore db = FirebaseFirestore.instance;
@@ -1227,6 +1166,433 @@ class FirebaseService {
           .toList();
     } catch (e) {
       throw Exception('Failed to get user reviews: $e');
+    }
+  }
+
+  // ============ ADMIN METHODS ============
+
+  /// Get all users (admin only)
+  static Future<List<UserModel>> getAllUsers() async {
+    try {
+      final usersCollection = _getUsersCollection();
+      final querySnapshot = await usersCollection.get();
+      return querySnapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      throw Exception('Failed to get all users: $e');
+    }
+  }
+
+  /// Update user role (admin only)
+  static Future<void> updateUserRole({
+    required String userId,
+    required UserRole newRole,
+  }) async {
+    try {
+      final usersCollection = _getUsersCollection();
+      final userDoc = usersCollection.doc(userId);
+
+      await userDoc.update({'role': newRole.name});
+
+      // Update current user if it's the same user
+      if (UserModel.currentUser?.id == userId) {
+        final updatedUser = await getUserFromFireStore(userId);
+        if (updatedUser != null) {
+          UserModel.currentUser = updatedUser;
+        }
+      }
+    } catch (e) {
+      throw Exception('Failed to update user role: $e');
+    }
+  }
+
+  /// Suspend user (admin only)
+  static Future<void> suspendUser(String userId) async {
+    try {
+      // Mark all user's products as unavailable
+      final productsCollection = _getProductsCollection(null);
+      final userProducts = await productsCollection
+          .where('ownerId', isEqualTo: userId)
+          .get();
+
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (final doc in userProducts.docs) {
+        batch.update(doc.reference, {
+          'isAvailable': false,
+          'status': ProductStatus.unavailable.name,
+        });
+      }
+
+      // Reject all pending trades involving this user
+      final tradesCollection = _getTradesCollection();
+      final sentTrades = await tradesCollection
+          .where('fromUserId', isEqualTo: userId)
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      final receivedTrades = await tradesCollection
+          .where('toUserId', isEqualTo: userId)
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      for (final doc in [...sentTrades.docs, ...receivedTrades.docs]) {
+        batch.update(doc.reference, {
+          'status': TradeStatus.rejected.name,
+          'updatedAt': Timestamp.now(),
+        });
+      }
+
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to suspend user: $e');
+    }
+  }
+
+  /// Delete user and all their data (admin only)
+  static Future<void> deleteUserData(String userId) async {
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+
+      // Delete user's products
+      final productsCollection = _getProductsCollection(null);
+      final userProducts = await productsCollection
+          .where('ownerId', isEqualTo: userId)
+          .get();
+
+      for (final doc in userProducts.docs) {
+        batch.delete(doc.reference);
+      }
+
+      // Delete user's trades
+      final tradesCollection = _getTradesCollection();
+      final sentTrades = await tradesCollection
+          .where('fromUserId', isEqualTo: userId)
+          .get();
+
+      final receivedTrades = await tradesCollection
+          .where('toUserId', isEqualTo: userId)
+          .get();
+
+      for (final doc in [...sentTrades.docs, ...receivedTrades.docs]) {
+        batch.delete(doc.reference);
+      }
+
+      // Delete user document
+      final usersCollection = _getUsersCollection();
+      batch.delete(usersCollection.doc(userId));
+
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to delete user data: $e');
+    }
+  }
+
+  /// Delete product (admin only)
+  static Future<void> deleteProductById(
+    String productId,
+    BuildContext? context,
+  ) async {
+    try {
+      final productsCollection = _getProductsCollection(context);
+      await productsCollection.doc(productId).delete();
+
+      // Also reject any pending trades for this product
+      final tradesCollection = _getTradesCollection();
+      final trades = await tradesCollection
+          .where('requestedProductIds', arrayContains: productId)
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in trades.docs) {
+        batch.update(doc.reference, {
+          'status': TradeStatus.rejected.name,
+          'updatedAt': Timestamp.now(),
+        });
+      }
+
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to delete product: $e');
+    }
+  }
+
+  /// Get all products (admin view)
+  static Future<List<ProductModel>> getAllProductsAdmin(
+    BuildContext? context,
+  ) async {
+    try {
+      final productsCollection = _getProductsCollection(context);
+      final querySnapshot = await productsCollection
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return querySnapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      throw Exception('Failed to get all products: $e');
+    }
+  }
+
+  /// Get system statistics (admin only)
+  static Future<AdminStats> getSystemStats() async {
+    try {
+      // Get user counts
+      final usersCollection = _getUsersCollection();
+      final usersSnapshot = await usersCollection.get();
+      final users = usersSnapshot.docs.map((doc) => doc.data()).toList();
+
+      final usersByRole = <String, int>{};
+      for (final role in UserRole.values) {
+        usersByRole[role.name] = users.where((u) => u.role == role).length;
+      }
+
+      // Get product count
+      final productsCollection = _getProductsCollection(null);
+      final productsSnapshot = await productsCollection.get();
+
+      // Get trade counts
+      final tradesCollection = _getTradesCollection();
+      final tradesSnapshot = await tradesCollection.get();
+      final trades = tradesSnapshot.docs.map((doc) => doc.data()).toList();
+
+      final activeTrades = trades
+          .where((t) => t.status == TradeStatus.accepted)
+          .length;
+      final completedTrades = trades
+          .where((t) => t.status == TradeStatus.completed)
+          .length;
+      final pendingTrades = trades
+          .where((t) => t.status == TradeStatus.pending)
+          .length;
+
+      return AdminStats(
+        totalUsers: users.length,
+        totalProducts: productsSnapshot.docs.length,
+        totalTrades: trades.length,
+        activeTrades: activeTrades,
+        completedTrades: completedTrades,
+        pendingTrades: pendingTrades,
+        usersByRole: usersByRole,
+        lastUpdated: DateTime.now(),
+      );
+    } catch (e) {
+      throw Exception('Failed to get system stats: $e');
+    }
+  }
+
+  /// Search users by name or email (admin only)
+  static Future<List<UserModel>> searchUsers(String query) async {
+    try {
+      final usersCollection = _getUsersCollection();
+      final querySnapshot = await usersCollection.get();
+      final users = querySnapshot.docs.map((doc) => doc.data()).toList();
+
+      final lowerQuery = query.toLowerCase();
+      return users.where((user) {
+        return user.name.toLowerCase().contains(lowerQuery) ||
+            user.email.toLowerCase().contains(lowerQuery);
+      }).toList();
+    } catch (e) {
+      throw Exception('Failed to search users: $e');
+    }
+  }
+
+  // ==================== Category Management ====================
+
+  static CollectionReference<CategorySuggestion>
+  _getCategorySuggestionsCollection() {
+    return FirebaseFirestore.instance
+        .collection('CategorySuggestions')
+        .withConverter<CategorySuggestion>(
+          fromFirestore: (snapshot, _) =>
+              CategorySuggestion.fromJson(snapshot.data()!),
+          toFirestore: (suggestion, _) => suggestion.toJson(),
+        );
+  }
+
+  static CollectionReference<ApprovedCategory>
+  _getApprovedCategoriesCollection() {
+    return FirebaseFirestore.instance
+        .collection('ApprovedCategories')
+        .withConverter<ApprovedCategory>(
+          fromFirestore: (snapshot, _) =>
+              ApprovedCategory.fromJson(snapshot.data()!),
+          toFirestore: (category, _) => category.toJson(),
+        );
+  }
+
+  /// Suggest a new category
+  static Future<String> suggestCategory({
+    required String name,
+    required String userId,
+    required String userName,
+  }) async {
+    try {
+      // Check if category already exists (case-insensitive)
+      final existingApproved = await getApprovedCategories();
+      if (existingApproved.any(
+        (c) => c.name.toLowerCase() == name.toLowerCase(),
+      )) {
+        throw Exception('This category already exists');
+      }
+
+      // Check if already suggested
+      final existingSuggestions = await _getCategorySuggestionsCollection()
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      final hasPending = existingSuggestions.docs.any(
+        (doc) => doc.data().suggestedName.toLowerCase() == name.toLowerCase(),
+      );
+
+      if (hasPending) {
+        throw Exception(
+          'This category has already been suggested and is pending approval',
+        );
+      }
+
+      final docRef = _getCategorySuggestionsCollection().doc();
+      final suggestion = CategorySuggestion(
+        id: docRef.id,
+        suggestedName: name,
+        suggestedBy: userId,
+        suggestedByName: userName,
+        createdAt: DateTime.now(),
+      );
+
+      await docRef.set(suggestion);
+      return docRef.id;
+    } catch (e) {
+      throw Exception('Failed to suggest category: $e');
+    }
+  }
+
+  /// Get all category suggestions (admin only)
+  static Future<List<CategorySuggestion>> getCategorySuggestions({
+    CategoryStatus? status,
+  }) async {
+    try {
+      Query<CategorySuggestion> query = _getCategorySuggestionsCollection();
+
+      if (status != null) {
+        query = query.where('status', isEqualTo: status.name);
+      }
+
+      final snapshot = await query.orderBy('createdAt', descending: true).get();
+      return snapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      throw Exception('Failed to get category suggestions: $e');
+    }
+  }
+
+  /// Approve a category suggestion
+  static Future<void> approveCategorySuggestion({
+    required String suggestionId,
+    required String adminId,
+    required String adminName,
+  }) async {
+    try {
+      final suggestionDoc = await _getCategorySuggestionsCollection()
+          .doc(suggestionId)
+          .get();
+
+      if (!suggestionDoc.exists) {
+        throw Exception('Suggestion not found');
+      }
+
+      final suggestion = suggestionDoc.data()!;
+
+      // Update suggestion status
+      await _getCategorySuggestionsCollection().doc(suggestionId).update({
+        'status': CategoryStatus.approved.name,
+        'reviewedBy': adminId,
+        'reviewedByName': adminName,
+        'reviewedAt': DateTime.now().toIso8601String(),
+      });
+
+      // Add to approved categories
+      final approvedDoc = _getApprovedCategoriesCollection().doc();
+      final approvedCategory = ApprovedCategory(
+        id: approvedDoc.id,
+        name: suggestion.suggestedName,
+        addedBy: adminId,
+        addedByName: adminName,
+        addedAt: DateTime.now(),
+      );
+
+      await approvedDoc.set(approvedCategory);
+
+      // Update products with this custom category
+      await _updateProductsWithApprovedCategory(
+        suggestion.suggestedName,
+        suggestion.suggestedName,
+      );
+    } catch (e) {
+      throw Exception('Failed to approve category: $e');
+    }
+  }
+
+  /// Reject a category suggestion
+  static Future<void> rejectCategorySuggestion({
+    required String suggestionId,
+    required String adminId,
+    required String adminName,
+  }) async {
+    try {
+      await _getCategorySuggestionsCollection().doc(suggestionId).update({
+        'status': CategoryStatus.rejected.name,
+        'reviewedBy': adminId,
+        'reviewedByName': adminName,
+        'reviewedAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to reject category: $e');
+    }
+  }
+
+  /// Get all approved custom categories
+  static Future<List<ApprovedCategory>> getApprovedCategories() async {
+    try {
+      final snapshot = await _getApprovedCategoriesCollection()
+          .orderBy('name')
+          .get();
+      return snapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      throw Exception('Failed to get approved categories: $e');
+    }
+  }
+
+  /// Update products when a custom category is approved
+  static Future<void> _updateProductsWithApprovedCategory(
+    String customCategoryName,
+    String approvedCategoryName,
+  ) async {
+    try {
+      final productsSnapshot = await _getProductsCollection(
+        null,
+      ).where('customCategory', isEqualTo: customCategoryName).get();
+
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (var doc in productsSnapshot.docs) {
+        batch.update(doc.reference, {
+          'category': approvedCategoryName,
+          'customCategory': null, // Clear the custom category field
+        });
+      }
+
+      await batch.commit();
+    } catch (e) {
+      print('Error updating products with approved category: $e');
+    }
+  }
+
+  /// Delete a category suggestion
+  static Future<void> deleteCategorySuggestion(String suggestionId) async {
+    try {
+      await _getCategorySuggestionsCollection().doc(suggestionId).delete();
+    } catch (e) {
+      throw Exception('Failed to delete category suggestion: $e');
     }
   }
 }

@@ -33,6 +33,7 @@ class _CreateProductState extends State<CreateProduct> {
   final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
   final _tagsController = TextEditingController();
+  final _customCategoryController = TextEditingController();
 
   bool _isLoading = false;
   bool _isUploadingImages = false;
@@ -71,6 +72,7 @@ class _CreateProductState extends State<CreateProduct> {
     _descriptionController.dispose();
     _locationController.dispose();
     _tagsController.dispose();
+    _customCategoryController.dispose();
     super.dispose();
   }
 
@@ -419,11 +421,31 @@ class _CreateProductState extends State<CreateProduct> {
           ? widget.product!.id
           : 'product_${now.millisecondsSinceEpoch}';
 
+      // Handle custom category suggestion
+      String? customCategoryName;
+      if (_selectedCategory == ProductCategory.others.name &&
+          _customCategoryController.text.trim().isNotEmpty) {
+        customCategoryName = _customCategoryController.text.trim();
+
+        // Suggest the category to admin
+        try {
+          await FirebaseService.suggestCategory(
+            name: customCategoryName,
+            userId: user.id,
+            userName: user.name,
+          );
+        } catch (e) {
+          // If suggestion fails (e.g., already exists), just log it
+          print('Category suggestion note: $e');
+        }
+      }
+
       final product = ProductModel(
         id: productId,
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         category: _selectedCategory,
+        customCategory: customCategoryName, // Store custom category if provided
         condition: _selectedCondition,
         ownerId: user.id,
         ownerName: user.name,
@@ -451,6 +473,8 @@ class _CreateProductState extends State<CreateProduct> {
           title: _isEditing ? 'Product Updated' : 'Product Created',
           message: _isEditing
               ? 'Your product has been updated successfully!'
+              : customCategoryName != null
+              ? 'Your product has been created! The custom category "$customCategoryName" will be reviewed by an admin.'
               : 'Your product has been created successfully!',
           icon: Icons.check_circle_outlined,
           iconColor: Colors.green,
@@ -566,9 +590,66 @@ class _CreateProductState extends State<CreateProduct> {
                       setState(() {
                         _selectedCategory =
                             value ?? ProductCategory.others.name;
+                        // Clear custom category if not "others"
+                        if (_selectedCategory != ProductCategory.others.name) {
+                          _customCategoryController.clear();
+                        }
                       });
                     },
                   ),
+
+                  // Custom Category Input (shown when "Others" is selected)
+                  if (_selectedCategory == ProductCategory.others.name) ...[
+                    SizedBox(height: 16.h),
+                    AuthTextField(
+                      label: 'Custom Category Name',
+                      hint: 'Enter your category name',
+                      controller: _customCategoryController,
+                      validator: (value) {
+                        if (_selectedCategory == ProductCategory.others.name) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter a category name';
+                          }
+                          if (value.trim().length < 3) {
+                            return 'Category name must be at least 3 characters';
+                          }
+                          if (value.trim().length > 30) {
+                            return 'Category name must be less than 30 characters';
+                          }
+                        }
+                        return null;
+                      },
+                      textInputAction: TextInputAction.next,
+                    ),
+                    SizedBox(height: 8.h),
+                    Container(
+                      padding: EdgeInsets.all(12.w),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8.r),
+                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 20.w,
+                            color: Colors.blue,
+                          ),
+                          SizedBox(width: 8.w),
+                          Expanded(
+                            child: Text(
+                              'Your custom category will be reviewed by an admin before being added to the category list.',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                color: Colors.blue.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   SizedBox(height: 24.h),
 
