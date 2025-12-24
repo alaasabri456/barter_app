@@ -1,6 +1,7 @@
 // features/product_details/product_details_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/routes_manager/routes_manager.dart';
 import '../../core/widgets/custom_app_bar.dart';
@@ -287,8 +288,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   void _reportProduct() {
     showConfirmationDialog(
       context: context,
-      title: 'Report Product',
-      message: 'Are you sure you want to report this product?',
+      title: 'Report Item',
+      message: 'Are you sure you want to report this item?',
       confirmText: 'Report',
       cancelText: 'Cancel',
       icon: Icons.flag_outlined,
@@ -298,13 +299,20 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         showInfoDialog(
           context: context,
           title: 'Report Submitted',
-          message:
-              'Thank you for reporting. We will review this product shortly.',
+          message: 'Thank you for reporting. We will review this item shortly.',
           icon: Icons.check_circle,
           iconColor: Colors.green,
         );
       }
     });
+  }
+
+  void _shareProduct() {
+    if (_product == null) return;
+    Share.share(
+      'Check out this item on Barter: ${_product!.title}\n\n${_product!.description}\n\nCondition: ${_product!.condition}',
+      subject: 'Check out ${_product!.title}',
+    );
   }
 
   Widget _buildInfoRow(
@@ -364,12 +372,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
     return Scaffold(
       appBar: CustomAppBar(
-        title: 'Product Details',
+        title: 'Item Details',
         actions: [
+          IconButton(
+            onPressed: _shareProduct,
+            icon: Icon(Icons.share_outlined),
+            tooltip: 'Share Item',
+          ),
           IconButton(
             onPressed: _reportProduct,
             icon: Icon(Icons.flag_outlined),
-            tooltip: 'Report Product',
+            tooltip: 'Report Item',
           ),
         ],
       ),
@@ -587,7 +600,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
                       // Product Details
                       Text(
-                        'Product Details',
+                        'Item Details',
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
@@ -779,7 +792,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     return SizedBox(
       width: double.infinity,
       child: AuthButton(
-        text: 'Edit Product',
+        text: 'Edit Item',
         onPressed: () {
           if (_product != null) {
             Navigator.of(context)

@@ -212,19 +212,67 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: CustomAppBar(
-        title: 'Barter',
+        title: '',
+        titleWidget: Image.asset(
+          'assets/images/logo_transparent_v2.png',
+          height: 120.h,
+          fit: BoxFit.contain,
+        ),
+        height: 80,
         actions: [
           IconButton(
             onPressed: () {
-              themeProvider.changeAppTheme(
-                themeProvider.isDark ? ThemeMode.light : ThemeMode.dark,
-              );
+              // TODO: Navigate to notifications screen
             },
-            icon: Icon(
-              themeProvider.isDark ? Icons.light_mode : Icons.dark_mode,
-            ),
+            icon: Icon(Icons.notifications_outlined, size: 28.sp),
           ),
+          SizedBox(width: 8.w),
         ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            UserAccountsDrawerHeader(
+              decoration: BoxDecoration(color: Theme.of(context).primaryColor),
+              accountName: Text(
+                user?.name ?? 'Guest User',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18.sp),
+              ),
+              accountEmail: Text(user?.email ?? ''),
+              currentAccountPicture: CircleAvatar(
+                backgroundColor: Colors.white,
+                child: Text(
+                  (user?.name ?? 'G').substring(0, 1).toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 24.sp,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+              ),
+            ),
+
+            ListTile(
+              leading: Icon(Icons.chat_bubble_outline),
+              title: Text('Chat'),
+              onTap: () {
+                Navigator.pop(context); // Close drawer
+                Navigator.pushNamed(context, RoutesManager.chatList);
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                themeProvider.isDark ? Icons.light_mode : Icons.dark_mode,
+              ),
+              title: Text(themeProvider.isDark ? 'Light Mode' : 'Dark Mode'),
+              onTap: () {
+                themeProvider.changeAppTheme(
+                  themeProvider.isDark ? ThemeMode.light : ThemeMode.dark,
+                );
+              },
+            ),
+          ],
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: _refreshProducts,
@@ -247,7 +295,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Padding(
                       padding: EdgeInsets.all(24.w),
                       child: Text(
-                        'Failed to load products:\n$errorText',
+                        'Failed to load items:\n$errorText',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ),
@@ -263,36 +311,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
             return CustomScrollView(
               slivers: [
-                // Welcome + Search
+                // Search Bar (formerly with Welcome Text)
                 SliverToBoxAdapter(
                   child: Container(
                     padding: EdgeInsets.all(20.w),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Welcome back,',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).textTheme.titleLarge?.color?.withOpacity(0.7),
-                              ),
-                        ),
-                        SizedBox(height: 4.h),
-                        Text(
-                          user?.name ?? 'User',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).primaryColor,
-                              ),
-                        ),
-                        SizedBox(height: 20.h),
-
                         // Search bar
                         SearchTextField(
-                          hint: 'Search products to barter...',
+                          hint: 'Search items to barter...',
                           controller: _searchController,
                           onChanged: _onSearchChanged,
                           onClear: () {
@@ -305,43 +333,69 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
 
-                // Categories horizontal list (dynamic)
+                // Categories Filter
                 SliverToBoxAdapter(
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 20.w),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(height: 12.h),
-                        Text(
-                          'Categories',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        SizedBox(height: 12.h),
-                        SizedBox(
-                          height: 110.h,
-                          child: _categoriesLoaded
-                              ? ListView.builder(
-                                  scrollDirection: Axis.horizontal,
-                                  padding: EdgeInsets.symmetric(
-                                    vertical: 8.h,
-                                    horizontal: 4.w,
-                                  ),
-                                  itemCount: _allCategories.length,
-                                  itemBuilder: (context, index) {
-                                    final category = _allCategories[index];
-                                    return _buildCategoryCard(
-                                      category,
-                                      _getCategoryIcon(category),
-                                      _getCategoryColor(category, index),
-                                    );
-                                  },
-                                )
-                              : Center(child: CircularProgressIndicator()),
-                        ),
-                        SizedBox(height: 8.h),
-                      ],
+                    height: 50.h,
+                    margin: EdgeInsets.symmetric(vertical: 12.h),
+                    child: ListView.separated(
+                      padding: EdgeInsets.symmetric(horizontal: 20.w),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _allCategories.length + 1, // +1 for "All"
+                      separatorBuilder: (context, index) =>
+                          SizedBox(width: 8.w),
+                      itemBuilder: (context, index) {
+                        final isAllOption = index == 0;
+                        final category = isAllOption
+                            ? 'All'
+                            : _allCategories[index - 1];
+                        final isSelected = isAllOption
+                            ? _selectedCategory == null
+                            : _selectedCategory == category;
+
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (isAllOption) {
+                                _selectedCategory = null;
+                              } else {
+                                // Toggle selection
+                                if (_selectedCategory == category) {
+                                  _selectedCategory = null;
+                                } else {
+                                  _selectedCategory = category;
+                                }
+                              }
+                            });
+                          },
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 16.w,
+                              vertical: 8.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Theme.of(context).primaryColor
+                                  : Colors.grey[200],
+                              borderRadius: BorderRadius.circular(24.r),
+                            ),
+                            child: Center(
+                              child: Text(
+                                category,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.grey[800],
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  fontSize: 14.sp,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -354,7 +408,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Recent Products',
+                          'Recent Items',
                           style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
@@ -389,8 +443,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           SizedBox(height: 16.h),
                           Text(
                             products.isEmpty
-                                ? 'No products yet.'
-                                : 'No products match your search.',
+                                ? 'No items yet.'
+                                : 'No items match your search.',
                             style: Theme.of(context).textTheme.bodyLarge,
                             textAlign: TextAlign.center,
                           ),
@@ -399,18 +453,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   )
                 else
-                  // Products list
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final product = filtered[index];
-                      return Container(
-                        margin: EdgeInsets.symmetric(
-                          horizontal: 20.w,
-                          vertical: 8.h,
-                        ),
-                        child: _buildProductCard(product),
-                      );
-                    }, childCount: filtered.length),
+                  // Products Grid
+                  SliverPadding(
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    sliver: SliverGrid(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16.w,
+                        mainAxisSpacing: 16.h,
+                        childAspectRatio: 0.8,
+                      ),
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final product = filtered[index];
+                        return _buildProductCard(product);
+                      }, childCount: filtered.length),
+                    ),
                   ),
 
                 // Bottom padding
@@ -418,141 +475,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             );
           },
-        ),
-      ),
-    );
-  }
-
-  IconData _getCategoryIcon(String category) {
-    switch (category.toLowerCase()) {
-      case 'electronics':
-        return Icons.devices;
-      case 'clothing':
-        return Icons.checkroom;
-      case 'books':
-        return Icons.auto_stories;
-      case 'sports':
-        return Icons.sports_basketball;
-      case 'home':
-        return Icons.home_outlined;
-      case 'furniture':
-        return Icons.chair_outlined;
-      case 'toys':
-        return Icons.toys_outlined;
-      case 'tools':
-        return Icons.construction_outlined;
-      case 'jewelry':
-        return Icons.diamond_outlined;
-      case 'art':
-        return Icons.palette_outlined;
-      case 'music':
-        return Icons.music_note_outlined;
-      case 'games':
-        return Icons.sports_esports_outlined;
-      case 'others':
-        return Icons.category_outlined;
-      default:
-        // Custom categories get a sparkle icon
-        return Icons.auto_awesome_outlined;
-    }
-  }
-
-  Color _getCategoryColor(String category, int index) {
-    switch (category.toLowerCase()) {
-      case 'electronics':
-        return Colors.blue;
-      case 'clothing':
-        return Colors.purple;
-      case 'books':
-        return Colors.brown;
-      case 'sports':
-        return Colors.green;
-      case 'home':
-        return Colors.orange;
-      case 'others':
-        return Colors.grey;
-      default:
-        // Custom categories get colors from a palette
-        final colors = [
-          Colors.teal,
-          Colors.pink,
-          Colors.indigo,
-          Colors.amber,
-          Colors.cyan,
-          Colors.deepOrange,
-          Colors.lime,
-          Colors.deepPurple,
-        ];
-        return colors[index % colors.length];
-    }
-  }
-
-  Widget _buildCategoryCard(String title, IconData icon, Color color) {
-    final isSelected = _selectedCategory == title;
-
-    return Container(
-      width: 95.w,
-      margin: EdgeInsets.only(right: 12.w),
-      child: Card(
-        elevation: isSelected ? 4 : 2,
-        color: isSelected ? Theme.of(context).primaryColor : null,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.r),
-          side: isSelected
-              ? BorderSide(color: Colors.white, width: 2)
-              : BorderSide.none,
-        ),
-        child: InkWell(
-          onTap: () {
-            setState(() {
-              if (_selectedCategory == title) {
-                _selectedCategory = null; // Deselect if already selected
-              } else {
-                _selectedCategory = title;
-              }
-            });
-          },
-          borderRadius: BorderRadius.circular(12.r),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 8.h),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: EdgeInsets.all(10.w),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? Colors.white.withOpacity(0.2)
-                        : color.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    icon,
-                    color: isSelected ? Colors.white : color,
-                    size: 22.w,
-                  ),
-                ),
-                SizedBox(height: 6.h),
-                Flexible(
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: isSelected
-                          ? FontWeight.bold
-                          : FontWeight.w500,
-                      fontSize: 10.sp,
-                      color: isSelected ? Colors.white : null,
-                      height: 1.2,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );
@@ -572,6 +494,7 @@ class _HomeScreenState extends State<HomeScreen> {
       location: product.location,
       isFavorite: _favouriteStates[product.id] ?? false,
       onFavoriteToggle: () => _toggleFavourite(product),
+      imageHeight: 150.h,
       onTap: () {
         Navigator.of(
           context,

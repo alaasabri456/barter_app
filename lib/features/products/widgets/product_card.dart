@@ -17,6 +17,7 @@ class ProductCard extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final double? imageHeight;
 
   const ProductCard({
     super.key,
@@ -35,6 +36,7 @@ class ProductCard extends StatefulWidget {
     required this.onTap,
     this.onEdit,
     this.onDelete,
+    this.imageHeight,
   });
 
   @override
@@ -82,7 +84,7 @@ class _ProductCardState extends State<ProductCard> {
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
-        margin: EdgeInsets.only(bottom: 16.h),
+        // margin: EdgeInsets.only(bottom: 16.h), // Removed for Grid compatibility
         decoration: BoxDecoration(
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(12.r),
@@ -94,7 +96,7 @@ class _ProductCardState extends State<ProductCard> {
             Stack(
               children: [
                 Container(
-                  height: 200.h,
+                  height: widget.imageHeight ?? 200.h,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12.r),
@@ -146,28 +148,21 @@ class _ProductCardState extends State<ProductCard> {
             SizedBox(height: 12.h),
 
             // Title
-            Text(
-              widget.title,
-              style: TextStyle(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w600,
-                color: Colors.black,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            SizedBox(height: 8.h),
-
-            // Tags Row (Condition & Rating)
             Row(
               children: [
-                _buildTag(
-                  _formatCondition(widget.condition),
-                  color: _getConditionColor(widget.condition),
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 SizedBox(width: 8.w),
                 _buildTag(
-                  _getConditionRating(widget.condition),
+                  _formatCondition(widget.condition),
                   color: _getConditionColor(widget.condition),
                 ),
               ],
@@ -275,25 +270,6 @@ class _ProductCardState extends State<ProductCard> {
           return condition[0].toUpperCase() + condition.substring(1);
         }
         return condition;
-    }
-  }
-
-  String _getConditionRating(String condition) {
-    switch (condition.toLowerCase()) {
-      case 'new':
-      case 'new_item':
-        return '10/10';
-      case 'like new':
-      case 'like_new':
-        return '9/10';
-      case 'good':
-        return '7/10';
-      case 'fair':
-        return '5/10';
-      case 'poor':
-        return '3/10';
-      default:
-        return '';
     }
   }
 

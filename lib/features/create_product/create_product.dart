@@ -470,12 +470,12 @@ class _CreateProductState extends State<CreateProduct> {
       if (mounted) {
         await showInfoDialog(
           context: context,
-          title: _isEditing ? 'Product Updated' : 'Product Created',
+          title: _isEditing ? 'Item Updated' : 'Item Created',
           message: _isEditing
-              ? 'Your product has been updated successfully!'
+              ? 'Your item has been updated successfully!'
               : customCategoryName != null
-              ? 'Your product has been created! The custom category "$customCategoryName" will be reviewed by an admin.'
-              : 'Your product has been created successfully!',
+              ? 'Your item has been created! The custom category "$customCategoryName" will be reviewed by an admin.'
+              : 'Your item has been created successfully!',
           icon: Icons.check_circle_outlined,
           iconColor: Colors.green,
         );
@@ -525,7 +525,7 @@ class _CreateProductState extends State<CreateProduct> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CustomAppBar(
-        title: _isEditing ? 'Edit Product' : 'Create Product',
+        title: _isEditing ? 'Edit Item' : 'Create Item',
         leading: IconButton(
           onPressed: _showDiscardDialog,
           icon: const Icon(Icons.close),
@@ -561,8 +561,8 @@ class _CreateProductState extends State<CreateProduct> {
 
                   // Product Title
                   AuthTextField(
-                    label: 'Product Title',
-                    hint: 'Enter product title',
+                    label: 'Item Title',
+                    hint: 'Enter item title',
                     controller: _titleController,
                     validator: Validators.validateProductTitle,
                     textInputAction: TextInputAction.next,
@@ -717,7 +717,7 @@ class _CreateProductState extends State<CreateProduct> {
 
                   // Save Button
                   AuthButton(
-                    text: _isEditing ? 'Update Product' : 'Create Product',
+                    text: _isEditing ? 'Update Item' : 'Create Item',
                     onPressed: _saveProduct,
                     isLoading: _isLoading || _isUploadingImages,
                     height: 56,
@@ -759,7 +759,7 @@ class _CreateProductState extends State<CreateProduct> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Product Images',
+          'Item Images',
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w500,
             fontSize: 14.sp,

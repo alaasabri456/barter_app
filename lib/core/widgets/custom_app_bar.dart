@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
+  final Widget? titleWidget;
   final List<Widget>? actions;
   final Widget? leading;
   final bool centerTitle;
@@ -10,10 +11,12 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Color? foregroundColor;
   final double? elevation;
   final bool automaticallyImplyLeading;
+  final double height;
 
   const CustomAppBar({
     super.key,
     required this.title,
+    this.titleWidget,
     this.actions,
     this.leading,
     this.centerTitle = true,
@@ -21,30 +24,36 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.foregroundColor,
     this.elevation,
     this.automaticallyImplyLeading = true,
+    this.height = 56.0,
   });
 
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      title: Text(
-        title,
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-          fontSize: 20.sp,
-        ),
-      ),
+      toolbarHeight: height.h,
+      title:
+          titleWidget ??
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+              fontSize: 20.sp,
+            ),
+          ),
       actions: actions,
       leading: leading,
       centerTitle: centerTitle,
-      backgroundColor: backgroundColor ?? Theme.of(context).appBarTheme.backgroundColor,
-      foregroundColor: foregroundColor ?? Theme.of(context).appBarTheme.foregroundColor,
+      backgroundColor:
+          backgroundColor ?? Theme.of(context).appBarTheme.backgroundColor,
+      foregroundColor:
+          foregroundColor ?? Theme.of(context).appBarTheme.foregroundColor,
       elevation: elevation ?? Theme.of(context).appBarTheme.elevation,
       automaticallyImplyLeading: automaticallyImplyLeading,
     );
   }
 
   @override
-  Size get preferredSize => Size.fromHeight(56.h);
+  Size get preferredSize => Size.fromHeight(height.h);
 }
 
 class CustomSliverAppBar extends StatelessWidget {
@@ -86,8 +95,10 @@ class CustomSliverAppBar extends StatelessWidget {
       actions: actions,
       leading: leading,
       centerTitle: centerTitle,
-      backgroundColor: backgroundColor ?? Theme.of(context).appBarTheme.backgroundColor,
-      foregroundColor: foregroundColor ?? Theme.of(context).appBarTheme.foregroundColor,
+      backgroundColor:
+          backgroundColor ?? Theme.of(context).appBarTheme.backgroundColor,
+      foregroundColor:
+          foregroundColor ?? Theme.of(context).appBarTheme.foregroundColor,
       expandedHeight: expandedHeight.h,
       flexibleSpace: flexibleSpace,
       pinned: pinned,
@@ -96,7 +107,8 @@ class CustomSliverAppBar extends StatelessWidget {
   }
 }
 
-class CustomAppBarWithSearch extends StatefulWidget implements PreferredSizeWidget {
+class CustomAppBarWithSearch extends StatefulWidget
+    implements PreferredSizeWidget {
   final String title;
   final String? searchHint;
   final ValueChanged<String>? onSearchChanged;
@@ -135,13 +147,9 @@ class _CustomAppBarWithSearchState extends State<CustomAppBarWithSearch>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _animation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -172,34 +180,39 @@ class _CustomAppBarWithSearchState extends State<CustomAppBarWithSearch>
         builder: (context, child) {
           return _isSearching
               ? FadeTransition(
-            opacity: _animation,
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: widget.searchHint,
-                border: InputBorder.none,
-                hintStyle: TextStyle(
-                  color: Theme.of(context).appBarTheme.foregroundColor?.withOpacity(0.7),
-                ),
-              ),
-              style: TextStyle(
-                color: Theme.of(context).appBarTheme.foregroundColor,
-                fontSize: 16.sp,
-              ),
-              onChanged: widget.onSearchChanged,
-              autofocus: true,
-            ),
-          )
+                  opacity: _animation,
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: widget.searchHint,
+                      border: InputBorder.none,
+                      hintStyle: TextStyle(
+                        color: Theme.of(
+                          context,
+                        ).appBarTheme.foregroundColor?.withOpacity(0.7),
+                      ),
+                    ),
+                    style: TextStyle(
+                      color: Theme.of(context).appBarTheme.foregroundColor,
+                      fontSize: 16.sp,
+                    ),
+                    onChanged: widget.onSearchChanged,
+                    autofocus: true,
+                  ),
+                )
               : FadeTransition(
-            opacity: Tween<double>(begin: 1.0, end: 0.0).animate(_animation),
-            child: Text(
-              widget.title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-                fontSize: 20.sp,
-              ),
-            ),
-          );
+                  opacity: Tween<double>(
+                    begin: 1.0,
+                    end: 0.0,
+                  ).animate(_animation),
+                  child: Text(
+                    widget.title,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 20.sp,
+                    ),
+                  ),
+                );
         },
       ),
       centerTitle: !_isSearching,

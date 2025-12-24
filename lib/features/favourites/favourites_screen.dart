@@ -182,9 +182,13 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
             ),
             SizedBox(height: 32.h),
             ElevatedButton.icon(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.pushReplacementNamed(
+                context,
+                RoutesManager.mainLayout,
+              ),
+
               icon: const Icon(Icons.explore),
-              label: const Text('Explore Products'),
+              label: const Text('Explore Items'),
               style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 16.h),
               ),
@@ -292,7 +296,9 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     SizedBox(height: 8.h),
-                    Row(
+                    Wrap(
+                      spacing: 8.w,
+                      runSpacing: 4.h,
                       children: [
                         Container(
                           padding: EdgeInsets.symmetric(
@@ -312,7 +318,6 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                                 ),
                           ),
                         ),
-                        SizedBox(width: 8.w),
                         Container(
                           padding: EdgeInsets.symmetric(
                             horizontal: 8.w,

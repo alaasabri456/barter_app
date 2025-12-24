@@ -115,7 +115,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                     icon: selectedIndex == 1
                         ? Icons.inventory_2
                         : Icons.inventory_2_outlined,
-                    label: 'Products',
+                    label: 'Items',
                     isSelected: selectedIndex == 1,
                     onTap: () => _onTap(1),
                   ),

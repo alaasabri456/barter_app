@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../features/authentication/login/login.dart';
 import '../../features/authentication/register/register.dart';
 import '../../features/create_product/create_product.dart';
+import '../../features/profile/profile_screen.dart';
 import '../../features/main_layout/main_layout.dart';
 import '../../features/on_boarding/start_screen.dart';
 import '../../features/products/product_details_screen.dart';
@@ -15,11 +16,13 @@ import '../../features/trade/trade_management_screen.dart';
 import '../../features/profile/trade_history_screen.dart';
 import '../../features/favourites/favourites_screen.dart';
 import '../../features/chat/chat_screen.dart';
+import '../../features/chat/chat_list_screen.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 
 class RoutesManager {
   static const String register = "/register";
   static const String login = "/login";
+  static const String profile = "/profile";
   static const String mainLayout = "/mainLayout";
   static const String createProduct = "/createProduct";
   static const String productDetails = "/productDetails";
@@ -32,6 +35,7 @@ class RoutesManager {
   static const String tradeDetails = '/trade-details';
   static const String tradeHistory = '/trade-history';
   static const String chat = '/chat';
+  static const String chatList = '/chat-list';
   static const String adminDashboard = '/admin-dashboard';
 
   static Route? router(RouteSettings setting) {
@@ -43,6 +47,10 @@ class RoutesManager {
       case login:
         {
           return MaterialPageRoute(builder: (context) => Login());
+        }
+      case profile:
+        {
+          return MaterialPageRoute(builder: (context) => ProfileScreen());
         }
       case mainLayout:
         {
@@ -115,6 +123,10 @@ class RoutesManager {
               productId: args['productId'], // Optional
             ),
           );
+        }
+      case chatList:
+        {
+          return MaterialPageRoute(builder: (context) => ChatListScreen());
         }
       case adminDashboard:
         {

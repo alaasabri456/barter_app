@@ -1041,6 +1041,14 @@ class FirebaseService {
     }
   }
 
+  /// Get all conversations for a user
+  static Stream<QuerySnapshot> getUserConversations(String userId) {
+    return _getConversationsCollection()
+        .where('participants', arrayContains: userId)
+        .orderBy('updatedAt', descending: true)
+        .snapshots();
+  }
+
   /// Send a message in a conversation
   static Future<void> sendConversationMessage(
     ChatMessage message,

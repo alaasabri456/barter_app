@@ -66,7 +66,7 @@ class _ProductsScreenState extends State<ProductsScreen>
     final user = UserModel.currentUser;
     if (user == null) {
       setState(() {
-        _errorMessage = 'Please log in to view your products';
+        _errorMessage = 'Please log in to view your items';
         _isLoading = false;
       });
       return;
@@ -85,7 +85,7 @@ class _ProductsScreenState extends State<ProductsScreen>
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to load products: $e';
+        _errorMessage = 'Failed to load items: $e';
         _isLoading = false;
       });
     }
@@ -411,67 +411,70 @@ class _ProductsScreenState extends State<ProductsScreen>
         itemCount: filteredProducts.length,
         itemBuilder: (context, index) {
           final product = filteredProducts[index];
-          return ProductCard(
-            title: product.title,
-            description: product.description,
-            category: product.category,
-            condition: product.condition,
-            status: product.status.name,
-            viewCount: product.viewCount,
-            interestedCount: product.interestedUsers.length,
-            createdAt: product.createdAt,
-            imageUrl: product.images.isNotEmpty ? product.images.first : null,
-            location: product.location,
-            onTap: () {
-              Navigator.of(context)
-                  .push(
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          ProductDetailsScreen(productId: product.id),
-                    ),
-                  )
-                  .then((_) => _loadProducts());
-            },
-            onEdit: () {
-              Navigator.of(context)
-                  .push(
-                    MaterialPageRoute(
-                      builder: (context) => CreateProduct(product: product),
-                    ),
-                  )
-                  .then((_) => _loadProducts());
-            },
-            onDelete: () async {
-              // Show delete confirmation
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: Text('Delete Product'),
-                  content: Text(
-                    'Are you sure you want to delete "${product.title}"?',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Theme.of(context).colorScheme.error,
+          return Padding(
+            padding: EdgeInsets.only(bottom: 16.h),
+            child: ProductCard(
+              title: product.title,
+              description: product.description,
+              category: product.category,
+              condition: product.condition,
+              status: product.status.name,
+              viewCount: product.viewCount,
+              interestedCount: product.interestedUsers.length,
+              createdAt: product.createdAt,
+              imageUrl: product.images.isNotEmpty ? product.images.first : null,
+              location: product.location,
+              onTap: () {
+                Navigator.of(context)
+                    .push(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            ProductDetailsScreen(productId: product.id),
                       ),
-                      child: Text('Delete'),
+                    )
+                    .then((_) => _loadProducts());
+              },
+              onEdit: () {
+                Navigator.of(context)
+                    .push(
+                      MaterialPageRoute(
+                        builder: (context) => CreateProduct(product: product),
+                      ),
+                    )
+                    .then((_) => _loadProducts());
+              },
+              onDelete: () async {
+                // Show delete confirmation
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text('Delete Product'),
+                    content: Text(
+                      'Are you sure you want to delete "${product.title}"?',
                     ),
-                  ],
-                ),
-              );
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Theme.of(context).colorScheme.error,
+                        ),
+                        child: Text('Delete'),
+                      ),
+                    ],
+                  ),
+                );
 
-              if (confirmed == true) {
-                // TODO: Implement delete functionality
-                // await FirebaseService.deleteProduct(product.id);
-                // _loadProducts();
-              }
-            },
+                if (confirmed == true) {
+                  // TODO: Implement delete functionality
+                  // await FirebaseService.deleteProduct(product.id);
+                  // _loadProducts();
+                }
+              },
+            ),
           );
         },
       ),

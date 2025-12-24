@@ -138,35 +138,29 @@ class _SplashScreenState extends State<SplashScreen>
                             children: [
                               // App icon/logo
                               Container(
-                                width: 120.w,
-                                height: 120.w,
+                                width: 150.w,
+                                height: 150.w,
+                                padding: EdgeInsets.all(20.w),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
+                                  color: Colors.white,
                                   shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 3,
-                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 20,
+                                      spreadRadius: 5,
+                                    ),
+                                  ],
                                 ),
-                                child: Icon(
-                                  Icons.swap_horiz_rounded,
-                                  size: 60.w,
-                                  color: Colors.white,
+                                child: Image.asset(
+                                  'assets/images/logo.png',
+                                  fit: BoxFit.contain,
                                 ),
                               ),
 
-                              SizedBox(height: 24.h),
-
-                              // App name
-                              Text(
-                                'Barter',
-                                style: TextStyle(
-                                  fontSize: 36.sp,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  letterSpacing: 2,
-                                ),
-                              ),
+                              SizedBox(
+                                height: 24.h,
+                              ), // Spacing after logo, before tagline
 
                               SizedBox(height: 8.h),
 
@@ -454,10 +448,12 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
                                     ),
                                   ],
                                 ),
-                                child: Icon(
-                                  Icons.swap_horiz_rounded,
-                                  size: 50.w,
-                                  color: Theme.of(context).primaryColor,
+                                child: Padding(
+                                  padding: EdgeInsets.all(15.w),
+                                  child: Image.asset(
+                                    'assets/images/logo.png',
+                                    fit: BoxFit.contain,
+                                  ),
                                 ),
                               ),
                             ),
@@ -481,16 +477,15 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
                       opacity: _textController.value,
                       child: Column(
                         children: [
-                          Text(
-                            'Barter',
-                            style: TextStyle(
-                              fontSize: 42.sp,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              letterSpacing: 3,
-                            ),
-                          ),
-
+                          // Text(
+                          //   'Barter',
+                          //   style: TextStyle(
+                          //     fontSize: 42.sp,
+                          //     fontWeight: FontWeight.bold,
+                          //     color: Colors.white,
+                          //     letterSpacing: 3,
+                          //   ),
+                          // ),
                           SizedBox(height: 8.h),
 
                           Text(
