@@ -459,9 +459,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     sliver: SliverGrid(
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
-                        crossAxisSpacing: 16.w,
-                        mainAxisSpacing: 16.h,
-                        childAspectRatio: 0.8,
+                        crossAxisSpacing: 12.w,
+                        mainAxisSpacing: 20.h,
+                        childAspectRatio: 0.68,
                       ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final product = filtered[index];

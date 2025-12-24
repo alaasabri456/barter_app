@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import '../../features/authentication/login/login.dart';
 import '../../features/authentication/register/register.dart';
 import '../../features/create_product/create_product.dart';
-import '../../features/profile/profile_screen.dart';
 import '../../features/main_layout/main_layout.dart';
 import '../../features/on_boarding/start_screen.dart';
 import '../../features/products/product_details_screen.dart';
@@ -22,7 +21,6 @@ import '../../features/admin/screens/admin_dashboard_screen.dart';
 class RoutesManager {
   static const String register = "/register";
   static const String login = "/login";
-  static const String profile = "/profile";
   static const String mainLayout = "/mainLayout";
   static const String createProduct = "/createProduct";
   static const String productDetails = "/productDetails";
@@ -48,10 +46,7 @@ class RoutesManager {
         {
           return MaterialPageRoute(builder: (context) => Login());
         }
-      case profile:
-        {
-          return MaterialPageRoute(builder: (context) => ProfileScreen());
-        }
+
       case mainLayout:
         {
           return MaterialPageRoute(builder: (context) => MainLayout());

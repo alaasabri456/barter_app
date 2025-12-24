@@ -84,10 +84,16 @@ class _ProductCardState extends State<ProductCard> {
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
-        // margin: EdgeInsets.only(bottom: 16.h), // Removed for Grid compatibility
         decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(12.r),
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(16.r),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,7 +105,10 @@ class _ProductCardState extends State<ProductCard> {
                   height: widget.imageHeight ?? 200.h,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12.r),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(16.r),
+                      topRight: Radius.circular(16.r),
+                    ),
                     color: Colors.grey[200],
                     image: widget.imageUrl != null
                         ? DecorationImage(
@@ -128,100 +137,120 @@ class _ProductCardState extends State<ProductCard> {
                       child: Container(
                         padding: EdgeInsets.all(8.w),
                         decoration: BoxDecoration(
-                          color: widget.isFavorite
-                              ? Colors.red
-                              : Colors.black.withOpacity(0.2),
+                          color: Colors.white,
                           shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Icon(
                           widget.isFavorite
                               ? Icons.favorite
                               : Icons.favorite_border,
-                          color: Colors.white,
-                          size: 20.w,
+                          color: widget.isFavorite
+                              ? Colors.red
+                              : Colors.grey[600],
+                          size: 18.w,
                         ),
                       ),
                     ),
                   ),
               ],
             ),
-            SizedBox(height: 12.h),
 
-            // Title
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
+            // Content Section
+            Padding(
+              padding: EdgeInsets.all(12.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  Text(
                     widget.title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
+                      fontSize: 15.sp,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                SizedBox(width: 8.w),
-                _buildTag(
-                  _formatCondition(widget.condition),
-                  color: _getConditionColor(widget.condition),
-                ),
-              ],
-            ),
-            SizedBox(height: 8.h),
+                  SizedBox(height: 6.h),
 
-            // Footer (Location & Date)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.location ?? 'No location',
-                    style: TextStyle(fontSize: 12.sp, color: Colors.grey[600]),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  // Condition Badge
+                  _buildTag(
+                    _formatCondition(widget.condition),
+                    color: _getConditionColor(widget.condition),
                   ),
-                ),
-                SizedBox(width: 8.w),
-                Text(
-                  _formatDate(widget.createdAt),
-                  style: TextStyle(fontSize: 12.sp, color: Colors.grey[600]),
-                ),
-              ],
+                  SizedBox(height: 8.h),
+
+                  // Footer (Location & Date)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.location ?? 'No location',
+                          style: TextStyle(
+                            fontSize: 11.sp,
+                            color: Colors.grey[600],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        _formatDate(widget.createdAt),
+                        style: TextStyle(
+                          fontSize: 11.sp,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
 
             // Action buttons (only show if callbacks provided and for available products)
             if (widget.status.toLowerCase() == 'available' &&
                 widget.onEdit != null &&
                 widget.onDelete != null) ...[
-              SizedBox(height: 16.h),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: widget.onEdit,
-                      icon: Icon(Icons.edit_outlined, size: 16.w),
-                      label: Text('Edit'),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 10.h),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: widget.onDelete,
-                      icon: Icon(Icons.delete_outline, size: 16.w),
-                      label: Text('Delete'),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 10.h),
-                        foregroundColor: Theme.of(context).colorScheme.error,
-                        side: BorderSide(
-                          color: Theme.of(context).colorScheme.error,
+              Padding(
+                padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: widget.onEdit,
+                        icon: Icon(Icons.edit_outlined, size: 16.w),
+                        label: Text('Edit'),
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(vertical: 10.h),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: widget.onDelete,
+                        icon: Icon(Icons.delete_outline, size: 16.w),
+                        label: Text('Delete'),
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(vertical: 10.h),
+                          foregroundColor: Theme.of(context).colorScheme.error,
+                          side: BorderSide(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ],
