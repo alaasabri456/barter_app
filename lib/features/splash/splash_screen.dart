@@ -75,6 +75,10 @@ class _SplashScreenState extends State<SplashScreen>
           currentUser.uid,
         );
 
+        if (UserModel.currentUser == null && currentUser.isAnonymous) {
+          UserModel.currentUser = UserModel.guest(currentUser.uid);
+        }
+
         // Update FCM token once user is available
         await PushNotificationService.updateToken();
 
@@ -354,6 +358,10 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
         UserModel.currentUser = await FirebaseService.getUserFromFireStore(
           currentUser.uid,
         );
+
+        if (UserModel.currentUser == null && currentUser.isAnonymous) {
+          UserModel.currentUser = UserModel.guest(currentUser.uid);
+        }
 
         if (mounted) {
           Navigator.of(context).pushReplacementNamed(RoutesManager.mainLayout);

@@ -16,6 +16,7 @@ import '../chat/chat_screen.dart';
 import '../trade/trade_initiation_screen.dart';
 import '../create_product/create_product.dart';
 import '../profile/public_profile_screen.dart';
+import '../../core/routes_manager/routes_manager.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final String productId;
@@ -95,14 +96,22 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final userId = UserModel.currentUser?.id;
     print('User ID: $userId');
 
-    if (userId == null) {
-      print('User not logged in');
-      showInfoDialog(
+    if (userId == null || UserModel.isGuest) {
+      print('User not logged in or is guest');
+      showConfirmationDialog(
         context: context,
         title: 'Sign in Required',
         message: 'Please sign in to add products to your favorites.',
+        confirmText: 'Sign In',
+        cancelText: 'Maybe Later',
         icon: Icons.login,
-      );
+      ).then((value) {
+        if (value == true) {
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil(RoutesManager.login, (route) => false);
+        }
+      });
       return;
     }
 
@@ -249,6 +258,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   void _initiateTrade() {
+    if (UserModel.isGuest) {
+      _showGuestLoginPrompt();
+      return;
+    }
     if (_product != null) {
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -258,16 +271,28 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     }
   }
 
+  void _showGuestLoginPrompt() {
+    showConfirmationDialog(
+      context: context,
+      title: 'Sign In Required',
+      message: 'You need to sign in to access this feature.',
+      confirmText: 'Sign In',
+      cancelText: 'Maybe Later',
+      icon: Icons.login,
+    ).then((value) {
+      if (value == true) {
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(RoutesManager.login, (route) => false);
+      }
+    });
+  }
+
   void _contactOwner() async {
     final currentUserId = UserModel.currentUser?.id;
 
-    if (currentUserId == null) {
-      showInfoDialog(
-        context: context,
-        title: 'Sign in Required',
-        message: 'Please sign in to contact the product owner.',
-        icon: Icons.login,
-      );
+    if (currentUserId == null || UserModel.isGuest) {
+      _showGuestLoginPrompt();
       return;
     }
 
@@ -297,7 +322,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     ).then((confirmed) async {
       if (confirmed == true && _product != null) {
         final userId = UserModel.currentUser?.id;
-        if (userId == null) return;
+        if (userId == null || UserModel.isGuest) {
+          _showGuestLoginPrompt();
+          return;
+        }
 
         try {
           await FirebaseService.reportProduct(

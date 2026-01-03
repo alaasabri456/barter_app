@@ -38,7 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadProfileStats() async {
     final userId = UserModel.currentUser?.id;
-    if (userId == null) return;
+    if (userId == null || UserModel.isGuest) return;
 
     try {
       // Load products count
@@ -280,6 +280,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = UserModel.currentUser;
+    final isGuest = UserModel.isGuest;
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     return Scaffold(
@@ -335,46 +336,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   // User email
                   Text(
-                    user?.email ?? 'user@example.com',
+                    isGuest
+                        ? 'Browse and trade items easily'
+                        : (user?.email ?? 'user@example.com'),
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: Colors.white.withOpacity(0.9),
                     ),
                   ),
 
-                  SizedBox(height: 16.h),
-
-                  // Stats row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildStatItem('Products', '$_createdProductsCount'),
-                      Container(
-                        height: 40.h,
-                        width: 1,
-                        color: Colors.white.withOpacity(0.3),
-                      ),
-                      _buildStatItem('Trades', '$_completedTradesCount'),
-                      Container(
-                        height: 40.h,
-                        width: 1,
-                        color: Colors.white.withOpacity(0.3),
-                      ),
-                      _buildStatItem(
-                        'Reviews',
-                        '$_reviewsCount',
-                        onTap: () {
-                          if (user != null) {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    ReviewsScreen(userId: user.id),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                    ],
-                  ),
+                  if (!isGuest) ...[
+                    SizedBox(height: 16.h),
+                    // Stats row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildStatItem('Products', '$_createdProductsCount'),
+                        Container(
+                          height: 40.h,
+                          width: 1,
+                          color: Colors.white.withOpacity(0.3),
+                        ),
+                        _buildStatItem('Trades', '$_completedTradesCount'),
+                        Container(
+                          height: 40.h,
+                          width: 1,
+                          color: Colors.white.withOpacity(0.3),
+                        ),
+                        _buildStatItem(
+                          'Reviews',
+                          '$_reviewsCount',
+                          onTap: () {
+                            if (user != null) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      ReviewsScreen(userId: user.id),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -403,32 +407,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       },
                     ),
 
-                  _buildSettingItem(
-                    icon: Icons.person_outline,
-                    title: 'Edit Profile',
-                    subtitle: 'Update your personal information',
-                    onTap: _editProfile,
-                  ),
+                  if (!isGuest) ...[
+                    _buildSettingItem(
+                      icon: Icons.person_outline,
+                      title: 'Edit Profile',
+                      subtitle: 'Update your personal information',
+                      onTap: _editProfile,
+                    ),
 
-                  _buildSettingItem(
-                    icon: Icons.favorite_outline,
-                    title: 'Favorites',
-                    subtitle: 'View your favorite products',
-                    onTap: () {
-                      Navigator.of(context).pushNamed(RoutesManager.favourites);
-                    },
-                  ),
+                    _buildSettingItem(
+                      icon: Icons.favorite_outline,
+                      title: 'Favorites',
+                      subtitle: 'View your favorite products',
+                      onTap: () {
+                        Navigator.of(
+                          context,
+                        ).pushNamed(RoutesManager.favourites);
+                      },
+                    ),
 
-                  _buildSettingItem(
-                    icon: Icons.history,
-                    title: 'Trade History',
-                    subtitle: 'View your trading history',
-                    onTap: () {
-                      Navigator.of(
-                        context,
-                      ).pushNamed(RoutesManager.tradeHistory);
-                    },
-                  ),
+                    _buildSettingItem(
+                      icon: Icons.history,
+                      title: 'Trade History',
+                      subtitle: 'View your trading history',
+                      onTap: () {
+                        Navigator.of(
+                          context,
+                        ).pushNamed(RoutesManager.tradeHistory);
+                      },
+                    ),
+                  ],
 
                   SizedBox(height: 24.h),
 
@@ -501,33 +509,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   SizedBox(height: 24.h),
 
-                  // Debug section
-                  _buildSectionTitle('Developer Tools'),
-                  SizedBox(height: 12.h),
+                  if (!isGuest) ...[
+                    // Debug section
+                    _buildSectionTitle('Developer Tools'),
+                    SizedBox(height: 12.h),
 
-                  _buildSettingItem(
-                    icon: Icons.notifications_active_outlined,
-                    title: 'Test Notification',
-                    subtitle: 'Send a test push to this device',
-                    onTap: _sendTestNotification,
-                  ),
+                    _buildSettingItem(
+                      icon: Icons.notifications_active_outlined,
+                      title: 'Test Notification',
+                      subtitle: 'Send a test push to this device',
+                      onTap: _sendTestNotification,
+                    ),
 
-                  _buildSettingItem(
-                    icon: Icons.copy_outlined,
-                    title: 'Copy FCM Token',
-                    subtitle: 'Copy device token for console testing',
-                    onTap: _copyFcmToken,
-                  ),
+                    _buildSettingItem(
+                      icon: Icons.copy_outlined,
+                      title: 'Copy FCM Token',
+                      subtitle: 'Copy device token for console testing',
+                      onTap: _copyFcmToken,
+                    ),
+                  ],
 
                   SizedBox(height: 32.h),
 
-                  // Sign out button
+                  // Sign out / Login button
                   AuthButton(
-                    text: 'Sign Out',
-                    onPressed: _signOut,
+                    text: isGuest ? 'Sign In / Register' : 'Sign Out',
+                    onPressed: isGuest
+                        ? () {
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                              RoutesManager.login,
+                              (route) => false,
+                            );
+                          }
+                        : _signOut,
                     isLoading: _isLoading,
-                    backgroundColor: Theme.of(context).colorScheme.error,
-                    icon: Icon(Icons.logout, size: 18.w, color: Colors.white),
+                    backgroundColor: isGuest
+                        ? Theme.of(context).primaryColor
+                        : Theme.of(context).colorScheme.error,
+                    icon: Icon(
+                      isGuest ? Icons.login : Icons.logout,
+                      size: 18.w,
+                      color: Colors.white,
+                    ),
                   ),
 
                   SizedBox(height: 40.h),

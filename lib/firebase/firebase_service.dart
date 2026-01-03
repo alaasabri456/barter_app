@@ -8,6 +8,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:google_sign_in/google_sign_in.dart' as gsi;
 
 import '../features/authentication/models/login_request.dart';
 import '../features/products/models/product_model.dart';
@@ -23,21 +24,69 @@ import '../services/fcm_v1_service.dart';
 
 class FirebaseService {
   static Future<UserCredential> register(RegisterRequest request) async {
-    UserCredential userCredential = await FirebaseAuth.instance
-        .createUserWithEmailAndPassword(
-          email: request.email,
-          password: request.password,
-        );
+    UserCredential userCredential =
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: request.email,
+      password: request.password,
+    );
     return userCredential;
   }
 
   static Future<UserCredential> login(LoginRequest request) async {
-    UserCredential userCredential = await FirebaseAuth.instance
-        .signInWithEmailAndPassword(
-          email: request.email,
-          password: request.password,
-        );
+    UserCredential userCredential =
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: request.email,
+      password: request.password,
+    );
     return userCredential;
+  }
+
+  static final gsi.GoogleSignIn _google = gsi.GoogleSignIn.instance;
+  static bool _isInitialized = false;
+
+  static Future<void> _initSignIn() async {
+    if (!_isInitialized) {
+      await _google.initialize(
+        serverClientId:
+            '460987873980-s29ubpkkass8m9c106sf491oc6rbrhrl.apps.googleusercontent.com',
+      );
+      _isInitialized = true;
+    }
+  }
+
+  static Future<UserCredential> signInWithGoogle() async {
+    await _initSignIn();
+    gsi.GoogleSignInAccount account = await _google.authenticate();
+
+    final idToken = account.authentication.idToken;
+    final authClient = account.authorizationClient;
+    final gsi.GoogleSignInClientAuthorization? auth =
+        await authClient.authorizationForScopes(['email', 'profile']);
+    final accessToken = auth?.accessToken;
+
+    final credential = GoogleAuthProvider.credential(
+      idToken: idToken,
+      accessToken: accessToken,
+    );
+    return await FirebaseAuth.instance.signInWithCredential(credential);
+  }
+
+  static Future<UserModel> handleGoogleSignInUser(User user) async {
+    UserModel? existingUser = await getUserFromFireStore(user.uid);
+
+    if (existingUser != null) {
+      return existingUser;
+    } else {
+      UserModel newUser = UserModel(
+        id: user.uid,
+        name: user.displayName ?? 'Google User',
+        email: user.email ?? '',
+        favouriteProductIds: [],
+      );
+
+      await addUserToFireStore(newUser);
+      return newUser;
+    }
   }
 
   static CollectionReference<UserModel> _getUsersCollection() {
@@ -82,13 +131,12 @@ class FirebaseService {
     BuildContext? context,
   ) {
     FirebaseFirestore db = FirebaseFirestore.instance;
-    CollectionReference<ProductModel> productsCollection = db
-        .collection("Products")
-        .withConverter<ProductModel>(
-          fromFirestore: (snapshot, _) =>
-              ProductModel.fromJson(snapshot.data()!),
-          toFirestore: (product, _) => product.toJson(),
-        );
+    CollectionReference<ProductModel> productsCollection =
+        db.collection("Products").withConverter<ProductModel>(
+              fromFirestore: (snapshot, _) =>
+                  ProductModel.fromJson(snapshot.data()!),
+              toFirestore: (product, _) => product.toJson(),
+            );
     return productsCollection;
   }
 
@@ -144,7 +192,7 @@ class FirebaseService {
             'notification': {'title': title, 'body': body},
             'data':
                 data?.map((key, value) => MapEntry(key, value.toString())) ??
-                {},
+                    {},
           },
         }),
       );
@@ -165,9 +213,8 @@ class FirebaseService {
   ) async {
     try {
       final products = await getUserProducts(userId, context);
-      final untradedCount = products
-          .where((p) => p.status != ProductStatus.traded)
-          .length;
+      final untradedCount =
+          products.where((p) => p.status != ProductStatus.traded).length;
 
       return untradedCount;
     } catch (e) {
@@ -219,9 +266,8 @@ class FirebaseService {
   ) async {
     CollectionReference<ProductModel> productsCollection =
         _getProductsCollection(context);
-    QuerySnapshot<ProductModel> querySnapshot = await productsCollection
-        .orderBy("createdAt", descending: true)
-        .get();
+    QuerySnapshot<ProductModel> querySnapshot =
+        await productsCollection.orderBy("createdAt", descending: true).get();
     List<ProductModel> products = querySnapshot.docs
         .map((documentSnapshot) => documentSnapshot.data())
         .toList();
@@ -274,9 +320,7 @@ class FirebaseService {
 
   static CollectionReference<TradeOffer> _getTradesCollection() {
     FirebaseFirestore db = FirebaseFirestore.instance;
-    return db
-        .collection("Trades")
-        .withConverter<TradeOffer>(
+    return db.collection("Trades").withConverter<TradeOffer>(
           fromFirestore: (snapshot, _) {
             final data = snapshot.data()!;
             data['id'] = snapshot.id;
@@ -288,9 +332,7 @@ class FirebaseService {
 
   static CollectionReference<TradeHistory> _getTradeHistoryCollection() {
     FirebaseFirestore db = FirebaseFirestore.instance;
-    return db
-        .collection("TradeHistory")
-        .withConverter<TradeHistory>(
+    return db.collection("TradeHistory").withConverter<TradeHistory>(
           fromFirestore: (snapshot, _) =>
               TradeHistory.fromJson(snapshot.data()!),
           toFirestore: (history, _) => history.toJson(),
@@ -391,9 +433,8 @@ class FirebaseService {
   static Future<void> debugCheckReceivedTrades(String userId) async {
     try {
       final tradesCollection = _getTradesCollection();
-      final querySnapshot = await tradesCollection
-          .where('toUserId', isEqualTo: userId)
-          .get();
+      final querySnapshot =
+          await tradesCollection.where('toUserId', isEqualTo: userId).get();
 
       for (final doc in querySnapshot.docs) {
         final trade = doc.data();
@@ -489,9 +530,8 @@ class FirebaseService {
         ];
 
         await tradeDoc.update({
-          'counterOffers': updatedCounterOffers
-              .map((co) => co.toJson())
-              .toList(),
+          'counterOffers':
+              updatedCounterOffers.map((co) => co.toJson()).toList(),
           'updatedAt': Timestamp.now(),
         });
 
@@ -745,18 +785,17 @@ class FirebaseService {
     ProductStatus? newStatus,
   }) async {
     try {
-      final status =
-          newStatus ??
+      final status = newStatus ??
           (isAvailable ? ProductStatus.available : ProductStatus.unavailable);
 
       await FirebaseFirestore.instance
           .collection('Products')
           .doc(productId)
           .update({
-            'isAvailable': isAvailable,
-            'status': status.name,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+        'isAvailable': isAvailable,
+        'status': status.name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     } catch (e) {
       throw Exception('Failed to update product availability: $e');
     }
@@ -881,12 +920,10 @@ class FirebaseService {
         // Create user doc if it doesn't exist
         final user = UserModel(
           id: userId,
-          email:
-              UserModel.currentUser?.email ??
+          email: UserModel.currentUser?.email ??
               FirebaseAuth.instance.currentUser?.email ??
               '',
-          name:
-              UserModel.currentUser?.name ??
+          name: UserModel.currentUser?.name ??
               FirebaseAuth.instance.currentUser?.displayName ??
               'User',
           favouriteProductIds: [productId], // Add directly
@@ -1026,9 +1063,8 @@ class FirebaseService {
     try {
       print('=== DEBUG: Sending message to trade: ${message.tradeId} ===');
       final tradesCollection = _getTradesCollection();
-      final messagesCollection = tradesCollection
-          .doc(message.tradeId)
-          .collection('messages');
+      final messagesCollection =
+          tradesCollection.doc(message.tradeId).collection('messages');
 
       await messagesCollection.doc(message.id).set(message.toJson());
 
@@ -1055,21 +1091,20 @@ class FirebaseService {
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) {
-          print(
-            '=== DEBUG: Received ${snapshot.docs.length} messages for trade $tradeId ===',
-          );
-          return snapshot.docs
-              .map((doc) => ChatMessage.fromJson(doc.data()))
-              .toList();
-        });
+      print(
+        '=== DEBUG: Received ${snapshot.docs.length} messages for trade $tradeId ===',
+      );
+      return snapshot.docs
+          .map((doc) => ChatMessage.fromJson(doc.data()))
+          .toList();
+    });
   }
 
   static Future<void> markMessagesAsRead(String tradeId, String userId) async {
     try {
       final tradesCollection = _getTradesCollection();
-      final messagesCollection = tradesCollection
-          .doc(tradeId)
-          .collection('messages');
+      final messagesCollection =
+          tradesCollection.doc(tradeId).collection('messages');
 
       final unreadMessages = await messagesCollection
           .where('isRead', isEqualTo: false)
@@ -1197,9 +1232,8 @@ class FirebaseService {
     try {
       print('=== DEBUG: Sending message to conversation: $conversationId ===');
       final conversationsCollection = _getConversationsCollection();
-      final messagesCollection = conversationsCollection
-          .doc(conversationId)
-          .collection('messages');
+      final messagesCollection =
+          conversationsCollection.doc(conversationId).collection('messages');
 
       await messagesCollection.doc(message.id).set(message.toJson());
 
@@ -1232,13 +1266,13 @@ class FirebaseService {
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) {
-          print(
-            '=== DEBUG: Received ${snapshot.docs.length} messages for conversation $conversationId ===',
-          );
-          return snapshot.docs
-              .map((doc) => ChatMessage.fromJson(doc.data()))
-              .toList();
-        });
+      print(
+        '=== DEBUG: Received ${snapshot.docs.length} messages for conversation $conversationId ===',
+      );
+      return snapshot.docs
+          .map((doc) => ChatMessage.fromJson(doc.data()))
+          .toList();
+    });
   }
 
   /// Mark messages as read in a conversation
@@ -1248,9 +1282,8 @@ class FirebaseService {
   ) async {
     try {
       final conversationsCollection = _getConversationsCollection();
-      final messagesCollection = conversationsCollection
-          .doc(conversationId)
-          .collection('messages');
+      final messagesCollection =
+          conversationsCollection.doc(conversationId).collection('messages');
 
       final unreadMessages = await messagesCollection
           .where('isRead', isEqualTo: false)
@@ -1294,14 +1327,14 @@ class FirebaseService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs
-              .map(
-                (doc) => NotificationModel.fromJson(
-                  doc.data() as Map<String, dynamic>,
-                ),
-              )
-              .toList();
-        });
+      return snapshot.docs
+          .map(
+            (doc) => NotificationModel.fromJson(
+              doc.data() as Map<String, dynamic>,
+            ),
+          )
+          .toList();
+    });
   }
 
   static Stream<int> getUnreadNotificationCount(String userId) {
@@ -1510,9 +1543,8 @@ class FirebaseService {
     try {
       // Mark all user's products as unavailable
       final productsCollection = _getProductsCollection(null);
-      final userProducts = await productsCollection
-          .where('ownerId', isEqualTo: userId)
-          .get();
+      final userProducts =
+          await productsCollection.where('ownerId', isEqualTo: userId).get();
 
       final batch = FirebaseFirestore.instance.batch();
 
@@ -1555,9 +1587,8 @@ class FirebaseService {
 
       // Delete user's products
       final productsCollection = _getProductsCollection(null);
-      final userProducts = await productsCollection
-          .where('ownerId', isEqualTo: userId)
-          .get();
+      final userProducts =
+          await productsCollection.where('ownerId', isEqualTo: userId).get();
 
       for (final doc in userProducts.docs) {
         batch.delete(doc.reference);
@@ -1565,13 +1596,11 @@ class FirebaseService {
 
       // Delete user's trades
       final tradesCollection = _getTradesCollection();
-      final sentTrades = await tradesCollection
-          .where('fromUserId', isEqualTo: userId)
-          .get();
+      final sentTrades =
+          await tradesCollection.where('fromUserId', isEqualTo: userId).get();
 
-      final receivedTrades = await tradesCollection
-          .where('toUserId', isEqualTo: userId)
-          .get();
+      final receivedTrades =
+          await tradesCollection.where('toUserId', isEqualTo: userId).get();
 
       for (final doc in [...sentTrades.docs, ...receivedTrades.docs]) {
         batch.delete(doc.reference);
@@ -1623,9 +1652,8 @@ class FirebaseService {
   ) async {
     try {
       final productsCollection = _getProductsCollection(context);
-      final querySnapshot = await productsCollection
-          .orderBy('createdAt', descending: true)
-          .get();
+      final querySnapshot =
+          await productsCollection.orderBy('createdAt', descending: true).get();
 
       return querySnapshot.docs.map((doc) => doc.data()).toList();
     } catch (e) {
@@ -1655,15 +1683,12 @@ class FirebaseService {
       final tradesSnapshot = await tradesCollection.get();
       final trades = tradesSnapshot.docs.map((doc) => doc.data()).toList();
 
-      final activeTrades = trades
-          .where((t) => t.status == TradeStatus.accepted)
-          .length;
-      final completedTrades = trades
-          .where((t) => t.status == TradeStatus.completed)
-          .length;
-      final pendingTrades = trades
-          .where((t) => t.status == TradeStatus.pending)
-          .length;
+      final activeTrades =
+          trades.where((t) => t.status == TradeStatus.accepted).length;
+      final completedTrades =
+          trades.where((t) => t.status == TradeStatus.completed).length;
+      final pendingTrades =
+          trades.where((t) => t.status == TradeStatus.pending).length;
 
       return AdminStats(
         totalUsers: users.length,
@@ -1700,7 +1725,7 @@ class FirebaseService {
   // ==================== Category Management ====================
 
   static CollectionReference<CategorySuggestion>
-  _getCategorySuggestionsCollection() {
+      _getCategorySuggestionsCollection() {
     return FirebaseFirestore.instance
         .collection('CategorySuggestions')
         .withConverter<CategorySuggestion>(
@@ -1711,7 +1736,7 @@ class FirebaseService {
   }
 
   static CollectionReference<ApprovedCategory>
-  _getApprovedCategoriesCollection() {
+      _getApprovedCategoriesCollection() {
     return FirebaseFirestore.instance
         .collection('ApprovedCategories')
         .withConverter<ApprovedCategory>(
@@ -1792,9 +1817,8 @@ class FirebaseService {
     required String adminName,
   }) async {
     try {
-      final suggestionDoc = await _getCategorySuggestionsCollection()
-          .doc(suggestionId)
-          .get();
+      final suggestionDoc =
+          await _getCategorySuggestionsCollection().doc(suggestionId).get();
 
       if (!suggestionDoc.exists) {
         throw Exception('Suggestion not found');
@@ -1853,9 +1877,8 @@ class FirebaseService {
   /// Get all approved custom categories
   static Future<List<ApprovedCategory>> getApprovedCategories() async {
     try {
-      final snapshot = await _getApprovedCategoriesCollection()
-          .orderBy('name')
-          .get();
+      final snapshot =
+          await _getApprovedCategoriesCollection().orderBy('name').get();
       return snapshot.docs.map((doc) => doc.data()).toList();
     } catch (e) {
       throw Exception('Failed to get approved categories: $e');

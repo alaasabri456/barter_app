@@ -12,7 +12,20 @@
           "package_name": "com.example.barter"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "460987873980-227b1ntce91a9rds6l4tnk7r6fhkfr8t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.barter",
+            "certificate_hash": "075307d7cafcbca7941083e1ee570d11e670d745"
+          }
+        },
+        {
+          "client_id": "460987873980-s29ubpkkass8m9c106sf491oc6rbrhrl.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDek6zMI2YTmqaZadXlF2wXt553o_q7q7s"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "460987873980-s29ubpkkass8m9c106sf491oc6rbrhrl.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

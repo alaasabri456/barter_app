@@ -7,6 +7,8 @@ import 'package:barter/features/trade/trade_management_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/routes_manager/routes_manager.dart';
+import '../authentication/models/user_model.dart';
+import '../../core/widgets/custom_dialog.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -35,7 +37,28 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   void _onFabPressed() {
+    if (UserModel.isGuest) {
+      _showGuestLoginPrompt();
+      return;
+    }
     Navigator.pushNamed(context, RoutesManager.createProduct);
+  }
+
+  void _showGuestLoginPrompt() {
+    showConfirmationDialog(
+      context: context,
+      title: 'Sign In Required',
+      message: 'You need to sign in to access this feature.',
+      confirmText: 'Sign In',
+      cancelText: 'Maybe Later',
+      icon: Icons.login,
+    ).then((value) {
+      if (value == true) {
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(RoutesManager.login, (route) => false);
+      }
+    });
   }
 
   @override
@@ -157,6 +180,10 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   void _onTap(int newIndex) {
+    if (UserModel.isGuest && (newIndex == 1 || newIndex == 2)) {
+      _showGuestLoginPrompt();
+      return;
+    }
     setState(() {
       selectedIndex = newIndex;
     });

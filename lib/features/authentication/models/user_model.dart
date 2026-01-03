@@ -20,12 +20,15 @@ enum UserRole {
 
 class UserModel {
   static UserModel? currentUser;
+  static bool get isGuest => currentUser?.isAnonymous ?? false;
+
   String id;
   String name;
   String email;
   List<String> favouriteProductIds;
   UserRole role;
   String? fcmToken;
+  bool isAnonymous;
 
   UserModel({
     required this.id,
@@ -34,7 +37,18 @@ class UserModel {
     required this.favouriteProductIds,
     this.role = UserRole.user,
     this.fcmToken,
+    this.isAnonymous = false,
   });
+
+  factory UserModel.guest(String uid) {
+    return UserModel(
+      id: uid,
+      email: 'guest@barter.app',
+      name: 'Guest User',
+      favouriteProductIds: [],
+      isAnonymous: true,
+    );
+  }
 
   UserModel.fromJson(Map<String, dynamic> json)
     : this(
@@ -48,6 +62,7 @@ class UserModel {
             [],
         role: _parseRole(json["role"]),
         fcmToken: json["fcmToken"],
+        isAnonymous: json["isAnonymous"] ?? false,
       );
 
   static UserRole _parseRole(dynamic roleValue) {
@@ -72,6 +87,7 @@ class UserModel {
     "favouriteProductIds": favouriteProductIds,
     "role": role.name,
     "fcmToken": fcmToken,
+    "isAnonymous": isAnonymous,
   };
 
   UserModel copyWith({
@@ -81,6 +97,7 @@ class UserModel {
     List<String>? favouriteProductIds,
     UserRole? role,
     String? fcmToken,
+    bool? isAnonymous,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -89,6 +106,7 @@ class UserModel {
       favouriteProductIds: favouriteProductIds ?? this.favouriteProductIds,
       role: role ?? this.role,
       fcmToken: fcmToken ?? this.fcmToken,
+      isAnonymous: isAnonymous ?? this.isAnonymous,
     );
   }
 

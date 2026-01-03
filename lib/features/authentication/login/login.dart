@@ -100,6 +100,52 @@ class _LoginState extends State<Login> {
     }
   }
 
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final userCredential = await FirebaseService.signInWithGoogle();
+      final user = userCredential.user;
+
+      if (user != null) {
+        UserModel userModel =
+            await FirebaseService.handleGoogleSignInUser(user);
+        UserModel.currentUser = userModel;
+
+        if (mounted) {
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil(RoutesManager.mainLayout, (route) => false);
+        }
+      }
+    } catch (e) {
+      print('Google Sign-In Error: $e');
+      if (mounted) {
+        String errorMessage = e.toString();
+        if (!errorMessage.contains('aborted') &&
+            !errorMessage.contains('canceled')) {
+          showInfoDialog(
+            context: context,
+            title: 'Sign In Failed',
+            message: e is Exception
+                ? e.toString().replaceFirst('Exception: ', '')
+                : 'An error occurred during Google Sign-In. Please try again.',
+            icon: Icons.error_outline,
+            iconColor: Theme.of(context).colorScheme.error,
+          );
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   String _getErrorMessage(String errorCode) {
     switch (errorCode) {
       case 'user-not-found':
@@ -174,9 +220,9 @@ class _LoginState extends State<Login> {
                 Text(
                   'Welcome Back!',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor,
-                  ),
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).primaryColor,
+                      ),
                   textAlign: TextAlign.center,
                 ),
 
@@ -185,10 +231,10 @@ class _LoginState extends State<Login> {
                 Text(
                   'Sign in to continue to Barter',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).textTheme.bodyLarge?.color?.withOpacity(0.7),
-                  ),
+                        color: Theme.of(
+                          context,
+                        ).textTheme.bodyLarge?.color?.withOpacity(0.7),
+                      ),
                   textAlign: TextAlign.center,
                 ),
 
@@ -252,14 +298,38 @@ class _LoginState extends State<Login> {
                       child: Text(
                         'OR',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.color?.withOpacity(0.6),
-                        ),
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.color?.withOpacity(0.6),
+                            ),
                       ),
                     ),
                     Expanded(child: Divider()),
                   ],
+                ),
+
+                SizedBox(height: 24.h),
+
+                // Google Sign In
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading ? null : _signInWithGoogle,
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: 16.h),
+                      side: BorderSide(
+                        color: Theme.of(context).dividerColor.withOpacity(0.5),
+                      ),
+                    ),
+                    icon: Icon(Icons.login_outlined),
+                    label: Text(
+                      'Sign in with Google',
+                      style: TextStyle(
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ),
 
                 SizedBox(height: 24.h),
@@ -278,6 +348,50 @@ class _LoginState extends State<Login> {
                       fontSize: 14.sp,
                     ),
                   ],
+                ),
+
+                SizedBox(height: 24.h),
+
+                // Continue as guest
+                OutlinedButton(
+                  onPressed: () async {
+                    try {
+                      final userCredential =
+                          await FirebaseAuth.instance.signInAnonymously();
+                      if (userCredential.user != null) {
+                        UserModel.currentUser = UserModel.guest(
+                          userCredential.user!.uid,
+                        );
+                        if (mounted) {
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                            RoutesManager.mainLayout,
+                            (route) => false,
+                          );
+                        }
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Failed to continue as guest: ${e.toString()}',
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(vertical: 16.h),
+                    side: BorderSide(color: Theme.of(context).primaryColor),
+                  ),
+                  child: Text(
+                    'Continue as Guest',
+                    style: TextStyle(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
 
                 SizedBox(height: 40.h),
