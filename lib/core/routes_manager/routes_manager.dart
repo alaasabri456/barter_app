@@ -17,6 +17,8 @@ import '../../features/favourites/favourites_screen.dart';
 import '../../features/chat/chat_screen.dart';
 import '../../features/chat/chat_list_screen.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
+import '../../features/notifications/notifications_screen.dart';
+import '../../features/reviews/leave_review_screen.dart';
 
 class RoutesManager {
   static const String register = "/register";
@@ -35,6 +37,8 @@ class RoutesManager {
   static const String chat = '/chat';
   static const String chatList = '/chat-list';
   static const String adminDashboard = '/admin-dashboard';
+  static const String notifications = '/notifications';
+  static const String leaveReview = '/leave-review';
 
   static Route? router(RouteSettings setting) {
     switch (setting.name) {
@@ -129,6 +133,24 @@ class RoutesManager {
             builder: (context) => const AdminDashboardScreen(),
           );
         }
+      case notifications:
+        {
+          return MaterialPageRoute(
+            builder: (context) => const NotificationsScreen(),
+          );
+        }
+      case leaveReview:
+        {
+          final args = setting.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (context) => LeaveReviewScreen(
+              trade: args['trade'],
+              targetUserId: args['targetUserId'],
+              targetUserName: args['targetUserName'],
+            ),
+          );
+        }
     }
+    return null;
   }
 }

@@ -1,4 +1,7 @@
+// ignore_for_file: deprecated_member_use, avoid_print
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,6 +12,7 @@ import '../../core/widgets/custom_dialog.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../../core/theme/theme_provider.dart';
 import '../authentication/widgets/auth_button.dart';
+import '../../services/push_notification_service.dart';
 
 import '../../features/trade/models/trade_offer.dart';
 import '../reviews/reviews_screen.dart';
@@ -171,6 +175,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _sendTestNotification() async {
+    var user = UserModel.currentUser;
+    if (user?.fcmToken == null) {
+      setState(() => _isLoading = true);
+      await PushNotificationService.updateToken();
+      user = UserModel.currentUser;
+    }
+
+    if (user == null || user.fcmToken == null) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('FCM Token not available')));
+      }
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await FirebaseService.sendPushNotification(
+        recipientToken: user.fcmToken!,
+        title: 'Test Notification',
+        body: 'Hello! This is a test push notification from Barter.',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Test notification sent!')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to send test: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _copyFcmToken() {
+    final token = UserModel.currentUser?.fcmToken;
+    if (token != null) {
+      Clipboard.setData(ClipboardData(text: token));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('FCM Token copied to clipboard')));
+    }
   }
 
   void _showPrivacyPolicy() {
@@ -440,6 +497,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'About',
                     subtitle: 'Learn more about the app',
                     onTap: _showAbout,
+                  ),
+
+                  SizedBox(height: 24.h),
+
+                  // Debug section
+                  _buildSectionTitle('Developer Tools'),
+                  SizedBox(height: 12.h),
+
+                  _buildSettingItem(
+                    icon: Icons.notifications_active_outlined,
+                    title: 'Test Notification',
+                    subtitle: 'Send a test push to this device',
+                    onTap: _sendTestNotification,
+                  ),
+
+                  _buildSettingItem(
+                    icon: Icons.copy_outlined,
+                    title: 'Copy FCM Token',
+                    subtitle: 'Copy device token for console testing',
+                    onTap: _copyFcmToken,
                   ),
 
                   SizedBox(height: 32.h),

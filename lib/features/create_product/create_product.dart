@@ -51,6 +51,37 @@ class _CreateProductState extends State<CreateProduct> {
 
     if (_isEditing) {
       _populateFields();
+    } else {
+      // Check for product limit after the first frame
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkProductLimit();
+      });
+    }
+  }
+
+  Future<void> _checkProductLimit() async {
+    final user = UserModel.currentUser;
+    if (user != null) {
+      setState(() => _isLoading = true);
+      final count = await FirebaseService.getUntradedProductsCount(
+        user.id,
+        context,
+      );
+      setState(() => _isLoading = false);
+
+      if (count >= 5 && mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Product Limit Reached',
+          message:
+              'You can have at most 5 untraded items. Please trade an existing item before adding a new one.',
+          icon: Icons.warning_outlined,
+          iconColor: Theme.of(context).colorScheme.error,
+        );
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      }
     }
   }
 
@@ -369,6 +400,31 @@ class _CreateProductState extends State<CreateProduct> {
   // ==================== SAVE PRODUCT ====================
   Future<void> _saveProduct() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Final limit check before saving if not editing
+    if (!_isEditing) {
+      final user = UserModel.currentUser;
+      if (user != null) {
+        setState(() => _isLoading = true);
+        final count = await FirebaseService.getUntradedProductsCount(
+          user.id,
+          context,
+        );
+        if (count >= 5) {
+          setState(() => _isLoading = false);
+          if (mounted) {
+            await showInfoDialog(
+              context: context,
+              title: 'Limit Reached',
+              message: 'You already have 5 untraded items.',
+              icon: Icons.error_outline,
+              iconColor: Theme.of(context).colorScheme.error,
+            );
+          }
+          return;
+        }
+      }
+    }
 
     // Check if we have images (either uploaded or already have URLs)
     if (_selectedImageFiles.isEmpty && _uploadedImageUrls.isEmpty) {

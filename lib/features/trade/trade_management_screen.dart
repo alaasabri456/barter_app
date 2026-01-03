@@ -1,4 +1,6 @@
 // screens/trade/trade_management_screen.dart
+// ignore_for_file: deprecated_member_use, unnecessary_underscores, avoid_print
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -11,6 +13,7 @@ import '../../features/authentication/models/user_model.dart';
 import '../../features/products/models/product_model.dart';
 import '../authentication/widgets/auth_button.dart';
 import '../../core/routes_manager/routes_manager.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class TradeManagementScreen extends StatefulWidget {
   const TradeManagementScreen({super.key});
@@ -60,16 +63,12 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         FirebaseService.getSentTrades(user.id),
       ]);
 
-      print('=== SCREEN DEBUG: Loaded ${received.length} received trades ===');
-      print('=== SCREEN DEBUG: Loaded ${sent.length} sent trades ===');
-
       setState(() {
         _receivedTrades = received;
         _sentTrades = sent;
         _isLoading = false;
       });
     } catch (e) {
-      print('=== SCREEN DEBUG: Error loading trades: $e ===');
       setState(() {
         _isLoading = false;
       });
@@ -257,6 +256,60 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
     }
   }
 
+  Future<void> _completeTrade(TradeOffer trade) async {
+    final confirmed = await showConfirmationDialog(
+      context: context,
+      title: 'Complete Trade',
+      message: 'Has the exchange been successfully completed?',
+      confirmText: 'Yes, Complete',
+      cancelText: 'Not yet',
+      icon: Icons.check_circle_outline,
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      await FirebaseService.updateTradeStatus(
+        tradeId: trade.id,
+        newStatus: TradeStatus.completed,
+        userId: UserModel.currentUser!.id,
+        userName: UserModel.currentUser!.name,
+      );
+
+      // Reload trades
+      await _loadTrades();
+
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Trade Completed',
+          message: 'Trade marked as complete! You can now leave a review.',
+          icon: Icons.celebration,
+          iconColor: Colors.purple,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Error',
+          message: 'Failed to complete trade: $e',
+          icon: Icons.error_outline,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -311,7 +364,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
             Icon(
               Icons.swap_horiz,
               size: 64.w,
-              color: Theme.of(context).iconTheme.color?.withOpacity(0.3),
+              color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.3),
             ),
             SizedBox(height: 16.h),
             Text(
@@ -370,7 +423,9 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                       vertical: 4.h,
                     ),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(trade.status).withOpacity(0.1),
+                      color: _getStatusColor(
+                        trade.status,
+                      ).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12.r),
                     ),
                     child: Text(
@@ -470,113 +525,121 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
 
               SizedBox(height: 12.h),
 
-              // Trade items
-              Row(
+              // Trade items - Visual Product Cards
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'You ${isReceived ? 'receive' : 'offer'}:',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(fontWeight: FontWeight.w500),
-                        ),
-                        SizedBox(height: 4.h),
-                        FutureBuilder<List<String>>(
-                          future: _getProductNames(
-                            isReceived
-                                ? trade.offeredProductIds
-                                : trade.offeredProductIds,
-                          ),
-                          builder: (context, snapshot) {
-                            final names = snapshot.data ?? ['Loading...'];
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                for (final name in names.take(2))
-                                  Text(
-                                    '• $name',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(fontWeight: FontWeight.w500),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                if (names.length > 2)
-                                  Text(
-                                    '• ...and ${names.length - 2} more',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.color
-                                              ?.withOpacity(0.7),
-                                        ),
-                                  ),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
+                  // Products being offered (what the receiver gets)
+                  Text(
+                    'You ${isReceived ? 'receive' : 'offer'}:',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  Icon(
-                    Icons.swap_horiz,
-                    size: 20.w,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'You ${isReceived ? 'offer' : 'receive'}:',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(fontWeight: FontWeight.w500),
-                        ),
-                        SizedBox(height: 4.h),
-                        FutureBuilder<List<String>>(
-                          future: _getProductNames(
-                            isReceived
-                                ? trade.requestedProductIds
-                                : trade.requestedProductIds,
+                  SizedBox(height: 8.h),
+                  FutureBuilder<List<ProductModel>>(
+                    future: _getProducts(trade.offeredProductIds),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return SizedBox(
+                          height: 80.h,
+                          child: Center(
+                            child: SizedBox(
+                              width: 20.w,
+                              height: 20.w,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
                           ),
-                          builder: (context, snapshot) {
-                            final names = snapshot.data ?? ['Loading...'];
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                for (final name in names.take(2))
-                                  Text(
-                                    '$name •',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(fontWeight: FontWeight.w500),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                if (names.length > 2)
-                                  Text(
-                                    '...and ${names.length - 2} more •',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.color
-                                              ?.withOpacity(0.7),
-                                        ),
-                                  ),
-                              ],
-                            );
+                        );
+                      }
+                      final products = snapshot.data ?? [];
+                      if (products.isEmpty) {
+                        return Text(
+                          'No items',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        );
+                      }
+                      return SizedBox(
+                        height: 80.h,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: products.length,
+                          separatorBuilder: (_, __) => SizedBox(width: 8.w),
+                          itemBuilder: (context, index) {
+                            return _buildProductMiniCard(products[index]);
                           },
                         ),
-                      ],
+                      );
+                    },
+                  ),
+
+                  SizedBox(height: 12.h),
+
+                  // Swap icon
+                  Center(
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12.w,
+                        vertical: 4.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20.r),
+                      ),
+                      child: Icon(
+                        Icons.swap_vert,
+                        size: 20.w,
+                        color: Theme.of(context).primaryColor,
+                      ),
                     ),
+                  ),
+
+                  SizedBox(height: 12.h),
+
+                  // Products being requested (what the sender wants)
+                  Text(
+                    'You ${isReceived ? 'give' : 'receive'}:',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  FutureBuilder<List<ProductModel>>(
+                    future: _getProducts(trade.requestedProductIds),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return SizedBox(
+                          height: 80.h,
+                          child: Center(
+                            child: SizedBox(
+                              width: 20.w,
+                              height: 20.w,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      }
+                      final products = snapshot.data ?? [];
+                      if (products.isEmpty) {
+                        return Text(
+                          'No items',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        );
+                      }
+                      return SizedBox(
+                        height: 80.h,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: products.length,
+                          separatorBuilder: (_, __) => SizedBox(width: 8.w),
+                          itemBuilder: (context, index) {
+                            return _buildProductMiniCard(products[index]);
+                          },
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -588,7 +651,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
+                    color: Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8.r),
                   ),
                   child: Row(
@@ -682,7 +745,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                     Container(
                       padding: EdgeInsets.all(8.w),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
+                        color: Colors.green.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8.r),
                       ),
                       child: Row(
@@ -695,7 +758,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                           SizedBox(width: 8.w),
                           Expanded(
                             child: Text(
-                              'Trade accepted! Coordinate with the other user to complete the exchange.',
+                              'Trade accepted! Coordinate via chat.',
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(color: Colors.green),
                             ),
@@ -703,7 +766,38 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                         ],
                       ),
                     ),
+                    SizedBox(height: 12.h),
+                    AuthButton(
+                      text: 'Complete Trade',
+                      onPressed: () => _completeTrade(trade),
+                      backgroundColor: Colors.purple,
+                    ),
                   ],
+                ),
+              ] else if (trade.status == TradeStatus.completed) ...[
+                AuthButton(
+                  text: 'Leave a Review',
+                  onPressed: () async {
+                    final result = await Navigator.pushNamed(
+                      context,
+                      RoutesManager.leaveReview,
+                      arguments: {
+                        'trade': trade,
+                        'targetUserId': isReceived
+                            ? trade.fromUserId
+                            : trade.toUserId,
+                        'targetUserName': isReceived
+                            ? trade.fromUserName
+                            : trade.toUserName,
+                      },
+                    );
+
+                    if (result == true) {
+                      // Maybe disable button or show "Reviewed" text.
+                      // For now, simpler is better.
+                    }
+                  },
+                  isOutlined: true,
                 ),
               ],
             ],
@@ -713,22 +807,117 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
     );
   }
 
-  Future<List<String>> _getProductNames(List<String> productIds) async {
+  Future<List<ProductModel>> _getProducts(List<String> productIds) async {
     try {
-      if (productIds.isEmpty) return ['No items'];
+      if (productIds.isEmpty) return [];
 
       final products = await FirebaseService.getProductsByIds(
         productIds,
         context,
       );
-      return products.map((p) => p.title).toList();
+      return products;
     } catch (e) {
-      print('=== DEBUG: Error getting product names: $e ===');
-      return List.generate(
-        productIds.length,
-        (index) => 'Product ${index + 1}',
-      );
+      print('=== DEBUG: Error getting products: $e ===');
+      return [];
     }
+  }
+
+  Widget _buildProductMiniCard(ProductModel product) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(
+          context,
+          RoutesManager.productDetails,
+          arguments: product.id,
+        );
+      },
+      child: Container(
+        width: 140.w,
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(10.r),
+          border: Border.all(color: Theme.of(context).dividerColor, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Product Image
+            Container(
+              width: 60.w,
+              height: 78.h,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(9.r),
+                  bottomLeft: Radius.circular(9.r),
+                ),
+                color: Colors.grey[200],
+                image: product.images.isNotEmpty
+                    ? DecorationImage(
+                        image: CachedNetworkImageProvider(product.images.first),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
+              child: product.images.isEmpty
+                  ? Center(
+                      child: Icon(
+                        Icons.image_outlined,
+                        size: 24.w,
+                        color: Colors.grey[400],
+                      ),
+                    )
+                  : null,
+            ),
+            // Product Info
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      product.title,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11.sp,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 4.h),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.touch_app,
+                          size: 10.w,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                        SizedBox(width: 2.w),
+                        Text(
+                          'Tap to view',
+                          style: TextStyle(
+                            fontSize: 9.sp,
+                            color: Theme.of(context).primaryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Color _getStatusColor(TradeStatus status) {

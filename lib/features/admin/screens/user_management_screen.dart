@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:barter/features/authentication/models/user_model.dart';
 import 'package:barter/firebase/firebase_service.dart';
 import 'package:flutter/material.dart';

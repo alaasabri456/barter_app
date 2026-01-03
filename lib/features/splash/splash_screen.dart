@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -5,6 +7,7 @@ import '../../core/routes_manager/routes_manager.dart';
 import '../../firebase/firebase_service.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../../core/widgets/loading_widget.dart';
+import '../../services/push_notification_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -71,6 +74,9 @@ class _SplashScreenState extends State<SplashScreen>
         UserModel.currentUser = await FirebaseService.getUserFromFireStore(
           currentUser.uid,
         );
+
+        // Update FCM token once user is available
+        await PushNotificationService.updateToken();
 
         if (mounted) {
           _navigateToMainLayout();

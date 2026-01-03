@@ -27,11 +27,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<List<ProductModel>>? _productsFuture;
   bool _isRefreshing = false;
   List<String> _allCategories = []; // Combined default + custom categories
-  bool _categoriesLoaded = false;
 
   // Track favorite states for each product
-  Map<String, bool> _favouriteStates = {};
-  Map<String, bool> _favouriteLoading = {};
+  final Map<String, bool> _favouriteStates = {};
+  final Map<String, bool> _favouriteLoading = {};
 
   @override
   void initState() {
@@ -55,7 +54,6 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         setState(() {
           _allCategories = [...defaultCategories, ...customNames];
-          _categoriesLoaded = true;
         });
       }
     } catch (e) {
@@ -65,7 +63,6 @@ class _HomeScreenState extends State<HomeScreen> {
           _allCategories = ProductCategory.values
               .map((c) => c.displayName)
               .toList();
-          _categoriesLoaded = true;
         });
       }
     }
@@ -220,11 +217,51 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         height: 80,
         actions: [
-          IconButton(
-            onPressed: () {
-              // TODO: Navigate to notifications screen
-            },
-            icon: Icon(Icons.notifications_outlined, size: 28.sp),
+          Stack(
+            children: [
+              IconButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, RoutesManager.notifications);
+                },
+                icon: Icon(Icons.notifications_outlined, size: 28.sp),
+              ),
+              StreamBuilder<int>(
+                stream: FirebaseService.getUnreadNotificationCount(
+                  UserModel.currentUser?.id ?? '',
+                ),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData || snapshot.data == 0) {
+                    return const SizedBox.shrink();
+                  }
+                  return Positioned(
+                    right: 8.w,
+                    top: 8.h,
+                    child: Container(
+                      padding: EdgeInsets.all(4.w),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      constraints: BoxConstraints(
+                        minWidth: 16.w,
+                        minHeight: 16.w,
+                      ),
+                      child: Center(
+                        child: Text(
+                          snapshot.data! > 9 ? '9+' : snapshot.data!.toString(),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
           SizedBox(width: 8.w),
         ],
@@ -461,7 +498,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisCount: 2,
                         crossAxisSpacing: 12.w,
                         mainAxisSpacing: 20.h,
-                        childAspectRatio: 0.68,
+                        childAspectRatio: 0.66,
                       ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final product = filtered[index];

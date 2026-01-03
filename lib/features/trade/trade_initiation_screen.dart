@@ -1,4 +1,6 @@
 // screens/trade/initiate_trade_screen.dart
+// ignore_for_file: deprecated_member_use, avoid_print
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -50,15 +52,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
         throw Exception('Please log in to view your products');
       }
 
-      print(
-        '=== SCREEN DEBUG: Starting to load products for user ${user.id} ===',
-      );
-
       final products = await FirebaseService.getUserProducts(user.id, context);
-
-      print(
-        '=== SCREEN DEBUG: Received ${products.length} products from FirebaseService ===',
-      );
 
       // Additional client-side filtering
       final availableProducts = products
@@ -75,17 +69,12 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
           )
           .toList();
 
-      print(
-        '=== SCREEN DEBUG: ${availableProducts.length} products available for trading ===',
-      );
-
       setState(() {
         _userProducts = availableProducts;
         _loadingProducts = false;
         _errorMessage = null;
       });
     } catch (e) {
-      print('=== SCREEN DEBUG: Error in _loadUserProducts: $e ===');
       setState(() {
         _loadingProducts = false;
         _errorMessage = e.toString();
@@ -268,9 +257,9 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
   Widget _buildBody() {
     if (_loadingProducts) {
       return LoadingOverlay(
-        child: Container(),
         isLoading: true,
         loadingMessage: 'Loading your items...',
+        child: Container(),
       );
     }
 
@@ -825,7 +814,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
   Widget _buildMultiOfferStack() {
     // Show a stack effect or just the count for multiple items
     final first = _selectedOfferedProducts.first;
-    return Container(
+    return SizedBox(
       height: 140.h,
       width: double.infinity,
       child: Stack(

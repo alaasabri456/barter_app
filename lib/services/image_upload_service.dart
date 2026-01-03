@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print, depend_on_referenced_packages
+
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -40,7 +42,9 @@ class ImageUploadService {
   }
 
   // Upload multiple images
-  static Future<List<String>> uploadMultipleImages(List<File> imageFiles) async {
+  static Future<List<String>> uploadMultipleImages(
+    List<File> imageFiles,
+  ) async {
     final List<String> imageUrls = [];
 
     for (final imageFile in imageFiles) {

@@ -9,6 +9,7 @@ import '../models/register_request.dart';
 import '../models/user_model.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
+import '../../../services/push_notification_service.dart';
 
 class Register extends StatefulWidget {
   const Register({super.key});
@@ -79,6 +80,9 @@ class _RegisterState extends State<Register> {
 
         // Set current user
         UserModel.currentUser = newUser;
+
+        // Update FCM token on register
+        await PushNotificationService.updateToken();
 
         if (mounted) {
           // Show success message

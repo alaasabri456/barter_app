@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/widgets/custom_app_bar.dart';
@@ -469,9 +471,47 @@ class _ProductsScreenState extends State<ProductsScreen>
                 );
 
                 if (confirmed == true) {
-                  // TODO: Implement delete functionality
-                  // await FirebaseService.deleteProduct(product.id);
-                  // _loadProducts();
+                  try {
+                    // Check if item is in pending trade
+                    final isInTrade =
+                        await FirebaseService.isProductInPendingTrade(
+                          product.id,
+                        );
+
+                    if (isInTrade && mounted) {
+                      await showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: Text('Delete Blocked'),
+                          content: Text(
+                            'This item is part of a pending trade request. Please cancel or complete the trade before deleting.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: Text('OK'),
+                            ),
+                          ],
+                        ),
+                      );
+                      return;
+                    }
+
+                    await FirebaseService.deleteProduct(product.id);
+                    _loadProducts();
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Product deleted successfully')),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                    }
+                  }
                 }
               },
             ),

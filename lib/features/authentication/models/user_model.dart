@@ -25,6 +25,7 @@ class UserModel {
   String email;
   List<String> favouriteProductIds;
   UserRole role;
+  String? fcmToken;
 
   UserModel({
     required this.id,
@@ -32,6 +33,7 @@ class UserModel {
     required this.name,
     required this.favouriteProductIds,
     this.role = UserRole.user,
+    this.fcmToken,
   });
 
   UserModel.fromJson(Map<String, dynamic> json)
@@ -45,6 +47,7 @@ class UserModel {
                 .toList() ??
             [],
         role: _parseRole(json["role"]),
+        fcmToken: json["fcmToken"],
       );
 
   static UserRole _parseRole(dynamic roleValue) {
@@ -68,7 +71,26 @@ class UserModel {
     "email": email,
     "favouriteProductIds": favouriteProductIds,
     "role": role.name,
+    "fcmToken": fcmToken,
   };
+
+  UserModel copyWith({
+    String? id,
+    String? name,
+    String? email,
+    List<String>? favouriteProductIds,
+    UserRole? role,
+    String? fcmToken,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      favouriteProductIds: favouriteProductIds ?? this.favouriteProductIds,
+      role: role ?? this.role,
+      fcmToken: fcmToken ?? this.fcmToken,
+    );
+  }
 
   // Permission helper methods
   bool get isAdmin => role == UserRole.admin;

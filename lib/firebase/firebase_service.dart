@@ -1,9 +1,13 @@
+// ignore_for_file: avoid_print
+
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 import '../features/authentication/models/login_request.dart';
 import '../features/products/models/product_model.dart';
@@ -12,8 +16,10 @@ import '../features/trade/models/trade_offer.dart';
 import '../features/authentication/models/user_model.dart';
 import '../features/chat/models/chat_message.dart';
 import '../features/reviews/models/review_model.dart';
+import '../features/notifications/models/notification_model.dart';
 import '../features/admin/models/admin_stats_model.dart';
 import '../features/admin/models/category_suggestion_model.dart';
+import '../services/fcm_v1_service.dart';
 
 class FirebaseService {
   static Future<UserCredential> register(RegisterRequest request) async {
@@ -58,6 +64,20 @@ class FirebaseService {
     return documentSnapshot.data();
   }
 
+  static Future<void> updateUserFcmToken(String userId, String token) async {
+    try {
+      final usersCollection = _getUsersCollection();
+      await usersCollection.doc(userId).update({'fcmToken': token});
+
+      // Update local current user if applicable
+      if (UserModel.currentUser?.id == userId) {
+        UserModel.currentUser?.fcmToken = token;
+      }
+    } catch (e) {
+      print('Failed to update FCM token: $e');
+    }
+  }
+
   static CollectionReference<ProductModel> _getProductsCollection(
     BuildContext? context,
   ) {
@@ -88,6 +108,110 @@ class FirebaseService {
     );
 
     return productDocument.set(updatedProduct);
+  }
+
+  static Future<String?> getUserFcmToken(String userId) async {
+    try {
+      final user = await getUserFromFireStore(userId);
+      return user?.fcmToken;
+    } catch (e) {
+      print('Error getting FCM token: $e');
+      return null;
+    }
+  }
+
+  static Future<void> sendPushNotification({
+    required String recipientToken,
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final accessToken = await FcmV1Service.getAccessToken();
+      const projectId = 'barter-30a05';
+      const url =
+          'https://fcm.googleapis.com/v1/projects/$projectId/messages:send';
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: <String, String>{
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $accessToken',
+        },
+        body: jsonEncode({
+          'message': {
+            'token': recipientToken,
+            'notification': {'title': title, 'body': body},
+            'data':
+                data?.map((key, value) => MapEntry(key, value.toString())) ??
+                {},
+          },
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        print('FCM v1 notification sent successfully');
+      } else {
+        print('FCM v1 notification failed: ${response.body}');
+      }
+    } catch (e) {
+      print('Error sending FCM v1 notification: $e');
+    }
+  }
+
+  static Future<int> getUntradedProductsCount(
+    String userId,
+    BuildContext context,
+  ) async {
+    try {
+      final products = await getUserProducts(userId, context);
+      final untradedCount = products
+          .where((p) => p.status != ProductStatus.traded)
+          .length;
+
+      return untradedCount;
+    } catch (e) {
+      print('Error getting untraded products count: $e');
+      return 0;
+    }
+  }
+
+  static Future<bool> isProductInPendingTrade(String productId) async {
+    try {
+      final tradesCollection = _getTradesCollection();
+
+      // Check if product is in offeredProductIds of any pending trade
+      final offeredQuery = await tradesCollection
+          .where('offeredProductIds', arrayContains: productId)
+          .where('status', isEqualTo: TradeStatus.pending.name)
+          .limit(1)
+          .get();
+
+      if (offeredQuery.docs.isNotEmpty) return true;
+
+      // Check if product is in requestedProductIds of any pending trade
+      final requestedQuery = await tradesCollection
+          .where('requestedProductIds', arrayContains: productId)
+          .where('status', isEqualTo: TradeStatus.pending.name)
+          .limit(1)
+          .get();
+
+      return requestedQuery.docs.isNotEmpty;
+    } catch (e) {
+      print('Error checking trade constraint: $e');
+      return false;
+    }
+  }
+
+  static Future<void> deleteProduct(String productId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('Products')
+          .doc(productId)
+          .delete();
+    } catch (e) {
+      throw Exception('Failed to delete product: $e');
+    }
   }
 
   static Future<List<ProductModel>> getProductsFromFireStore(
@@ -175,20 +299,10 @@ class FirebaseService {
 
   static Future<String> createTradeOffer(TradeOffer trade) async {
     try {
-      print('=== DEBUG: Creating trade offer ===');
-      print('From: ${trade.fromUserId} (${trade.fromUserName})');
-      print('To: ${trade.toUserId} (${trade.toUserName})');
-      print('Offered Products: ${trade.offeredProductIds}');
-      print('Requested Products: ${trade.requestedProductIds}');
-      print('Type: ${trade.type}');
-      print('Status: ${trade.status}');
-
       final tradesCollection = _getTradesCollection();
       final tradeDoc = tradesCollection.doc();
 
       final tradeWithId = trade.copyWith(id: tradeDoc.id);
-
-      print('=== DEBUG: Saving trade to Firestore with ID: ${tradeDoc.id} ===');
 
       await tradeDoc.set(tradeWithId);
 
@@ -205,13 +319,8 @@ class FirebaseService {
         },
       );
 
-      print(
-        '=== DEBUG: Trade created successfully with ID: ${tradeDoc.id} ===',
-      );
-
       return tradeDoc.id;
     } catch (e) {
-      print('=== DEBUG: ERROR creating trade offer: $e ===');
       throw Exception('Failed to create trade offer: $e');
     }
   }
@@ -281,16 +390,10 @@ class FirebaseService {
 
   static Future<void> debugCheckReceivedTrades(String userId) async {
     try {
-      print('=== DEBUG: Checking received trades for user: $userId ===');
-
       final tradesCollection = _getTradesCollection();
       final querySnapshot = await tradesCollection
           .where('toUserId', isEqualTo: userId)
           .get();
-
-      print(
-        '=== DEBUG: Found ${querySnapshot.docs.length} trades for user $userId ===',
-      );
 
       for (final doc in querySnapshot.docs) {
         final trade = doc.data();
@@ -518,7 +621,7 @@ class FirebaseService {
         });
 
         // Add to history for each expired trade
-        final trade = doc.data();
+        doc.data();
         _addTradeHistory(
           tradeId: doc.id,
           action: 'TRADE_EXPIRED',
@@ -546,21 +649,15 @@ class FirebaseService {
       }
 
       final productsCollection = _getProductsCollection(context);
-      print('=== DEBUG: Products collection reference created ===');
 
       // First, try a simple query to see if we can get any data
-      final testQuery = await productsCollection.limit(1).get();
-      print('=== DEBUG: Test query successful, collection exists ===');
+      await productsCollection.limit(1).get();
 
       // Now query for user's products
       final querySnapshot = await productsCollection
           .where('ownerId', isEqualTo: userId)
           .orderBy('createdAt', descending: true)
           .get();
-
-      print(
-        '=== DEBUG: Query completed, found ${querySnapshot.docs.length} documents ===',
-      );
 
       if (querySnapshot.docs.isEmpty) {
         print('=== DEBUG: No products found for user $userId ===');
@@ -670,27 +767,45 @@ class FirebaseService {
     required String acceptedTradeId,
   }) async {
     try {
-      // Get all pending trades for this product except the accepted one
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('trades')
-          .where('productId', isEqualTo: productId)
+      // Get all pending trades for this product (in requestedProductIds array)
+      final tradesCollection = _getTradesCollection();
+      final querySnapshot = await tradesCollection
+          .where('requestedProductIds', arrayContains: productId)
           .where('status', isEqualTo: 'pending')
           .get();
 
       // Batch update to reject all other trades
       final batch = FirebaseFirestore.instance.batch();
+      int rejectedCount = 0;
 
       for (final doc in querySnapshot.docs) {
         if (doc.id != acceptedTradeId) {
-          batch.update(doc.reference, {
-            'status': 'rejected',
+          batch.update(tradesCollection.doc(doc.id), {
+            'status': TradeStatus.rejected.name,
             'updatedAt': FieldValue.serverTimestamp(),
-            'rejectedReason': 'Product no longer available',
+            'rejectedReason':
+                'Product no longer available - another offer was accepted',
           });
+          rejectedCount++;
+
+          // Add to trade history for each rejected trade
+          _addTradeHistory(
+            tradeId: doc.id,
+            action: 'AUTO_REJECTED',
+            performedByUserId: 'system',
+            performedByUserName: 'System',
+            details: {
+              'reason': 'Another offer for this product was accepted',
+              'acceptedTradeId': acceptedTradeId,
+            },
+          );
         }
       }
 
       await batch.commit();
+      print(
+        '=== DEBUG: Auto-rejected $rejectedCount other trade offers for product $productId ===',
+      );
     } catch (e) {
       print('Error rejecting other trades: $e');
       // Don't throw here as this is optional functionality
@@ -818,6 +933,31 @@ class FirebaseService {
     }
   }
 
+  static Future<void> reportProduct({
+    required String productId,
+    required String userId,
+  }) async {
+    if (userId.isEmpty) return;
+
+    final productRef = _getProductsCollection(null).doc(productId);
+
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final productDoc = await transaction.get(productRef);
+      if (!productDoc.exists) return;
+
+      final product = productDoc.data()!;
+      final reportedByUserIds = List<String>.from(product.reportedByUserIds);
+
+      if (!reportedByUserIds.contains(userId)) {
+        reportedByUserIds.add(userId);
+        transaction.update(productRef, {
+          'reportedByUserIds': reportedByUserIds,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    });
+  }
+
   static Future<void> incrementProductViewCount(
     String productId,
     String userId,
@@ -894,7 +1034,7 @@ class FirebaseService {
 
       // Update trade with last message info for preview
       await tradesCollection.doc(message.tradeId).update({
-        'lastMessage': message.text,
+        'lastMessage': message.imageUrl != null ? '📷 Photo' : message.text,
         'lastMessageTime': Timestamp.fromDate(message.timestamp),
         'lastMessageSenderId': message.senderId,
         'hasUnreadMessages': true,
@@ -1065,7 +1205,7 @@ class FirebaseService {
 
       // Update conversation with last message info
       await conversationsCollection.doc(conversationId).update({
-        'lastMessage': message.text,
+        'lastMessage': message.imageUrl != null ? '📷 Photo' : message.text,
         'lastMessageTime': Timestamp.fromDate(message.timestamp),
         'lastMessageSenderId': message.senderId,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -1129,6 +1269,59 @@ class FirebaseService {
     }
   }
 
+  // ==================== Notifications ====================
+
+  static CollectionReference _getNotificationsCollection() {
+    return FirebaseFirestore.instance.collection('Notifications');
+  }
+
+  static Future<void> sendNotification(NotificationModel notification) async {
+    try {
+      print('=== DEBUG: Sending notification to ${notification.userId} ===');
+      await _getNotificationsCollection()
+          .doc(notification.id)
+          .set(notification.toJson());
+      print('=== DEBUG: Notification sent successfully ===');
+    } catch (e) {
+      print('=== DEBUG: Failed to send notification: $e ===');
+      throw Exception('Failed to send notification: $e');
+    }
+  }
+
+  static Stream<List<NotificationModel>> getUserNotifications(String userId) {
+    return _getNotificationsCollection()
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs
+              .map(
+                (doc) => NotificationModel.fromJson(
+                  doc.data() as Map<String, dynamic>,
+                ),
+              )
+              .toList();
+        });
+  }
+
+  static Stream<int> getUnreadNotificationCount(String userId) {
+    return _getNotificationsCollection()
+        .where('userId', isEqualTo: userId)
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
+  static Future<void> markNotificationAsRead(String notificationId) async {
+    try {
+      await _getNotificationsCollection().doc(notificationId).update({
+        'isRead': true,
+      });
+    } catch (e) {
+      print('Failed to mark notification as read: $e');
+    }
+  }
+
   static Future<void> updateProductInFireStore(
     ProductModel product,
     BuildContext context,
@@ -1142,8 +1335,107 @@ class FirebaseService {
       final updatedProduct = product.copyWith(updatedAt: DateTime.now());
 
       await productDocument.update(updatedProduct.toJson());
+
+      // Notify users in pending trades about the update
+      await _notifyPendingTradesAboutUpdate(product);
     } catch (e) {
       throw Exception('Failed to update product: $e');
+    }
+  }
+
+  static Future<void> _notifyPendingTradesAboutUpdate(
+    ProductModel product,
+  ) async {
+    try {
+      final tradesCollection = _getTradesCollection();
+
+      // Find pending trades where this product is offered
+      final offeredTrades = await tradesCollection
+          .where('offeredProductIds', arrayContains: product.id)
+          .where('status', isEqualTo: TradeStatus.pending.name)
+          .get();
+
+      // Find pending trades where this product is requested
+      final requestedTrades = await tradesCollection
+          .where('requestedProductIds', arrayContains: product.id)
+          .where('status', isEqualTo: TradeStatus.pending.name)
+          .get();
+
+      final allTrades = [...offeredTrades.docs, ...requestedTrades.docs];
+
+      // Use a set to avoid duplicate notifications
+      final notifiedTradeIds = <String>{};
+
+      for (final doc in allTrades) {
+        if (notifiedTradeIds.contains(doc.id)) continue;
+
+        final trade = doc.data();
+        final conversationId = getConversationId(
+          trade.fromUserId,
+          trade.toUserId,
+        );
+
+        // Determine the other user (the one who needs to be notified)
+        // If I am the owner (checked by product.ownerId), I notify the OTHER person in the trade
+        // Note: product.ownerId should match one of the trade participants
+        String userToNotifyId;
+        if (product.ownerId == trade.fromUserId) {
+          userToNotifyId = trade.toUserId;
+        } else {
+          userToNotifyId = trade.fromUserId;
+        }
+
+        // Safety check: Don't notify myself if somehow I'm trading with myself or logic is off
+        if (userToNotifyId == product.ownerId) continue;
+
+        // 1. Send Chat System Message
+        final chatMessage = ChatMessage(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          conversationId: conversationId,
+          tradeId: trade.id,
+          senderId: 'system',
+          text:
+              '⚠️ System Alert: The product "${product.title}" in this trade has been updated by the owner. Please review the changes.',
+          timestamp: DateTime.now(),
+        );
+
+        await sendMessage(chatMessage);
+
+        // 2. Send In-App Notification
+        final notification = NotificationModel(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          userId: userToNotifyId,
+          title: 'Product Updated',
+          body:
+              'The item "${product.title}" in your pending trade has been updated.',
+          type: NotificationType.productUpdate,
+          relatedId: trade.id,
+          createdAt: DateTime.now(),
+        );
+
+        await sendNotification(notification);
+
+        // 3. Send Push Notification
+        final recipientToken = await getUserFcmToken(userToNotifyId);
+        if (recipientToken != null) {
+          await sendPushNotification(
+            recipientToken: recipientToken,
+            title: 'Product Updated',
+            body:
+                'The item "${product.title}" in your pending trade has been updated.',
+            data: {
+              'type': 'productUpdate',
+              'tradeId': trade.id,
+              'productId': product.id,
+            },
+          );
+        }
+
+        notifiedTradeIds.add(trade.id);
+      }
+    } catch (e) {
+      print('Failed to notify pending trades: $e');
+      // Don't throw, as this is a side effect
     }
   }
 

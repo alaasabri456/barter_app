@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/routes_manager/routes_manager.dart';
@@ -30,13 +32,13 @@ class _StartScreenState extends State<StartScreen>
       curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.2),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: const Interval(0.2, 1.0, curve: Curves.easeOutBack),
-    ));
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: const Interval(0.2, 1.0, curve: Curves.easeOutBack),
+          ),
+        );
 
     _animationController.forward();
   }
@@ -73,7 +75,8 @@ class _StartScreenState extends State<StartScreen>
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView( // FIX: smooth + overflow-free
+          child: SingleChildScrollView(
+            // FIX: smooth + overflow-free
             physics: const BouncingScrollPhysics(),
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -98,16 +101,16 @@ class _StartScreenState extends State<StartScreen>
                                 gradient: LinearGradient(
                                   colors: [
                                     Theme.of(context).primaryColor,
-                                    Theme.of(context)
-                                        .primaryColor
-                                        .withOpacity(0.7),
+                                    Theme.of(
+                                      context,
+                                    ).primaryColor.withOpacity(0.7),
                                   ],
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Theme.of(context)
-                                        .primaryColor
-                                        .withOpacity(0.3),
+                                    color: Theme.of(
+                                      context,
+                                    ).primaryColor.withOpacity(0.3),
                                     blurRadius: 20,
                                     spreadRadius: 3,
                                     offset: const Offset(0, 10),
@@ -125,13 +128,11 @@ class _StartScreenState extends State<StartScreen>
 
                             Text(
                               "Welcome to Barter",
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineLarge
+                              style: Theme.of(context).textTheme.headlineLarge
                                   ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).primaryColor,
-                              ),
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).primaryColor,
+                                  ),
                               textAlign: TextAlign.center,
                             ),
 
@@ -139,17 +140,15 @@ class _StartScreenState extends State<StartScreen>
 
                             Text(
                               "Trade items you no longer need for things you want. Connect with your community.",
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
+                              style: Theme.of(context).textTheme.bodyLarge
                                   ?.copyWith(
-                                height: 1.5,
-                                color: Theme.of(context)
-                                    .textTheme
-                                    .bodyLarge
-                                    ?.color
-                                    ?.withOpacity(0.7),
-                              ),
+                                    height: 1.5,
+                                    color: Theme.of(context)
+                                        .textTheme
+                                        .bodyLarge
+                                        ?.color
+                                        ?.withOpacity(0.7),
+                                  ),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -260,19 +259,17 @@ class _StartScreenState extends State<StartScreen>
             children: [
               Text(
                 title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
               SizedBox(height: 4.h),
               Text(
                 description,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.color
-                      ?.withOpacity(0.7),
+                  color: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.color?.withOpacity(0.7),
                 ),
               ),
             ],

@@ -1,9 +1,10 @@
 // features/product_details/product_details_screen.dart
+// ignore_for_file: deprecated_member_use, avoid_print
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../core/routes_manager/routes_manager.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
 import '../../core/widgets/loading_widget.dart';
@@ -293,16 +294,37 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       confirmText: 'Report',
       cancelText: 'Cancel',
       icon: Icons.flag_outlined,
-    ).then((confirmed) {
-      if (confirmed == true) {
-        // Implement report functionality
-        showInfoDialog(
-          context: context,
-          title: 'Report Submitted',
-          message: 'Thank you for reporting. We will review this item shortly.',
-          icon: Icons.check_circle,
-          iconColor: Colors.green,
-        );
+    ).then((confirmed) async {
+      if (confirmed == true && _product != null) {
+        final userId = UserModel.currentUser?.id;
+        if (userId == null) return;
+
+        try {
+          await FirebaseService.reportProduct(
+            productId: _product!.id,
+            userId: userId,
+          );
+
+          if (mounted) {
+            showInfoDialog(
+              context: context,
+              title: 'Report Submitted',
+              message:
+                  'Thank you for reporting. We will review this item shortly.',
+              icon: Icons.check_circle,
+              iconColor: Colors.green,
+            );
+
+            // Refresh product to show updated report count
+            _loadProductDetails();
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Failed to report: $e')));
+          }
+        }
       }
     });
   }
@@ -620,21 +642,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           );
                         },
                       ),
-                      _buildInfoRow(
-                        Icons.category_outlined,
-                        'Category',
-                        product.category,
-                      ),
-                      _buildInfoRow(
-                        Icons.construction_outlined,
-                        'Condition',
-                        product.condition,
-                      ),
-                      _buildInfoRow(
-                        Icons.calendar_today_outlined,
-                        'Listed',
-                        _formatDate(product.createdAt),
-                      ),
+
                       if (product.location != null &&
                           product.location!.isNotEmpty)
                         _buildInfoRow(
@@ -673,8 +681,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                               '${product.interestedUsers.length} interested',
                             ),
                             _buildStatItem(
-                              Icons.inventory_2_outlined,
-                              product.status.displayName,
+                              Icons.flag_outlined,
+                              '${product.reportedByUserIds.length} reports',
                             ),
                           ],
                         ),
@@ -789,24 +797,29 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Widget _buildOwnerActions() {
+    final isTraded = _product?.status == ProductStatus.traded;
+
     return SizedBox(
       width: double.infinity,
       child: AuthButton(
-        text: 'Edit Item',
-        onPressed: () {
-          if (_product != null) {
-            Navigator.of(context)
-                .push(
-                  MaterialPageRoute(
-                    builder: (context) => CreateProduct(product: _product!),
-                  ),
-                )
-                .then((_) {
-                  // Reload product details when returning from edit screen
-                  _loadProductDetails();
-                });
-          }
-        },
+        text: isTraded ? 'Item Traded (Cannot Edit)' : 'Edit Item',
+        onPressed: isTraded
+            ? null
+            : () {
+                if (_product != null) {
+                  Navigator.of(context)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              CreateProduct(product: _product!),
+                        ),
+                      )
+                      .then((_) {
+                        // Reload product details when returning from edit screen
+                        _loadProductDetails();
+                      });
+                }
+              },
       ),
     );
   }
@@ -920,23 +933,6 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         return Colors.red;
       default:
         return Colors.grey;
-    }
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays >= 7) {
-      return '${date.day}/${date.month}/${date.year}';
-    } else if (difference.inDays >= 1) {
-      return '${difference.inDays} days ago';
-    } else if (difference.inHours >= 1) {
-      return '${difference.inHours} hours ago';
-    } else if (difference.inMinutes >= 1) {
-      return '${difference.inMinutes} minutes ago';
-    } else {
-      return 'Just now';
     }
   }
 }

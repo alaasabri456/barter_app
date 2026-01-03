@@ -17,6 +17,7 @@ class ProductModel {
   final int viewCount;
   final List<String> interestedUsers;
   final List<String> viewedUserIds;
+  final List<String> reportedByUserIds;
 
   ProductModel({
     required this.id,
@@ -37,6 +38,7 @@ class ProductModel {
     this.viewCount = 0,
     this.interestedUsers = const [],
     this.viewedUserIds = const [],
+    this.reportedByUserIds = const [],
   });
 
   ProductModel.fromJson(Map<String, dynamic> json)
@@ -78,6 +80,11 @@ class ProductModel {
                 ?.map((obj) => obj.toString())
                 .toList() ??
             [],
+        reportedByUserIds:
+            (json["reportedByUserIds"] as List<dynamic>?)
+                ?.map((obj) => obj.toString())
+                .toList() ??
+            [],
       );
 
   static DateTime _parseDateTime(dynamic value) {
@@ -116,6 +123,7 @@ class ProductModel {
     "viewCount": viewCount,
     "interestedUsers": interestedUsers,
     "viewedUserIds": viewedUserIds,
+    "reportedByUserIds": reportedByUserIds,
   };
 
   ProductModel copyWith({
@@ -137,6 +145,7 @@ class ProductModel {
     int? viewCount,
     List<String>? interestedUsers,
     List<String>? viewedUserIds,
+    List<String>? reportedByUserIds,
   }) {
     return ProductModel(
       id: id ?? this.id,
@@ -157,6 +166,7 @@ class ProductModel {
       viewCount: viewCount ?? this.viewCount,
       interestedUsers: interestedUsers ?? this.interestedUsers,
       viewedUserIds: viewedUserIds ?? this.viewedUserIds,
+      reportedByUserIds: reportedByUserIds ?? this.reportedByUserIds,
     );
   }
 

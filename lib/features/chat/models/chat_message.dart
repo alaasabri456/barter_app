@@ -6,7 +6,8 @@ class ChatMessage {
   final String?
   tradeId; // Optional - only present when opened from trade context
   final String senderId;
-  final String text;
+  final String? text;
+  final String? imageUrl;
   final DateTime timestamp;
   final bool isRead;
 
@@ -15,7 +16,8 @@ class ChatMessage {
     required this.conversationId,
     this.tradeId,
     required this.senderId,
-    required this.text,
+    this.text,
+    this.imageUrl,
     required this.timestamp,
     this.isRead = false,
   });
@@ -29,7 +31,8 @@ class ChatMessage {
             '', // Fallback for old messages
         tradeId: json['tradeId'],
         senderId: json['senderId'] ?? '',
-        text: json['text'] ?? '',
+        text: json['text'],
+        imageUrl: json['imageUrl'],
         timestamp: _parseDateTime(json['timestamp']),
         isRead: json['isRead'] ?? false,
       );
@@ -52,6 +55,7 @@ class ChatMessage {
       'conversationId': conversationId,
       'senderId': senderId,
       'text': text,
+      'imageUrl': imageUrl,
       'timestamp': Timestamp.fromDate(timestamp),
       'isRead': isRead,
     };
@@ -79,6 +83,7 @@ class ChatMessage {
       tradeId: tradeId ?? this.tradeId,
       senderId: senderId ?? this.senderId,
       text: text ?? this.text,
+      imageUrl: imageUrl ?? this.imageUrl,
       timestamp: timestamp ?? this.timestamp,
       isRead: isRead ?? this.isRead,
     );

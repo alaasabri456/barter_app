@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -6,12 +8,7 @@ class LoadingWidget extends StatelessWidget {
   final Color? color;
   final double? size;
 
-  const LoadingWidget({
-    super.key,
-    this.message,
-    this.color,
-    this.size,
-  });
+  const LoadingWidget({super.key, this.message, this.color, this.size});
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +29,9 @@ class LoadingWidget extends StatelessWidget {
             Text(
               message!,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                color: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.color?.withOpacity(0.7),
               ),
               textAlign: TextAlign.center,
             ),
@@ -100,10 +99,7 @@ class CustomLinearProgressIndicator extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (label != null) ...[
-          Text(
-            label!,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          Text(label!, style: Theme.of(context).textTheme.bodySmall),
           SizedBox(height: 8.h),
         ],
         Container(
@@ -156,13 +152,9 @@ class _PulsatingDotState extends State<PulsatingDot>
       duration: widget.duration,
       vsync: this,
     );
-    _animation = Tween<double>(
-      begin: 0.5,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _animation = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
     _animationController.repeat(reverse: true);
   }
 
@@ -233,10 +225,14 @@ class _ThreeDotLoadingState extends State<ThreeDotLoading>
     return AnimatedBuilder(
       animation: _animationController,
       builder: (context, child) {
-        final double animationValue = (_animationController.value + (index * 0.2)) % 1.0;
+        final double animationValue =
+            (_animationController.value + (index * 0.2)) % 1.0;
         final double scale = animationValue < 0.5
             ? Tween<double>(begin: 0.5, end: 1.0).transform(animationValue * 2)
-            : Tween<double>(begin: 1.0, end: 0.5).transform((animationValue - 0.5) * 2);
+            : Tween<double>(
+                begin: 1.0,
+                end: 0.5,
+              ).transform((animationValue - 0.5) * 2);
 
         return Transform.scale(
           scale: scale,

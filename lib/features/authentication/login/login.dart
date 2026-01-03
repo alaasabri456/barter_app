@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,6 +11,7 @@ import '../models/login_request.dart';
 import '../models/user_model.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
+import '../../../services/push_notification_service.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -23,6 +26,7 @@ class _LoginState extends State<Login> {
   final _passwordController = TextEditingController();
 
   bool _isLoading = false;
+  // ignore: unused_field, prefer_final_fields
   bool _obscurePassword = true;
 
   @override
@@ -55,6 +59,9 @@ class _LoginState extends State<Login> {
         UserModel.currentUser = await FirebaseService.getUserFromFireStore(
           userCredential.user!.uid,
         );
+
+        // Update FCM token on login
+        await PushNotificationService.updateToken();
 
         if (mounted) {
           // Navigate to main layout

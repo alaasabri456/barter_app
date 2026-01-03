@@ -3,6 +3,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../../features/chat/models/chat_message.dart';
 import '../../firebase/firebase_service.dart';
+import '../../services/image_upload_service.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ChatScreen extends StatefulWidget {
   final String? tradeId; // Optional - only present when opened from trade
@@ -104,6 +108,66 @@ class _ChatScreenState extends State<ChatScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Failed to send message: $e')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _pickAndSendImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+    );
+
+    if (image == null) return;
+
+    final currentUser = UserModel.currentUser;
+    if (currentUser == null) return;
+
+    setState(() {
+      _isSending = true;
+    });
+
+    try {
+      final File imageFile = File(image.path);
+      final String? imageUrl = await ImageUploadService.uploadImageToImgBB(
+        imageFile,
+      );
+
+      if (imageUrl == null) {
+        throw Exception('Failed to upload image');
+      }
+
+      final message = ChatMessage(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        conversationId: _conversationId,
+        tradeId: widget.tradeId,
+        senderId: currentUser.id,
+        imageUrl: imageUrl,
+        timestamp: DateTime.now(),
+      );
+
+      await FirebaseService.sendConversationMessage(message, _conversationId);
+
+      // Scroll to bottom
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to send image: $e')));
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -273,6 +337,30 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildMessageBubble(ChatMessage message, bool isMe) {
+    if (message.senderId == 'system') {
+      return Center(
+        child: Container(
+          margin: EdgeInsets.symmetric(vertical: 8.h, horizontal: 16.w),
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+          decoration: BoxDecoration(
+            color: Colors.amber.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border.all(color: Colors.amber.withOpacity(0.5)),
+          ),
+          child: Text(
+            message.text ?? '',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.amber[900],
+              fontSize: 12.sp,
+              fontStyle: FontStyle.italic,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      );
+    }
+
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -305,13 +393,67 @@ class _ChatScreenState extends State<ChatScreen> {
               ? CrossAxisAlignment.end
               : CrossAxisAlignment.start,
           children: [
-            Text(
-              message.text,
-              style: TextStyle(
-                color: isMe ? Colors.white : Colors.black87,
-                fontSize: 16.sp,
+            if (message.imageUrl != null)
+              GestureDetector(
+                onTap: () {
+                  // Show full screen image
+                  showDialog(
+                    context: context,
+                    builder: (context) => Dialog(
+                      backgroundColor: Colors.transparent,
+                      child: Stack(
+                        alignment: Alignment.topRight,
+                        children: [
+                          InteractiveViewer(
+                            child: CachedNetworkImage(
+                              imageUrl: message.imageUrl!,
+                              placeholder: (context, url) => const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                              errorWidget: (context, url, error) =>
+                                  const Icon(Icons.error),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12.r),
+                  child: CachedNetworkImage(
+                    imageUrl: message.imageUrl!,
+                    width: 200.w,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      width: 200.w,
+                      height: 200.w,
+                      color: Colors.grey[200],
+                      child: const Center(child: CircularProgressIndicator()),
+                    ),
+                    errorWidget: (context, url, error) =>
+                        const Icon(Icons.error),
+                  ),
+                ),
               ),
-            ),
+            if (message.imageUrl != null && message.text != null)
+              SizedBox(height: 8.h),
+            if (message.text != null)
+              Text(
+                message.text!,
+                style: TextStyle(
+                  color: isMe ? Colors.white : Colors.black87,
+                  fontSize: 16.sp,
+                ),
+              ),
             SizedBox(height: 4.h),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -383,7 +525,16 @@ class _ChatScreenState extends State<ChatScreen> {
               maxLines: 5,
             ),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 4.w),
+          IconButton(
+            onPressed: _isSending ? null : _pickAndSendImage,
+            icon: Icon(
+              Icons.image_outlined,
+              color: Theme.of(context).primaryColor,
+              size: 28.sp,
+            ),
+          ),
+          SizedBox(width: 4.w),
           Container(
             decoration: BoxDecoration(
               color: Theme.of(context).primaryColor,

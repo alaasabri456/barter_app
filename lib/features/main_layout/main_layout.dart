@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:barter/features/home/home_screen.dart';
 import 'package:barter/features/products/products_screen.dart';
 import 'package:barter/features/profile/profile_screen.dart';

@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../products/models/product_model.dart';
@@ -18,6 +20,12 @@ class ProductCategoryDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Ensure the value exists in the enum items, otherwise default to 'others'
+    String? effectiveValue = value;
+    if (value != null && !ProductCategory.values.any((e) => e.name == value)) {
+      effectiveValue = ProductCategory.others.name;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -30,7 +38,7 @@ class ProductCategoryDropdown extends StatelessWidget {
         ),
         SizedBox(height: 8.h),
         DropdownButtonFormField<String>(
-          value: value,
+          value: effectiveValue,
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint ?? 'Select category',
@@ -357,7 +365,7 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
         ),
         SizedBox(height: 8.h),
 
-        Container(
+        SizedBox(
           height: 120.h,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
