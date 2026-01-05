@@ -93,170 +93,193 @@ class _ProductCardState extends State<ProductCard> {
             BoxShadow(
               color: Colors.black.withOpacity(0.08),
               blurRadius: 10,
-              offset: Offset(0, 4),
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image Section
-            Stack(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final double maxHeight = constraints.maxHeight;
+            final bool isConstrained =
+                maxHeight != double.infinity && maxHeight > 0;
+
+            // For action buttons, we check if they should be visible
+            final bool showActions =
+                widget.status.toLowerCase() == 'available' &&
+                    widget.onEdit != null &&
+                    widget.onDelete != null;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  height: widget.imageHeight ?? 200.h,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(16.r),
-                      topRight: Radius.circular(16.r),
-                    ),
-                    color: Colors.grey[200],
-                    image: widget.imageUrl != null
-                        ? DecorationImage(
-                            image: NetworkImage(widget.imageUrl!),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                  child: widget.imageUrl == null
-                      ? Center(
-                          child: Icon(
-                            Icons.image_outlined,
-                            size: 48.w,
-                            color: Colors.grey[400],
-                          ),
-                        )
-                      : null,
-                ),
-                // Heart Icon
-                if (widget.onFavoriteToggle != null)
-                  Positioned(
-                    top: 12.h,
-                    right: 12.w,
-                    child: GestureDetector(
-                      onTap: widget.onFavoriteToggle,
-                      child: Container(
-                        padding: EdgeInsets.all(8.w),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          widget.isFavorite
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          color: widget.isFavorite
-                              ? Colors.red
-                              : Colors.grey[600],
-                          size: 18.w,
-                        ),
-                      ),
-                    ),
-                  ),
+                // Image Section - use Expanded in a constrained grid, else fixed height
+                if (isConstrained)
+                  Expanded(child: _buildImageSection(isExpanded: true))
+                else
+                  _buildImageSection(),
+
+                // Content Section
+                _buildContentSection(context),
+
+                // Action buttons Section
+                if (showActions) _buildActionsSection(context),
               ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageSection({bool isExpanded = false}) {
+    return Stack(
+      children: [
+        Container(
+          height: isExpanded ? double.infinity : (widget.imageHeight ?? 200.h),
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(16.r),
+              topRight: Radius.circular(16.r),
             ),
-
-            // Content Section
-            Padding(
-              padding: EdgeInsets.all(12.w),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  Text(
-                    widget.title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15.sp,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+            color: Colors.grey[200],
+            image: widget.imageUrl != null
+                ? DecorationImage(
+                    image: NetworkImage(widget.imageUrl!),
+                    fit: BoxFit.cover,
+                  )
+                : null,
+          ),
+          child: widget.imageUrl == null
+              ? Center(
+                  child: Icon(
+                    Icons.image_outlined,
+                    size: 48.w,
+                    color: Colors.grey[400],
                   ),
-                  SizedBox(height: 6.h),
-
-                  // Condition Badge
-                  _buildTag(
-                    _formatCondition(widget.condition),
-                    color: _getConditionColor(widget.condition),
-                  ),
-                  SizedBox(height: 8.h),
-
-                  // Footer (Location & Date)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          widget.location ?? 'No location',
-                          style: TextStyle(
-                            fontSize: 11.sp,
-                            color: Colors.grey[600],
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      SizedBox(width: 8.w),
-                      Text(
-                        _formatDate(widget.createdAt),
-                        style: TextStyle(
-                          fontSize: 11.sp,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // Action buttons (only show if callbacks provided and for available products)
-            if (widget.status.toLowerCase() == 'available' &&
-                widget.onEdit != null &&
-                widget.onDelete != null) ...[
-              Padding(
-                padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: widget.onEdit,
-                        icon: Icon(Icons.edit_outlined, size: 16.w),
-                        label: Text('Edit'),
-                        style: OutlinedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(vertical: 10.h),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 12.w),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: widget.onDelete,
-                        icon: Icon(Icons.delete_outline, size: 16.w),
-                        label: Text('Delete'),
-                        style: OutlinedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(vertical: 10.h),
-                          foregroundColor: Theme.of(context).colorScheme.error,
-                          side: BorderSide(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                        ),
-                      ),
+                )
+              : null,
+        ),
+        // Heart Icon
+        if (widget.onFavoriteToggle != null)
+          Positioned(
+            top: 12.h,
+            right: 12.w,
+            child: GestureDetector(
+              onTap: widget.onFavoriteToggle,
+              child: Container(
+                padding: EdgeInsets.all(8.w),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
+                child: Icon(
+                  widget.isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: widget.isFavorite ? Colors.red : Colors.grey[600],
+                  size: 18.w,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildContentSection(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.all(12.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Title
+          Text(
+            widget.title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15.sp,
+                ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          SizedBox(height: 6.h),
+
+          // Condition Badge
+          _buildTag(
+            _formatCondition(widget.condition),
+            color: _getConditionColor(widget.condition),
+          ),
+          SizedBox(height: 8.h),
+
+          // Footer (Location & Date)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  widget.location ?? 'No location',
+                  style: TextStyle(
+                    fontSize: 11.sp,
+                    color: Colors.grey[600],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                _formatDate(widget.createdAt),
+                style: TextStyle(
+                  fontSize: 11.sp,
+                  color: Colors.grey[600],
+                ),
               ),
             ],
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionsSection(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: widget.onEdit,
+              icon: Icon(Icons.edit_outlined, size: 16.w),
+              label: const Text('Edit'),
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.symmetric(vertical: 10.h),
+              ),
+            ),
+          ),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: widget.onDelete,
+              icon: Icon(Icons.delete_outline, size: 16.w),
+              label: const Text('Delete'),
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.symmetric(vertical: 10.h),
+                foregroundColor: Theme.of(context).colorScheme.error,
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -265,12 +288,10 @@ class _ProductCardState extends State<ProductCard> {
     if (text.isEmpty) return SizedBox.shrink();
 
     final tagColor = color ?? Colors.grey[100]!;
-    final textColor = color != null
-        ? tagColor.withOpacity(1.0)
-        : Colors.black87;
-    final backgroundColor = color != null
-        ? tagColor.withOpacity(0.1)
-        : Colors.grey[100];
+    final textColor =
+        color != null ? tagColor.withOpacity(1.0) : Colors.black87;
+    final backgroundColor =
+        color != null ? tagColor.withOpacity(0.1) : Colors.grey[100];
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),

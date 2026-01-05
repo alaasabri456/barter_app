@@ -43,9 +43,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadCategories() async {
     try {
       // Get default categories
-      final defaultCategories = ProductCategory.values
-          .map((c) => c.displayName)
-          .toList();
+      final defaultCategories =
+          ProductCategory.values.map((c) => c.displayName).toList();
 
       // Get approved custom categories
       final customCategories = await FirebaseService.getApprovedCategories();
@@ -60,9 +59,8 @@ class _HomeScreenState extends State<HomeScreen> {
       // Fallback to default categories only
       if (mounted) {
         setState(() {
-          _allCategories = ProductCategory.values
-              .map((c) => c.displayName)
-              .toList();
+          _allCategories =
+              ProductCategory.values.map((c) => c.displayName).toList();
         });
       }
     }
@@ -211,7 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: CustomAppBar(
         title: '',
         titleWidget: Image.asset(
-          'assets/images/logo_transparent_v2.png',
+          'assets/images/logo.png',
           height: 120.h,
           fit: BoxFit.contain,
         ),
@@ -288,7 +286,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-
             ListTile(
               leading: Icon(Icons.chat_bubble_outline),
               title: Text('Chat'),
@@ -383,9 +380,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           SizedBox(width: 8.w),
                       itemBuilder: (context, index) {
                         final isAllOption = index == 0;
-                        final category = isAllOption
-                            ? 'All'
-                            : _allCategories[index - 1];
+                        final category =
+                            isAllOption ? 'All' : _allCategories[index - 1];
                         final isSelected = isAllOption
                             ? _selectedCategory == null
                             : _selectedCategory == category;
@@ -446,7 +442,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Text(
                           'Recent Items',
-                          style: Theme.of(context).textTheme.titleLarge
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         TextButton(

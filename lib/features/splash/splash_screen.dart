@@ -218,9 +218,7 @@ class _SplashScreenState extends State<SplashScreen>
                                 color: Colors.white,
                                 size: 32,
                               ),
-
                               SizedBox(height: 16.h),
-
                               Text(
                                 'Loading...',
                                 style: TextStyle(
