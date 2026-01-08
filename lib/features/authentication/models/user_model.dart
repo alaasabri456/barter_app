@@ -28,6 +28,8 @@ class UserModel {
   List<String> favouriteProductIds;
   UserRole role;
   String? fcmToken;
+  String languageCode;
+  String? profileImageUrl;
   bool isAnonymous;
 
   UserModel({
@@ -37,6 +39,8 @@ class UserModel {
     required this.favouriteProductIds,
     this.role = UserRole.user,
     this.fcmToken,
+    this.languageCode = 'en',
+    this.profileImageUrl,
     this.isAnonymous = false,
   });
 
@@ -46,24 +50,26 @@ class UserModel {
       email: 'guest@barter.app',
       name: 'Guest User',
       favouriteProductIds: [],
+      languageCode: 'en',
       isAnonymous: true,
     );
   }
 
   UserModel.fromJson(Map<String, dynamic> json)
-    : this(
-        id: json["id"],
-        name: json["name"],
-        email: json["email"],
-        favouriteProductIds:
-            (json["favouriteProductIds"] as List<dynamic>?)
-                ?.map((obj) => obj.toString())
-                .toList() ??
-            [],
-        role: _parseRole(json["role"]),
-        fcmToken: json["fcmToken"],
-        isAnonymous: json["isAnonymous"] ?? false,
-      );
+      : this(
+          id: json["id"],
+          name: json["name"],
+          email: json["email"],
+          favouriteProductIds: (json["favouriteProductIds"] as List<dynamic>?)
+                  ?.map((obj) => obj.toString())
+                  .toList() ??
+              [],
+          role: _parseRole(json["role"]),
+          fcmToken: json["fcmToken"],
+          languageCode: json["languageCode"] ?? 'en',
+          profileImageUrl: json["profileImageUrl"],
+          isAnonymous: json["isAnonymous"] ?? false,
+        );
 
   static UserRole _parseRole(dynamic roleValue) {
     if (roleValue == null) return UserRole.user;
@@ -81,14 +87,16 @@ class UserModel {
   }
 
   Map<String, dynamic> toJson() => {
-    "id": id,
-    "name": name,
-    "email": email,
-    "favouriteProductIds": favouriteProductIds,
-    "role": role.name,
-    "fcmToken": fcmToken,
-    "isAnonymous": isAnonymous,
-  };
+        "id": id,
+        "name": name,
+        "email": email,
+        "favouriteProductIds": favouriteProductIds,
+        "role": role.name,
+        "fcmToken": fcmToken,
+        "languageCode": languageCode,
+        "profileImageUrl": profileImageUrl,
+        "isAnonymous": isAnonymous,
+      };
 
   UserModel copyWith({
     String? id,
@@ -97,6 +105,8 @@ class UserModel {
     List<String>? favouriteProductIds,
     UserRole? role,
     String? fcmToken,
+    String? languageCode,
+    String? profileImageUrl,
     bool? isAnonymous,
   }) {
     return UserModel(
@@ -106,6 +116,8 @@ class UserModel {
       favouriteProductIds: favouriteProductIds ?? this.favouriteProductIds,
       role: role ?? this.role,
       fcmToken: fcmToken ?? this.fcmToken,
+      languageCode: languageCode ?? this.languageCode,
+      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       isAnonymous: isAnonymous ?? this.isAnonymous,
     );
   }

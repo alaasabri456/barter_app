@@ -167,6 +167,8 @@ class TradeCounterOffer {
   final String id;
   final String fromUserId;
   final String fromUserName;
+  final String toUserId;
+  final String toUserName;
   final List<String> offeredProductIds;
   final List<String> requestedProductIds;
   final String? message;
@@ -177,6 +179,8 @@ class TradeCounterOffer {
     required this.id,
     required this.fromUserId,
     required this.fromUserName,
+    required this.toUserId,
+    required this.toUserName,
     required this.offeredProductIds,
     required this.requestedProductIds,
     this.message,
@@ -189,6 +193,8 @@ class TradeCounterOffer {
       id: json['id'] ?? '',
       fromUserId: json['fromUserId'] ?? '',
       fromUserName: json['fromUserName'] ?? '',
+      toUserId: json['toUserId'] ?? '',
+      toUserName: json['toUserName'] ?? '',
       offeredProductIds: List<String>.from(json['offeredProductIds'] ?? []),
       requestedProductIds: List<String>.from(json['requestedProductIds'] ?? []),
       message: json['message'],
@@ -202,6 +208,8 @@ class TradeCounterOffer {
       'id': id,
       'fromUserId': fromUserId,
       'fromUserName': fromUserName,
+      'toUserId': toUserId,
+      'toUserName': toUserName,
       'offeredProductIds': offeredProductIds,
       'requestedProductIds': requestedProductIds,
       'message': message,
@@ -214,6 +222,8 @@ class TradeCounterOffer {
     String? id,
     String? fromUserId,
     String? fromUserName,
+    String? toUserId,
+    String? toUserName,
     List<String>? offeredProductIds,
     List<String>? requestedProductIds,
     String? message,
@@ -224,6 +234,8 @@ class TradeCounterOffer {
       id: id ?? this.id,
       fromUserId: fromUserId ?? this.fromUserId,
       fromUserName: fromUserName ?? this.fromUserName,
+      toUserId: toUserId ?? this.toUserId,
+      toUserName: toUserName ?? this.toUserName,
       offeredProductIds: offeredProductIds ?? this.offeredProductIds,
       requestedProductIds: requestedProductIds ?? this.requestedProductIds,
       message: message ?? this.message,

@@ -24,6 +24,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String? _selectedCategory;
+  String _selectedCondition = 'All';
+  String _selectedType = 'All';
   Future<List<ProductModel>>? _productsFuture;
   bool _isRefreshing = false;
   List<String> _allCategories = []; // Combined default + custom categories
@@ -124,13 +126,34 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<ProductModel> _applySearchFilter(List<ProductModel> products) {
-    var filtered = products;
+    // Only show available products on home screen
+    var filtered =
+        products.where((p) => p.status == ProductStatus.available).toList();
 
     // Apply category filter
     if (_selectedCategory != null) {
       filtered = filtered
           .where(
             (p) => p.category.toLowerCase() == _selectedCategory!.toLowerCase(),
+          )
+          .toList();
+    }
+
+    // Apply condition filter
+    if (_selectedCondition != 'All') {
+      filtered = filtered
+          .where(
+            (p) =>
+                p.condition.toLowerCase() == _selectedCondition.toLowerCase(),
+          )
+          .toList();
+    }
+
+    // Apply type filter
+    if (_selectedType != 'All') {
+      filtered = filtered
+          .where(
+            (p) => p.type.name.toLowerCase() == _selectedType.toLowerCase(),
           )
           .toList();
     }
@@ -198,6 +221,152 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     }
+  }
+
+  void _showFilterDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildFilterBottomSheet(),
+    );
+  }
+
+  Widget _buildFilterBottomSheet() {
+    final conditions = [
+      {'label': 'All', 'value': 'All'},
+      {'label': 'New', 'value': 'new_item'},
+      {'label': 'Like New', 'value': 'like_new'},
+      {'label': 'Good', 'value': 'good'},
+      {'label': 'Fair', 'value': 'fair'},
+      {'label': 'Poor', 'value': 'poor'},
+    ];
+    final types = ['All', 'Item', 'Service'];
+
+    return Container(
+      padding: EdgeInsets.all(20.w),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20.r),
+          topRight: Radius.circular(20.r),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40.w,
+              height: 4.h,
+              margin: EdgeInsets.symmetric(vertical: 8.h),
+              decoration: BoxDecoration(
+                color: Theme.of(context).dividerColor,
+                borderRadius: BorderRadius.circular(2.r),
+              ),
+            ),
+          ),
+          SizedBox(height: 12.h),
+          Text(
+            'Filter Items',
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 20.h),
+          Text(
+            'Condition',
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          SizedBox(height: 12.h),
+          Wrap(
+            spacing: 8.w,
+            runSpacing: 8.h,
+            children: conditions.map((condition) {
+              final isSelected = _selectedCondition == condition['value'];
+              return FilterChip(
+                label: Text(condition['label']!),
+                selected: isSelected,
+                selectedColor: Theme.of(context).primaryColor,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : null,
+                  fontWeight: isSelected ? FontWeight.bold : null,
+                ),
+                checkmarkColor: Colors.white,
+                onSelected: (selected) {
+                  setState(() {
+                    _selectedCondition = condition['value']!;
+                  });
+                },
+              );
+            }).toList(),
+          ),
+          SizedBox(height: 20.h),
+          Text(
+            'Type',
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          SizedBox(height: 12.h),
+          Wrap(
+            spacing: 8.w,
+            runSpacing: 8.h,
+            children: types.map((type) {
+              final isSelected = _selectedType == type;
+              return FilterChip(
+                label: Text(type),
+                selected: isSelected,
+                selectedColor: Theme.of(context).primaryColor,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : null,
+                  fontWeight: isSelected ? FontWeight.bold : null,
+                ),
+                checkmarkColor: Colors.white,
+                onSelected: (selected) {
+                  setState(() {
+                    _selectedType = type;
+                  });
+                },
+              );
+            }).toList(),
+          ),
+          SizedBox(height: 32.h),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedCondition = 'All';
+                      _selectedType = 'All';
+                      _selectedCategory = null;
+                    });
+                  },
+                  child: const Text('Clear'),
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Apply'),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: MediaQuery.of(context).viewInsets.bottom + 20.h),
+        ],
+      ),
+    );
   }
 
   @override
@@ -361,6 +530,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             _searchController.clear();
                             _onSearchChanged('');
                           },
+                          suffixWidget: IconButton(
+                            onPressed: _showFilterDialog,
+                            icon: Icon(
+                              Icons.tune,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                          ),
                         ),
                       ],
                     ),

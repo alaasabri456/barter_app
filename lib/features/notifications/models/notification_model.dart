@@ -1,4 +1,4 @@
-enum NotificationType { productUpdate, tradeUpdate, system }
+enum NotificationType { productUpdate, tradeUpdate, system, chatMessage }
 
 class NotificationModel {
   final String id;

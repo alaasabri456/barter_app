@@ -12,6 +12,7 @@ import '../models/user_model.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
 import '../../../services/push_notification_service.dart';
+import 'package:barter/l10n/app_localizations.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -218,7 +219,7 @@ class _LoginState extends State<Login> {
 
                 // Welcome back text
                 Text(
-                  'Welcome Back!',
+                  AppLocalizations.of(context)!.welcomeBack,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Theme.of(context).primaryColor,
@@ -229,7 +230,7 @@ class _LoginState extends State<Login> {
                 SizedBox(height: 8.h),
 
                 Text(
-                  'Sign in to continue to Barter',
+                  AppLocalizations.of(context)!.signInSubtitle,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Theme.of(
                           context,
@@ -242,8 +243,8 @@ class _LoginState extends State<Login> {
 
                 // Email field
                 AuthTextFieldWithIcon(
-                  label: 'Email Address',
-                  hint: 'Enter your email',
+                  label: AppLocalizations.of(context)!.emailLabel,
+                  hint: AppLocalizations.of(context)!.emailHint,
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   icon: Icons.email_outlined,
@@ -255,8 +256,8 @@ class _LoginState extends State<Login> {
 
                 // Password field
                 AuthTextFieldWithIcon(
-                  label: 'Password',
-                  hint: 'Enter your password',
+                  label: AppLocalizations.of(context)!.passwordLabel,
+                  hint: AppLocalizations.of(context)!.passwordHint,
                   controller: _passwordController,
                   icon: Icons.lock_outline,
                   isPassword: true,
@@ -271,7 +272,7 @@ class _LoginState extends State<Login> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: LinkButton(
-                    text: 'Forgot Password?',
+                    text: AppLocalizations.of(context)!.forgotPassword,
                     onPressed: _forgotPassword,
                     fontSize: 14.sp,
                   ),
@@ -281,7 +282,7 @@ class _LoginState extends State<Login> {
 
                 // Login button
                 AuthButton(
-                  text: 'Sign In',
+                  text: AppLocalizations.of(context)!.signIn,
                   onPressed: _login,
                   isLoading: _isLoading,
                   height: 56,
@@ -296,7 +297,7 @@ class _LoginState extends State<Login> {
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16.w),
                       child: Text(
-                        'OR',
+                        AppLocalizations.of(context)!.orDivider,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(
                                 context,
@@ -323,7 +324,7 @@ class _LoginState extends State<Login> {
                     ),
                     icon: Icon(Icons.login_outlined),
                     label: Text(
-                      'Sign in with Google',
+                      AppLocalizations.of(context)!.signInWithGoogle,
                       style: TextStyle(
                         fontSize: 16.sp,
                         fontWeight: FontWeight.w600,
@@ -339,11 +340,11 @@ class _LoginState extends State<Login> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      "Don't have an account? ",
+                      AppLocalizations.of(context)!.dontHaveAccount + " ",
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     LinkButton(
-                      text: 'Sign Up',
+                      text: AppLocalizations.of(context)!.signUp,
                       onPressed: _navigateToRegister,
                       fontSize: 14.sp,
                     ),
@@ -386,7 +387,7 @@ class _LoginState extends State<Login> {
                     side: BorderSide(color: Theme.of(context).primaryColor),
                   ),
                   child: Text(
-                    'Continue as Guest',
+                    AppLocalizations.of(context)!.continueAsGuest,
                     style: TextStyle(
                       fontSize: 16.sp,
                       fontWeight: FontWeight.bold,

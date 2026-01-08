@@ -8,6 +8,7 @@ import '../../firebase/firebase_service.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../../services/push_notification_service.dart';
 import '../../core/resources/colors_manager.dart';
+import 'package:barter/l10n/app_localizations.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -240,7 +241,9 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
                           child: Column(
                             children: [
                               Text(
-                                'BARTER',
+                                AppLocalizations.of(context)!
+                                    .appName
+                                    .toUpperCase(),
                                 style: TextStyle(
                                   fontSize: 36.sp,
                                   fontWeight: FontWeight.w900,
@@ -250,7 +253,7 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
                               ),
                               SizedBox(height: 12.h),
                               Text(
-                                'Trade • Share • Connect',
+                                AppLocalizations.of(context)!.tagline,
                                 style: TextStyle(
                                   fontSize: 16.sp,
                                   color: Colors.white.withOpacity(0.9),
@@ -275,7 +278,7 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen>
               right: 0,
               child: Center(
                 child: Text(
-                  'Version 1.0.0',
+                  AppLocalizations.of(context)!.version('1.0.0'),
                   style: TextStyle(
                     fontSize: 12.sp,
                     color: Colors.white.withOpacity(0.6),

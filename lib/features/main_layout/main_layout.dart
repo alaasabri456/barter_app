@@ -9,6 +9,8 @@ import 'package:flutter/material.dart';
 import '../../core/routes_manager/routes_manager.dart';
 import '../authentication/models/user_model.dart';
 import '../../core/widgets/custom_dialog.dart';
+import '../../core/resources/colors_manager.dart';
+import 'package:barter/l10n/app_localizations.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -25,16 +27,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     ProfileScreen(),
   ];
   int selectedIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
 
   void _onFabPressed() {
     if (UserModel.isGuest) {
@@ -53,7 +45,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       cancelText: 'Maybe Later',
       icon: Icons.login,
     ).then((value) {
-      if (value == true) {
+      if (value == true && mounted) {
         Navigator.of(
           context,
         ).pushNamedAndRemoveUntil(RoutesManager.login, (route) => false);
@@ -79,13 +71,13 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
         children: [
           _buildNavItem(
             icon: selectedIndex == 0 ? Icons.home : Icons.home_outlined,
-            label: 'HOME',
+            label: AppLocalizations.of(context)!.home,
             isSelected: selectedIndex == 0,
             onTap: () => _onTap(0),
           ),
           _buildNavItem(
             icon: selectedIndex == 1 ? Icons.list : Icons.list_outlined,
-            label: 'Items',
+            label: AppLocalizations.of(context)!.items,
             isSelected: selectedIndex == 1,
             onTap: () => _onTap(1),
           ),
@@ -95,13 +87,13 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             icon: selectedIndex == 2
                 ? Icons.swap_horiz
                 : Icons.swap_horiz_outlined,
-            label: 'Trades',
+            label: AppLocalizations.of(context)!.trades,
             isSelected: selectedIndex == 2,
             onTap: () => _onTap(2),
           ),
           _buildNavItem(
             icon: selectedIndex == 3 ? Icons.person : Icons.person_outline,
-            label: 'Profile',
+            label: AppLocalizations.of(context)!.profile,
             isSelected: selectedIndex == 3,
             onTap: () => _onTap(3),
           ),
@@ -116,8 +108,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    final selectedColor = const Color(0xFF25E4DA);
-    final unselectedColor = Colors.grey.shade500;
+    final selectedColor = Theme.of(context).primaryColor;
+    final unselectedColor = ColorsManager.grey500;
 
     return GestureDetector(
       onTap: onTap,
@@ -158,14 +150,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
         width: 52,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: LinearGradient(
-            colors: [
-              const Color(0xFF25E4DA), // Teal/Blue from left
-              const Color(0xFFE91E63), // Pink from right
-            ],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
+          gradient: ColorsManager.primaryGradient,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.2),

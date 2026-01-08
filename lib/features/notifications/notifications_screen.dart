@@ -117,7 +117,8 @@ class NotificationsScreen extends StatelessWidget {
 
         // Navigate based on type
         if (notification.type == NotificationType.productUpdate ||
-            notification.type == NotificationType.tradeUpdate) {
+            notification.type == NotificationType.tradeUpdate ||
+            notification.type == NotificationType.chatMessage) {
           if (notification.relatedId != null) {
             // Navigate to chat/trade details
             // For now, let's assume we navigate to the chat for that trade
@@ -143,6 +144,8 @@ class NotificationsScreen extends StatelessWidget {
         return Icons.swap_horiz_outlined;
       case NotificationType.system:
         return Icons.info_outline;
+      case NotificationType.chatMessage:
+        return Icons.chat_bubble_outline;
     }
   }
 
@@ -154,6 +157,8 @@ class NotificationsScreen extends StatelessWidget {
         return Colors.blue;
       case NotificationType.system:
         return Colors.green;
+      case NotificationType.chatMessage:
+        return Colors.purple;
     }
   }
 

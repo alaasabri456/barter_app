@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Badge;
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
@@ -21,6 +21,44 @@ import '../features/notifications/models/notification_model.dart';
 import '../features/admin/models/admin_stats_model.dart';
 import '../features/admin/models/category_suggestion_model.dart';
 import '../services/fcm_v1_service.dart';
+
+const Map<String, Map<String, String>> _localizedNotificationStrings = {
+  'en': {
+    'newOfferTitle': 'New Trade Offer',
+    'newOfferBody': '{sender} sent you a trade offer.',
+    'counterOfferTitle': 'New Counter Offer',
+    'counterOfferBody': '{sender} sent a counter offer.',
+    'tradeAcceptedTitle': 'Trade Accepted!',
+    'tradeAcceptedBody': 'Your trade offer has been accepted!',
+    'tradeRejectedTitle': 'Trade Rejected',
+    'tradeRejectedBody': 'Your trade offer was rejected.',
+    'tradeAutoRejectedBody':
+        'Your offer was cancelled because the item is no longer available.',
+    'tradeCompletedTitle': 'Trade Completed!',
+    'tradeCompletedBody': 'The trade has been confirmed as completed.',
+    'newMessageTitle': 'New Message',
+    'newMessageBody': '{sender}: {message}',
+    'newReviewTitle': 'New Review received',
+    'newReviewBody': '{sender} left you a review: {rating}⭐',
+  },
+  'ar': {
+    'newOfferTitle': 'عرض مبادلة جديد',
+    'newOfferBody': 'أرسل لك {sender} عرض مبادلة.',
+    'counterOfferTitle': 'عرض مقابل جديد',
+    'counterOfferBody': 'أرسل {sender} عرضاً مقابلاً.',
+    'tradeAcceptedTitle': 'تم قبول المبادلة!',
+    'tradeAcceptedBody': 'تم قبول عرض المبادلة الخاص بك!',
+    'tradeRejectedTitle': 'تم رفض المبادلة',
+    'tradeRejectedBody': 'تم رفض عرض المبادلة الخاص بك.',
+    'tradeAutoRejectedBody': 'تم إلغاء عرضك لأن السلعة لم تعد متوفرة.',
+    'tradeCompletedTitle': 'اكتملت المبادلة!',
+    'tradeCompletedBody': 'تم تأكيد اكتمال المبادلة.',
+    'newMessageTitle': 'رسالة جديدة',
+    'newMessageBody': '{sender}: {message}',
+    'newReviewTitle': 'تم استلام تقييم جديد',
+    'newReviewBody': 'ترك لك {sender} تقييماً: {rating}⭐',
+  },
+};
 
 class FirebaseService {
   static Future<UserCredential> register(RegisterRequest request) async {
@@ -127,6 +165,46 @@ class FirebaseService {
     }
   }
 
+  static Future<void> updateUserLanguage(
+      String userId, String languageCode) async {
+    try {
+      final usersCollection = _getUsersCollection();
+      await usersCollection.doc(userId).update({'languageCode': languageCode});
+
+      if (UserModel.currentUser?.id == userId) {
+        UserModel.currentUser?.languageCode = languageCode;
+      }
+    } catch (e) {
+      print('Failed to update language code: $e');
+    }
+  }
+
+  static Future<void> updateUserProfile({
+    required String userId,
+    String? name,
+    String? profileImageUrl,
+  }) async {
+    try {
+      final updates = <String, dynamic>{};
+      if (name != null) updates['name'] = name;
+      if (profileImageUrl != null) updates['profileImageUrl'] = profileImageUrl;
+
+      if (updates.isEmpty) return;
+
+      await _getUsersCollection().doc(userId).update(updates);
+
+      // Update local current user
+      if (UserModel.currentUser?.id == userId) {
+        if (name != null) UserModel.currentUser!.name = name;
+        if (profileImageUrl != null) {
+          UserModel.currentUser!.profileImageUrl = profileImageUrl;
+        }
+      }
+    } catch (e) {
+      throw Exception('Failed to update profile: $e');
+    }
+  }
+
   static CollectionReference<ProductModel> _getProductsCollection(
     BuildContext? context,
   ) {
@@ -204,6 +282,58 @@ class FirebaseService {
       }
     } catch (e) {
       print('Error sending FCM v1 notification: $e');
+    }
+  }
+
+  static Future<void> _sendLocalizedNotification({
+    required String recipientId,
+    required String titleKey,
+    required String bodyKey,
+    NotificationType type = NotificationType.tradeUpdate,
+    Map<String, String>? bodyArgs,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final recipient = await getUserFromFireStore(recipientId);
+      if (recipient == null) return;
+
+      final lang = recipient.languageCode;
+      String title = _localizedNotificationStrings[lang]?[titleKey] ??
+          _localizedNotificationStrings['en']![titleKey]!;
+      String body = _localizedNotificationStrings[lang]?[bodyKey] ??
+          _localizedNotificationStrings['en']![bodyKey]!;
+
+      // Replace placeholders
+      if (bodyArgs != null) {
+        bodyArgs.forEach((key, value) {
+          body = body.replaceAll('{$key}', value);
+        });
+      }
+
+      // 1. Send In-App Notification (for the badge)
+      final notificationId = DateTime.now().millisecondsSinceEpoch.toString();
+      final notification = NotificationModel(
+        id: notificationId,
+        userId: recipientId,
+        title: title,
+        body: body,
+        type: type,
+        relatedId: data?['tradeId'] ?? data?['conversationId'],
+        createdAt: DateTime.now(),
+      );
+      await sendNotification(notification);
+
+      // 2. Send Push Notification (for the phone tray)
+      if (recipient.fcmToken != null) {
+        await sendPushNotification(
+          recipientToken: recipient.fcmToken!,
+          title: title,
+          body: body,
+          data: data,
+        );
+      }
+    } catch (e) {
+      print('Failed to send localized notification: $e');
     }
   }
 
@@ -361,6 +491,18 @@ class FirebaseService {
         },
       );
 
+      // Send Push Notification
+      _sendLocalizedNotification(
+        recipientId: trade.toUserId,
+        titleKey: 'newOfferTitle',
+        bodyKey: 'newOfferBody',
+        bodyArgs: {'sender': trade.fromUserName},
+        data: {
+          'type': 'trade_offer',
+          'tradeId': tradeDoc.id,
+        },
+      );
+
       return tradeDoc.id;
     } catch (e) {
       throw Exception('Failed to create trade offer: $e');
@@ -491,10 +633,85 @@ class FirebaseService {
       final tradesCollection = _getTradesCollection();
       final tradeDoc = tradesCollection.doc(tradeId);
 
+      // Get current trade data to check for transitions
+      final snapshot = await tradeDoc.get();
+      final trade = snapshot.data();
+      if (trade == null) throw Exception('Trade not found');
+
+      final oldStatus = trade.status;
+
       await tradeDoc.update({
         'status': newStatus.name,
         'updatedAt': Timestamp.now(),
       });
+
+      // Handle product availability based on status transition
+      if (newStatus == TradeStatus.accepted &&
+          oldStatus != TradeStatus.accepted) {
+        // Mark products as traded
+        final allProductIds = {
+          ...trade.offeredProductIds,
+          ...trade.requestedProductIds
+        };
+        for (final pid in allProductIds) {
+          await updateProductAvailability(
+            productId: pid,
+            isAvailable: false,
+            newStatus: ProductStatus.traded,
+          );
+        }
+      } else if ((newStatus == TradeStatus.rejected ||
+              newStatus == TradeStatus.cancelled) &&
+          oldStatus == TradeStatus.accepted) {
+        // Reset products to available if they were previously marked as traded
+        final allProductIds = {
+          ...trade.offeredProductIds,
+          ...trade.requestedProductIds
+        };
+        for (final pid in allProductIds) {
+          await updateProductAvailability(
+            productId: pid,
+            isAvailable: true,
+            newStatus: ProductStatus.available,
+          );
+        }
+      }
+
+      // Send Notification to the other party
+      final recipientId =
+          (userId == trade.fromUserId) ? trade.toUserId : trade.fromUserId;
+      String titleKey;
+      String bodyKey;
+
+      if (newStatus == TradeStatus.accepted) {
+        titleKey = 'tradeAcceptedTitle';
+        bodyKey = 'tradeAcceptedBody';
+      } else if (newStatus == TradeStatus.completed) {
+        titleKey = 'tradeCompletedTitle';
+        bodyKey = 'tradeCompletedBody';
+      } else {
+        titleKey = 'tradeRejectedTitle';
+        bodyKey = 'tradeRejectedBody';
+      }
+
+      await _sendLocalizedNotification(
+        recipientId: recipientId,
+        titleKey: titleKey,
+        bodyKey: bodyKey,
+        data: {
+          'type': 'trade_status_update',
+          'tradeId': tradeId,
+          'status': newStatus.name,
+        },
+      );
+
+      // AUTO-REJECT CONFLICTING TRADES
+      if (newStatus == TradeStatus.accepted) {
+        await _rejectConflictingTrades(
+          acceptedTrade: trade,
+          excludingTradeId: tradeId,
+        );
+      }
 
       // Add to trade history
       await _addTradeHistory(
@@ -506,6 +723,98 @@ class FirebaseService {
       );
     } catch (e) {
       throw Exception('Failed to update trade status: $e');
+    }
+  }
+
+  /// Automatically reject trades that involve products from a newly accepted trade
+  static Future<void> _rejectConflictingTrades({
+    required TradeOffer acceptedTrade,
+    required String excludingTradeId,
+  }) async {
+    try {
+      final tradesCollection = _getTradesCollection();
+      final allProductsInAcceptedTrade = {
+        ...acceptedTrade.offeredProductIds,
+        ...acceptedTrade.requestedProductIds
+      };
+
+      // Find all pending trades across the entire collection
+      // For performance, we limit scope to trades involving at least one product ID
+      // but Firestore array-contains-any has limits (10).
+      // Since most trades have few items, we can iterate or use multiple queries.
+
+      final conflictingTrades = <String, QueryDocumentSnapshot<TradeOffer>>{};
+
+      // We chunk the product IDs to respect Firestore limits if necessary
+      final productList = allProductsInAcceptedTrade.toList();
+      const chunkSize = 10;
+
+      for (var i = 0; i < productList.length; i += chunkSize) {
+        final chunk = productList.sublist(
+            i,
+            i + chunkSize > productList.length
+                ? productList.length
+                : i + chunkSize);
+
+        // Check requestedProductIds
+        final q1 = await tradesCollection
+            .where('status', isEqualTo: TradeStatus.pending.name)
+            .where('requestedProductIds', arrayContainsAny: chunk)
+            .get();
+        for (var doc in q1.docs) {
+          if (doc.id != excludingTradeId) conflictingTrades[doc.id] = doc;
+        }
+
+        // Check offeredProductIds
+        final q2 = await tradesCollection
+            .where('status', isEqualTo: TradeStatus.pending.name)
+            .where('offeredProductIds', arrayContainsAny: chunk)
+            .get();
+        for (var doc in q2.docs) {
+          if (doc.id != excludingTradeId) conflictingTrades[doc.id] = doc;
+        }
+      }
+
+      if (conflictingTrades.isEmpty) return;
+
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (final doc in conflictingTrades.values) {
+        final otherTrade = doc.data();
+
+        batch.update(doc.reference, {
+          'status': TradeStatus.rejected.name,
+          'updatedAt': Timestamp.now(),
+          'rejectionReason': 'Item no longer available',
+        });
+
+        // Notify the requester (sender) of the auto-rejected trade
+        await _sendLocalizedNotification(
+          recipientId: otherTrade.fromUserId,
+          titleKey: 'tradeRejectedTitle',
+          bodyKey: 'tradeAutoRejectedBody',
+          data: {
+            'type': 'trade_status_update',
+            'tradeId': doc.id,
+            'status': TradeStatus.rejected.name,
+            'isAutoRejected': 'true',
+          },
+        );
+
+        // Add to history
+        await _addTradeHistory(
+          tradeId: doc.id,
+          action: 'AUTO_REJECTED',
+          performedByUserId: 'system',
+          performedByUserName: 'System',
+          details: {'reason': 'Item traded in trade: $excludingTradeId'},
+        );
+      }
+
+      await batch.commit();
+      print('Auto-rejected ${conflictingTrades.length} conflicting trades.');
+    } catch (e) {
+      print('Error auto-rejecting conflicting trades: $e');
     }
   }
 
@@ -542,6 +851,18 @@ class FirebaseService {
           performedByUserId: userId,
           performedByUserName: userName,
           details: {'counterOfferId': counterOffer.id},
+        );
+
+        // Send Notification to recipient of counter offer
+        _sendLocalizedNotification(
+          recipientId: counterOffer.toUserId,
+          titleKey: 'counterOfferTitle',
+          bodyKey: 'counterOfferBody',
+          bodyArgs: {'sender': userName},
+          data: {
+            'type': 'counter_offer',
+            'tradeId': tradeId,
+          },
         );
       }
     } catch (e) {
@@ -1245,6 +1566,30 @@ class FirebaseService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
+      // Send push notification to the recipient
+      final userIds =
+          conversationId.replaceFirst('conversation_', '').split('_');
+      final recipientId = userIds.firstWhere((id) => id != message.senderId);
+
+      final senderName = UserModel.currentUser?.name ?? 'Someone';
+
+      await _sendLocalizedNotification(
+        recipientId: recipientId,
+        titleKey: 'newMessageTitle',
+        bodyKey: 'newMessageBody',
+        type: NotificationType.chatMessage,
+        bodyArgs: {
+          'sender': senderName,
+          'message':
+              message.imageUrl != null ? '📷 Photo' : (message.text ?? ''),
+        },
+        data: {
+          'type': 'chat_message',
+          'conversationId': conversationId,
+          'senderId': message.senderId,
+        },
+      );
+
       print('=== DEBUG: Conversation message sent successfully ===');
     } catch (e) {
       print('=== DEBUG: Failed to send conversation message: $e ===');
@@ -1479,6 +1824,22 @@ class FirebaseService {
         'reviews',
       );
       await reviewsCollection.doc(review.id).set(review.toJson());
+
+      // Notify the user about the new review
+      await _sendLocalizedNotification(
+        recipientId: review.targetUserId,
+        titleKey: 'newReviewTitle',
+        bodyKey: 'newReviewBody',
+        type: NotificationType.system,
+        bodyArgs: {
+          'sender': review.reviewerName,
+          'rating': review.rating.toString(),
+        },
+        data: {
+          'type': 'new_review',
+          'reviewId': review.id,
+        },
+      );
     } catch (e) {
       throw Exception('Failed to add review: $e');
     }

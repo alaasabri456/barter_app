@@ -9,6 +9,9 @@ import 'core/theme/theme_provider.dart';
 import 'config/theme_manager.dart';
 import 'services/push_notification_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:barter/l10n/app_localizations.dart';
+import 'core/i18n/language_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,7 +26,10 @@ void main() async {
 
   runApp(
     MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => ThemeProvider())],
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => LanguageProvider()),
+      ],
       child: const MyApp(onboardingCompleted: false),
     ),
   );
@@ -42,6 +48,7 @@ class MyApp extends StatelessWidget {
       splitScreenMode: true,
       builder: (context, child) {
         final themeProvider = Provider.of<ThemeProvider>(context);
+        final languageProvider = Provider.of<LanguageProvider>(context);
 
         return MaterialApp(
           debugShowCheckedModeBanner: false,
@@ -51,6 +58,17 @@ class MyApp extends StatelessWidget {
           darkTheme: ThemeManager.dark,
           onGenerateRoute: RoutesManager.router,
           initialRoute: RoutesManager.splashScreen,
+          locale: languageProvider.currentLocale,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('en'),
+            Locale('ar'),
+          ],
         );
       },
     );

@@ -13,6 +13,7 @@ import '../../features/products/product_details_screen.dart';
 
 import '../../features/trade/trade_management_screen.dart';
 import '../../features/profile/trade_history_screen.dart';
+import '../../features/profile/edit_profile_screen.dart';
 import '../../features/favourites/favourites_screen.dart';
 import '../../features/chat/chat_screen.dart';
 import '../../features/chat/chat_list_screen.dart';
@@ -39,6 +40,7 @@ class RoutesManager {
   static const String adminDashboard = '/admin-dashboard';
   static const String notifications = '/notifications';
   static const String leaveReview = '/leave-review';
+  static const String editProfile = '/edit-profile';
 
   static Route? router(RouteSettings setting) {
     switch (setting.name) {
@@ -149,6 +151,11 @@ class RoutesManager {
               targetUserName: args['targetUserName'],
             ),
           );
+        }
+      case editProfile:
+        {
+          return MaterialPageRoute(
+              builder: (context) => const EditProfileScreen());
         }
     }
     return null;

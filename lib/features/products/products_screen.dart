@@ -28,6 +28,7 @@ class _ProductsScreenState extends State<ProductsScreen>
   String _searchQuery = '';
   String _selectedCategory = 'All';
   String _selectedCondition = 'All';
+  String _selectedType = 'All';
   List<ProductModel> _products = [];
   String? _errorMessage;
 
@@ -41,13 +42,13 @@ class _ProductsScreenState extends State<ProductsScreen>
     'Others',
   ];
 
-  final List<String> _conditions = [
-    'All',
-    'New',
-    'Like New',
-    'Good',
-    'Fair',
-    'Poor',
+  final List<Map<String, String>> _conditions = [
+    {'label': 'All', 'value': 'All'},
+    {'label': 'New', 'value': 'new_item'},
+    {'label': 'Like New', 'value': 'like_new'},
+    {'label': 'Good', 'value': 'good'},
+    {'label': 'Fair', 'value': 'fair'},
+    {'label': 'Poor', 'value': 'poor'},
   ];
 
   @override
@@ -170,6 +171,12 @@ class _ProductsScreenState extends State<ProductsScreen>
               return FilterChip(
                 label: Text(category),
                 selected: isSelected,
+                selectedColor: Theme.of(context).primaryColor,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : null,
+                  fontWeight: isSelected ? FontWeight.bold : null,
+                ),
+                checkmarkColor: Colors.white,
                 onSelected: (selected) {
                   setState(() {
                     _selectedCategory = category;
@@ -181,9 +188,34 @@ class _ProductsScreenState extends State<ProductsScreen>
 
           SizedBox(height: 24.h),
 
-          // Condition filter
+          Wrap(
+            spacing: 8.w,
+            runSpacing: 8.h,
+            children: _conditions.map((condition) {
+              final isSelected = _selectedCondition == condition['value'];
+              return FilterChip(
+                label: Text(condition['label']!),
+                selected: isSelected,
+                selectedColor: Theme.of(context).primaryColor,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : null,
+                  fontWeight: isSelected ? FontWeight.bold : null,
+                ),
+                checkmarkColor: Colors.white,
+                onSelected: (selected) {
+                  setState(() {
+                    _selectedCondition = condition['value']!;
+                  });
+                },
+              );
+            }).toList(),
+          ),
+
+          SizedBox(height: 24.h),
+
+          // Type filter
           Text(
-            'Condition',
+            'Type',
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -194,14 +226,20 @@ class _ProductsScreenState extends State<ProductsScreen>
           Wrap(
             spacing: 8.w,
             runSpacing: 8.h,
-            children: _conditions.map((condition) {
-              final isSelected = _selectedCondition == condition;
+            children: ['All', 'Item', 'Service'].map((type) {
+              final isSelected = _selectedType == type;
               return FilterChip(
-                label: Text(condition),
+                label: Text(type),
                 selected: isSelected,
+                selectedColor: Theme.of(context).primaryColor,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : null,
+                  fontWeight: isSelected ? FontWeight.bold : null,
+                ),
+                checkmarkColor: Colors.white,
                 onSelected: (selected) {
                   setState(() {
-                    _selectedCondition = condition;
+                    _selectedType = type;
                   });
                 },
               );
@@ -218,6 +256,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                     setState(() {
                       _selectedCategory = 'All';
                       _selectedCondition = 'All';
+                      _selectedType = 'All';
                     });
                   },
                   child: Text('Clear'),
@@ -247,12 +286,7 @@ class _ProductsScreenState extends State<ProductsScreen>
     return Scaffold(
       appBar: CustomAppBar(
         title: 'My Products',
-        actions: [
-          IconButton(
-            onPressed: _showFilterDialog,
-            icon: Icon(Icons.filter_list),
-          ),
-        ],
+        actions: const [],
       ),
       body: Column(
         children: [
@@ -264,6 +298,13 @@ class _ProductsScreenState extends State<ProductsScreen>
               controller: _searchController,
               onChanged: _onSearchChanged,
               onClear: _onSearchClear,
+              suffixWidget: IconButton(
+                onPressed: _showFilterDialog,
+                icon: Icon(
+                  Icons.tune,
+                  color: Theme.of(context).primaryColor,
+                ),
+              ),
             ),
           ),
 
@@ -361,6 +402,12 @@ class _ProductsScreenState extends State<ProductsScreen>
       if (_selectedCondition != 'All') {
         matchesFilter = matchesFilter &&
             product.condition.toLowerCase() == _selectedCondition.toLowerCase();
+      }
+
+      // Type filter
+      if (_selectedType != 'All') {
+        matchesFilter = matchesFilter &&
+            product.type.name.toLowerCase() == _selectedType.toLowerCase();
       }
 
       return matchesFilter;

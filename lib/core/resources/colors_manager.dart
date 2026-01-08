@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 
 class ColorsManager {
-  // Primary Colors - Vibrant Purple to Blue
-  // Primary Colors - Cyan
-  static const Color primaryLight = Color(0xFF22D3EE); // Cyan 400
-  static const Color primaryDark = Color(0xFF06B6D4); // Cyan 500
-  static const Color primaryVariant = Color(0xFF0891B2); // Cyan 600
+  // Primary Colors - Vibrant Purple (from logo bottom)
+  static const Color primaryLight = Color(0xFFA855F7); // Purple 500
+  static const Color primaryDark = Color(0xFF9333EA); // Purple 600
+  static const Color primaryVariant = Color(0xFF7E22CE); // Purple 700
 
-  // Secondary Colors - Purple to Orange/Red
-  static const Color secondaryLight = Color(0xFFF472B6); // Pink
-  static const Color secondaryDark = Color(0xFFC026D3); // Fuchsia
+  // Secondary Colors - Orange/Amber (from logo top)
+  static const Color secondaryLight = Color(0xFFF97316); // Orange 500
+  static const Color secondaryDark = Color(0xFFEA580C); // Orange 600
 
   // Background Colors
   static const Color backgroundLight = Color(0xFFF8FAFC);
@@ -67,12 +66,12 @@ class ColorsManager {
   static const Color others = Color(0xFF64748B); // Slate
 
   // Gradient Colors
-  static const Color gradientStart = Color(0xFFC026D3); // Purple
-  static const Color gradientMiddle = Color(0xFFE879F9); // Pink
-  static const Color gradientEnd = Color(0xFFF97316); // Orange
+  static const Color gradientStart = Color(0xFFFACC15); // Yellow
+  static const Color gradientMiddle = Color(0xFFF97316); // Orange
+  static const Color gradientEnd = Color(0xFFA855F7); // Purple
 
   // Secondary Gradient
-  static const Color secondaryGradientStart = Color(0xFFF97316); // Orange
+  static const Color secondaryGradientStart = Color(0xFFA855F7); // Purple
   static const Color secondaryGradientEnd = Color(0xFFEC4899); // Pink
 
   // Glassmorphism

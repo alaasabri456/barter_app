@@ -70,9 +70,9 @@ class _AuthTextFieldState extends State<AuthTextField> {
         Text(
           widget.label,
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w500,
-            fontSize: 14.sp,
-          ),
+                fontWeight: FontWeight.w500,
+                fontSize: 14.sp,
+              ),
         ),
         SizedBox(height: 8.h),
         TextFormField(
@@ -90,19 +90,20 @@ class _AuthTextFieldState extends State<AuthTextField> {
           onEditingComplete: widget.onEditingComplete,
           autofocus: widget.autofocus,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontSize: 16.sp,
-          ),
+                fontSize: 16.sp,
+              ),
           decoration: InputDecoration(
             hintText: widget.hint ?? widget.label,
             prefixIcon: widget.prefixIcon,
             suffixIcon: widget.isPassword
                 ? IconButton(
-              onPressed: _togglePasswordVisibility,
-              icon: Icon(
-                _obscureText ? Icons.visibility_off : Icons.visibility,
-                color: Theme.of(context).iconTheme.color?.withOpacity(0.6),
-              ),
-            )
+                    onPressed: _togglePasswordVisibility,
+                    icon: Icon(
+                      _obscureText ? Icons.visibility_off : Icons.visibility,
+                      color:
+                          Theme.of(context).iconTheme.color?.withOpacity(0.6),
+                    ),
+                  )
                 : widget.suffixIcon,
             contentPadding: EdgeInsets.symmetric(
               horizontal: 16.w,
@@ -137,7 +138,9 @@ class AuthTextFieldWithIcon extends StatelessWidget {
     this.validator,
     this.onChanged,
     required this.icon,
-    this.enabled = true, required TextInputAction textInputAction, this.onEditingComplete ,
+    this.enabled = true,
+    required TextInputAction textInputAction,
+    this.onEditingComplete,
   });
 
   @override
@@ -166,6 +169,7 @@ class SearchTextField extends StatefulWidget {
   final void Function(String)? onChanged;
   final void Function()? onClear;
   final Widget? prefixIcon;
+  final Widget? suffixWidget;
   final bool enabled;
   final bool autofocus;
 
@@ -176,6 +180,7 @@ class SearchTextField extends StatefulWidget {
     this.onChanged,
     this.onClear,
     this.prefixIcon,
+    this.suffixWidget,
     this.enabled = true,
     this.autofocus = false,
   });
@@ -247,15 +252,20 @@ class _SearchTextFieldState extends State<SearchTextField> {
                 Icons.search,
                 color: Theme.of(context).iconTheme.color?.withOpacity(0.6),
               ),
-          suffixIcon: _hasText
-              ? IconButton(
-            onPressed: _clearText,
-            icon: Icon(
-              Icons.clear,
-              color: Theme.of(context).iconTheme.color?.withOpacity(0.6),
-            ),
-          )
-              : null,
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_hasText)
+                IconButton(
+                  onPressed: _clearText,
+                  icon: Icon(
+                    Icons.clear,
+                    color: Theme.of(context).iconTheme.color?.withOpacity(0.6),
+                  ),
+                ),
+              if (widget.suffixWidget != null) widget.suffixWidget!,
+            ],
+          ),
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(
             horizontal: 20.w,

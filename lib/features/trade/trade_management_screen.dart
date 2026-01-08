@@ -87,36 +87,6 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         userId: UserModel.currentUser!.id,
         userName: UserModel.currentUser!.name,
       );
-      // Mark the main requested product as traded
-      // Use the first requested product ID (the main product being traded for)
-      if (trade.requestedProductIds.isNotEmpty) {
-        final mainProductId = trade.requestedProductIds.first;
-        await FirebaseService.updateProductAvailability(
-          productId: mainProductId,
-          isAvailable: false,
-          newStatus: ProductStatus.traded,
-        );
-      }
-
-      // Also mark offered products as traded
-      if (trade.offeredProductIds.isNotEmpty) {
-        for (final offeredProductId in trade.offeredProductIds) {
-          await FirebaseService.updateProductAvailability(
-            productId: offeredProductId,
-            isAvailable: false,
-            newStatus: ProductStatus.traded,
-          );
-        }
-      }
-
-      // Optional: Reject all other pending trades for the requested product
-      if (trade.requestedProductIds.isNotEmpty) {
-        final mainProductId = trade.requestedProductIds.first;
-        await FirebaseService.rejectOtherTradeOffers(
-          productId: mainProductId,
-          acceptedTradeId: trade.id,
-        );
-      }
 
       // Reload trades
       await _loadTrades();
@@ -422,7 +392,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                       borderRadius: BorderRadius.circular(12.r),
                     ),
                     child: Text(
-                      _getStatusText(trade.status),
+                      _getStatusText(trade.status, isReceived: isReceived),
                       style: TextStyle(
                         fontSize: 10.sp,
                         fontWeight: FontWeight.w600,
@@ -735,42 +705,56 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                   backgroundColor: Theme.of(context).colorScheme.error,
                 ),
               ] else if (trade.status == TradeStatus.accepted) ...[
-                Column(
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(8.w),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8.r),
+                if (!isReceived) ...[
+                  // If I'm the sender, I must confirm or reject
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AuthButton(
+                          text: 'Confirm Complete',
+                          onPressed: () => _completeTrade(trade),
+                          backgroundColor: Colors.purple,
+                        ),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.check_circle,
-                            size: 16.w,
-                            color: Colors.green,
-                          ),
-                          SizedBox(width: 8.w),
-                          Expanded(
-                            child: Text(
-                              'Trade accepted! Coordinate via chat.',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(color: Colors.green),
-                            ),
-                          ),
-                        ],
+                      SizedBox(width: 8.w),
+                      Expanded(
+                        child: AuthButton(
+                          text: 'Cancel trade',
+                          onPressed: () => _rejectTrade(trade),
+                          isOutlined: true,
+                          backgroundColor: Theme.of(context).colorScheme.error,
+                        ),
                       ),
+                    ],
+                  ),
+                ] else ...[
+                  // If I'm the recipient (owner), I've already accepted, now waiting for sender
+                  Container(
+                    padding: EdgeInsets.all(12.w),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12.r),
                     ),
-                    SizedBox(height: 12.h),
-                    AuthButton(
-                      text: 'Complete Trade',
-                      onPressed: () => _completeTrade(trade),
-                      backgroundColor: Colors.purple,
+                    child: Row(
+                      children: [
+                        Icon(Icons.hourglass_empty,
+                            size: 16.w, color: Colors.orange),
+                        SizedBox(width: 8.w),
+                        Expanded(
+                          child: Text(
+                            'Accepted. Waiting for requester to confirm completion.',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                    color: Colors.orange,
+                                    fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ] else if (trade.status == TradeStatus.completed) ...[
                 AuthButton(
                   text: 'Leave a Review',
@@ -920,24 +904,26 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
       case TradeStatus.pending:
         return Colors.orange;
       case TradeStatus.accepted:
-        return Colors.green;
+        return Colors.purple;
       case TradeStatus.rejected:
         return Colors.red;
       case TradeStatus.expired:
         return Colors.grey;
       case TradeStatus.completed:
-        return Colors.blue;
+        return Colors.green;
       case TradeStatus.cancelled:
         return Colors.red;
     }
   }
 
-  String _getStatusText(TradeStatus status) {
+  String _getStatusText(TradeStatus status, {bool isReceived = true}) {
     switch (status) {
       case TradeStatus.pending:
         return 'PENDING';
       case TradeStatus.accepted:
-        return 'ACCEPTED';
+        return isReceived
+            ? 'WAITING FOR CONFIRMATION'
+            : 'NEED YOUR CONFIRMATION';
       case TradeStatus.rejected:
         return 'REJECTED';
       case TradeStatus.expired:

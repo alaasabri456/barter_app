@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../firebase/firebase_service.dart';
+import '../../core/resources/colors_manager.dart';
 import '../../core/routes_manager/routes_manager.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
@@ -13,9 +14,12 @@ import '../../features/authentication/models/user_model.dart';
 import '../../core/theme/theme_provider.dart';
 import '../authentication/widgets/auth_button.dart';
 import '../../services/push_notification_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../features/trade/models/trade_offer.dart';
 import '../reviews/reviews_screen.dart';
+import 'package:barter/l10n/app_localizations.dart';
+import '../../core/i18n/language_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -116,14 +120,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _editProfile() {
-    // Navigate to edit profile screen
-    showInfoDialog(
-      context: context,
-      title: 'Coming Soon',
-      message: 'Profile editing feature will be available soon!',
-      icon: Icons.construction,
-    );
+  Future<void> _editProfile() async {
+    final updated =
+        await Navigator.of(context).pushNamed(RoutesManager.editProfile);
+    if (updated == true) {
+      if (mounted) {
+        setState(() {
+          // Trigger a rebuild to show updated data (UserModel.currentUser is already updated by the service)
+        });
+      }
+    }
   }
 
   void _showAbout() {
@@ -136,18 +142,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(
             'Barter App',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).primaryColor,
-            ),
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).primaryColor,
+                ),
           ),
           SizedBox(height: 8.h),
           Text(
             'Version 1.0.0',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.color?.withOpacity(0.7),
-            ),
+                  color: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                ),
           ),
           SizedBox(height: 16.h),
           Text(
@@ -158,10 +164,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(
             '© 2024 Barter App. All rights reserved.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(
-                context,
-              ).textTheme.bodySmall?.color?.withOpacity(0.7),
-            ),
+                  color: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.color?.withOpacity(0.7),
+                ),
           ),
         ],
       ),
@@ -282,10 +288,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = UserModel.currentUser;
     final isGuest = UserModel.isGuest;
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final languageProvider = Provider.of<LanguageProvider>(context);
+    final locale = AppLocalizations.of(context)!;
 
     return Scaffold(
       appBar: CustomAppBar(
-        title: 'Profile',
+        title: locale.profile,
         actions: [
           IconButton(onPressed: _editProfile, icon: Icon(Icons.edit_outlined)),
         ],
@@ -302,8 +310,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Theme.of(context).primaryColor,
-                    Theme.of(context).primaryColor.withOpacity(0.8),
+                    ColorsManager.gradientEnd,
+                    ColorsManager.gradientMiddle,
+                    ColorsManager.gradientStart,
                   ],
                 ),
               ),
@@ -318,7 +327,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       color: Colors.white.withOpacity(0.2),
                       border: Border.all(color: Colors.white, width: 3),
                     ),
-                    child: Icon(Icons.person, size: 50.w, color: Colors.white),
+                    child: user?.profileImageUrl != null
+                        ? ClipOval(
+                            child: CachedNetworkImage(
+                              imageUrl: user!.profileImageUrl!,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => const Center(
+                                  child: CircularProgressIndicator()),
+                              errorWidget: (context, url, error) => Icon(
+                                  Icons.person,
+                                  size: 50.w,
+                                  color: Colors.white),
+                            ),
+                          )
+                        : Icon(Icons.person, size: 50.w, color: Colors.white),
                   ),
 
                   SizedBox(height: 16.h),
@@ -327,9 +349,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Text(
                     user?.name ?? 'User Name',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                   ),
 
                   SizedBox(height: 4.h),
@@ -340,8 +362,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ? 'Browse and trade items easily'
                         : (user?.email ?? 'user@example.com'),
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white.withOpacity(0.9),
-                    ),
+                          color: Colors.white.withOpacity(0.9),
+                        ),
                   ),
 
                   if (!isGuest) ...[
@@ -350,13 +372,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _buildStatItem('Products', '$_createdProductsCount'),
+                        _buildStatItem(locale.items, '$_createdProductsCount'),
                         Container(
                           height: 40.h,
                           width: 1,
                           color: Colors.white.withOpacity(0.3),
                         ),
-                        _buildStatItem('Trades', '$_completedTradesCount'),
+                        _buildStatItem(locale.trades, '$_completedTradesCount'),
                         Container(
                           height: 40.h,
                           width: 1,
@@ -391,14 +413,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 children: [
                   // Account section
-                  _buildSectionTitle('Account'),
+                  _buildSectionTitle(locale.account),
                   SizedBox(height: 12.h),
 
                   // Admin Panel (only for admins)
                   if (user?.isAdmin == true)
                     _buildSettingItem(
                       icon: Icons.admin_panel_settings,
-                      title: 'Admin Panel',
+                      title: locale.adminPanel,
                       subtitle: 'Manage users and moderate content',
                       onTap: () {
                         Navigator.of(
@@ -410,14 +432,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   if (!isGuest) ...[
                     _buildSettingItem(
                       icon: Icons.person_outline,
-                      title: 'Edit Profile',
+                      title: locale.editProfile,
                       subtitle: 'Update your personal information',
                       onTap: _editProfile,
                     ),
-
                     _buildSettingItem(
                       icon: Icons.favorite_outline,
-                      title: 'Favorites',
+                      title: locale.favorites,
                       subtitle: 'View your favorite products',
                       onTap: () {
                         Navigator.of(
@@ -425,10 +446,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ).pushNamed(RoutesManager.favourites);
                       },
                     ),
-
                     _buildSettingItem(
                       icon: Icons.history,
-                      title: 'Trade History',
+                      title: locale.tradeHistory,
                       subtitle: 'View your trading history',
                       onTap: () {
                         Navigator.of(
@@ -441,15 +461,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   SizedBox(height: 24.h),
 
                   // Preferences section
-                  _buildSectionTitle('Preferences'),
+                  _buildSectionTitle(locale.preferences),
                   SizedBox(height: 12.h),
 
                   _buildSettingItem(
                     icon: themeProvider.isDark
                         ? Icons.light_mode
                         : Icons.dark_mode,
-                    title: 'Theme',
-                    subtitle: themeProvider.isDark ? 'Dark mode' : 'Light mode',
+                    title: locale.theme,
+                    subtitle: themeProvider.isDark
+                        ? locale.darkMode
+                        : locale.lightMode,
                     trailing: Switch(
                       value: themeProvider.isDark,
                       onChanged: (value) {
@@ -462,7 +484,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   _buildSettingItem(
                     icon: Icons.notifications,
-                    title: 'Notifications',
+                    title: locale.notifications,
                     subtitle: 'Manage notification settings',
                     onTap: () {
                       // Navigate to notifications settings
@@ -471,22 +493,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   _buildSettingItem(
                     icon: Icons.language_outlined,
-                    title: 'Language',
-                    subtitle: 'English (US)',
-                    onTap: () {
-                      // Navigate to language settings
-                    },
+                    title: locale.language,
+                    subtitle: languageProvider.isArabic
+                        ? locale.arabic
+                        : locale.english,
+                    onTap: () => _showLanguageSelection(
+                        context, languageProvider, locale),
                   ),
 
                   SizedBox(height: 24.h),
 
                   // Support section
-                  _buildSectionTitle('Support'),
+                  _buildSectionTitle(locale.support),
                   SizedBox(height: 12.h),
 
                   _buildSettingItem(
                     icon: Icons.help_outline,
-                    title: 'Help & Support',
+                    title: locale.helpSupport,
                     subtitle: 'Get help and contact support',
                     onTap: () {
                       // Navigate to help
@@ -495,14 +518,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   _buildSettingItem(
                     icon: Icons.privacy_tip_outlined,
-                    title: 'Privacy Policy',
+                    title: locale.privacyPolicy,
                     subtitle: 'Read our privacy policy',
                     onTap: _showPrivacyPolicy,
                   ),
 
                   _buildSettingItem(
                     icon: Icons.info_outline,
-                    title: 'About',
+                    title: locale.about,
                     subtitle: 'Learn more about the app',
                     onTap: _showAbout,
                   ),
@@ -533,7 +556,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   // Sign out / Login button
                   AuthButton(
-                    text: isGuest ? 'Sign In / Register' : 'Sign Out',
+                    text: isGuest ? locale.signInRegister : locale.signOut,
                     onPressed: isGuest
                         ? () {
                             Navigator.of(context).pushNamedAndRemoveUntil(
@@ -593,15 +616,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _showLanguageSelection(BuildContext context, LanguageProvider provider,
+      AppLocalizations locale) {
+    showCustomBottomSheet(
+      context: context,
+      title: locale.language,
+      content: Column(
+        children: [
+          _buildLanguageTile(
+            title: locale.english,
+            isSelected: !provider.isArabic,
+            onTap: () {
+              provider.changeLanguage('en');
+              Navigator.pop(context);
+            },
+          ),
+          _buildLanguageTile(
+            title: locale.arabic,
+            isSelected: provider.isArabic,
+            onTap: () {
+              provider.changeLanguage('ar');
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLanguageTile({
+    required String title,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      onTap: onTap,
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          color: isSelected ? Theme.of(context).primaryColor : null,
+        ),
+      ),
+      trailing: isSelected
+          ? Icon(Icons.check_circle, color: Theme.of(context).primaryColor)
+          : null,
+    );
+  }
+
   Widget _buildSectionTitle(String title) {
     return Align(
       alignment: Alignment.centerLeft,
       child: Text(
         title,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.bold,
-          color: Theme.of(context).primaryColor,
-        ),
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).primaryColor,
+            ),
       ),
     );
   }
@@ -634,13 +705,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         subtitle: Text(
           subtitle,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(
-              context,
-            ).textTheme.bodySmall?.color?.withOpacity(0.7),
-          ),
+                color: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.color?.withOpacity(0.7),
+              ),
         ),
-        trailing:
-            trailing ??
+        trailing: trailing ??
             Icon(
               Icons.chevron_right,
               color: Theme.of(context).iconTheme.color?.withOpacity(0.5),

@@ -300,11 +300,11 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Theme.of(context).shadowColor.withOpacity(0.1),
                   blurRadius: 10,
                   offset: const Offset(0, -5),
                 ),
@@ -349,10 +349,10 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
         Container(
           padding: EdgeInsets.all(16.w),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Theme.of(context).shadowColor.withOpacity(0.1),
                 blurRadius: 10,
                 offset: const Offset(0, -5),
               ),
@@ -432,10 +432,13 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
                           decoration: BoxDecoration(
                             color: Theme.of(context).primaryColor,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
+                            border: Border.all(
+                                color: Theme.of(context).cardColor, width: 2),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black26,
+                                color: Theme.of(context)
+                                    .shadowColor
+                                    .withOpacity(0.2),
                                 blurRadius: 4,
                                 offset: Offset(0, 2),
                               ),
@@ -538,7 +541,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
           maxChildSize: 0.9,
           builder: (_, controller) => Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
             ),
             child: Column(
@@ -633,11 +636,11 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
         height: 140.h,
         width: double.infinity,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16.r),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Theme.of(context).shadowColor.withOpacity(0.08),
               blurRadius: 15,
               offset: const Offset(0, 5),
             ),
@@ -662,10 +665,10 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
                         width: double.infinity,
                       )
                     : Container(
-                        color: Colors.grey[100],
+                        color: Theme.of(context).hoverColor,
                         child: Icon(
                           Icons.image_not_supported,
-                          color: Colors.grey[400],
+                          color: Theme.of(context).disabledColor,
                         ),
                       ),
               ),
@@ -692,7 +695,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
                       owner,
                       style: TextStyle(
                         fontSize: 10.sp,
-                        color: Colors.grey[600],
+                        color: Theme.of(context).textTheme.bodySmall?.color,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -712,10 +715,10 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
       height: 140.h,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        color: Theme.of(context).hoverColor,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
-          color: Colors.grey[300]!,
+          color: Theme.of(context).dividerColor,
           style: BorderStyle.solid,
           width: 1,
         ), // Dashed border simulated or just solid light grey
@@ -729,7 +732,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
             'Select Items',
             style: TextStyle(
               fontSize: 12.sp,
-              color: Colors.grey[500],
+              color: Theme.of(context).disabledColor,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -755,9 +758,14 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
                 height: 130.h,
                 width: 100.w, // Narrower
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.5),
+                  color: Theme.of(context).cardColor.withOpacity(0.5),
                   borderRadius: BorderRadius.circular(16.r),
-                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Theme.of(context).shadowColor.withOpacity(0.1),
+                      blurRadius: 4,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -781,7 +789,8 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
               decoration: BoxDecoration(
                 color: Theme.of(context).primaryColor,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
+                border:
+                    Border.all(color: Theme.of(context).cardColor, width: 2),
               ),
               child: Text(
                 '${_selectedOfferedProducts.length}',
@@ -803,11 +812,18 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inventory_2_outlined, size: 48.w, color: Colors.grey[300]),
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 48.w,
+            color: Theme.of(context).disabledColor,
+          ),
           SizedBox(height: 12.h),
           Text(
             'Inventory Empty',
-            style: TextStyle(color: Colors.grey[500], fontSize: 14.sp),
+            style: TextStyle(
+              color: Theme.of(context).disabledColor,
+              fontSize: 14.sp,
+            ),
           ),
           TextButton(
             onPressed: () =>
@@ -850,13 +866,14 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(
-            color:
-                isSelected ? Theme.of(context).primaryColor : Colors.grey[200]!,
+            color: isSelected
+                ? Theme.of(context).primaryColor
+                : Theme.of(context).dividerColor,
             width: isSelected ? 2 : 1,
           ),
           color: isSelected
               ? Theme.of(context).primaryColor.withOpacity(0.05)
-              : Colors.white,
+              : Theme.of(context).cardColor,
           boxShadow: isSelected
               ? [
                   BoxShadow(
@@ -879,11 +896,11 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
                     product.images.isNotEmpty
                         ? Image.network(product.images.first, fit: BoxFit.cover)
                         : Container(
-                            color: Colors.grey[100],
+                            color: Theme.of(context).hoverColor,
                             child: Icon(
                               Icons.image,
                               size: 20,
-                              color: Colors.grey[300],
+                              color: Theme.of(context).disabledColor,
                             ),
                           ),
                     if (isSelected)
@@ -917,7 +934,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   color: isSelected
                       ? Theme.of(context).primaryColor
-                      : Colors.black87,
+                      : Theme.of(context).textTheme.bodyMedium?.color,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
