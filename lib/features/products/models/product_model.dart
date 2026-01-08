@@ -1,3 +1,50 @@
+// Enums
+enum ProductStatus { available, traded, reserved, unavailable }
+
+enum ProductCondition { new_item, like_new, good, fair, poor }
+
+enum ProductCategory {
+  electronics,
+  clothing,
+  books,
+  sports,
+  home,
+  toys,
+  automotive,
+  jewelry,
+  health,
+  others,
+}
+
+enum ProductType { item, service }
+
+enum ServiceCategory {
+  tutoring,
+  homeCleaning,
+  petCare,
+  gardening,
+  repairs,
+  photography,
+  cooking,
+  transportation,
+  webDevelopment,
+  graphicDesign,
+  writing,
+  musicLessons,
+  fitness,
+  beautyServices,
+  eventPlanning,
+  others,
+}
+
+enum ProductAvailability {
+  weekdays,
+  weekends,
+  flexible,
+  byAppointment,
+}
+
+// Main Product Model
 class ProductModel {
   final String id;
   final String title;
@@ -18,6 +65,15 @@ class ProductModel {
   final List<String> interestedUsers;
   final List<String> viewedUserIds;
   final List<String> reportedByUserIds;
+  final ProductType type;
+  final String? serviceCategory;
+  final String? customServiceCategory;
+  final int? estimatedDuration; // In hours, for services
+  final double? priceRange; // Optional price reference
+  final String? availabilitySchedule;
+  final List<String>? skills; // Skills/qualifications for services
+  final String? duration; // For backward compatibility
+  final String? availability; // For backward compatibility
 
   ProductModel({
     required this.id,
@@ -39,53 +95,72 @@ class ProductModel {
     this.interestedUsers = const [],
     this.viewedUserIds = const [],
     this.reportedByUserIds = const [],
+    this.type = ProductType.item,
+    this.serviceCategory,
+    this.customServiceCategory,
+    this.estimatedDuration,
+    this.priceRange,
+    this.availabilitySchedule,
+    this.skills,
+    this.duration,
+    this.availability,
   });
 
-  ProductModel.fromJson(Map<String, dynamic> json)
-    : this(
-        id: json["id"] ?? '',
-        title: json["title"] ?? '',
-        description: json["description"] ?? '',
-        category: json["category"] ?? '',
-        customCategory: json["customCategory"],
-        condition: json["condition"] ?? '',
-        ownerId: json["ownerId"] ?? '',
-        ownerName: json["ownerName"] ?? '',
-        images:
-            (json["images"] as List<dynamic>?)
-                ?.map((obj) => obj.toString())
-                .toList() ??
-            [],
-        createdAt: _parseDateTime(json["createdAt"]),
-        updatedAt: _parseDateTime(json["updatedAt"]),
-        isAvailable: json["isAvailable"] ?? true,
-        tags:
-            (json["tags"] as List<dynamic>?)
-                ?.map((obj) => obj.toString())
-                .toList() ??
-            [],
-        location: json["location"],
-        status: ProductStatus.values.firstWhere(
-          (status) => status.name == (json["status"] ?? "available"),
-          orElse: () => ProductStatus.available,
-        ),
-        viewCount: json["viewCount"] ?? 0,
-        interestedUsers:
-            (json["interestedUsers"] as List<dynamic>?)
-                ?.map((obj) => obj.toString())
-                .toList() ??
-            [],
-        viewedUserIds:
-            (json["viewedUserIds"] as List<dynamic>?)
-                ?.map((obj) => obj.toString())
-                .toList() ??
-            [],
-        reportedByUserIds:
-            (json["reportedByUserIds"] as List<dynamic>?)
-                ?.map((obj) => obj.toString())
-                .toList() ??
-            [],
-      );
+  factory ProductModel.fromJson(Map<String, dynamic> json) {
+    return ProductModel(
+      id: json["id"] ?? '',
+      title: json["title"] ?? '',
+      description: json["description"] ?? '',
+      category: json["category"] ?? '',
+      customCategory: json["customCategory"],
+      condition: json["condition"] ?? '',
+      ownerId: json["ownerId"] ?? '',
+      ownerName: json["ownerName"] ?? '',
+      images: (json["images"] as List<dynamic>?)
+              ?.map((obj) => obj.toString())
+              .toList() ??
+          [],
+      createdAt: _parseDateTime(json["createdAt"]),
+      updatedAt: _parseDateTime(json["updatedAt"]),
+      isAvailable: json["isAvailable"] ?? true,
+      tags: (json["tags"] as List<dynamic>?)
+              ?.map((obj) => obj.toString())
+              .toList() ??
+          [],
+      location: json["location"],
+      status: ProductStatus.values.firstWhere(
+        (status) => status.name == (json["status"] ?? "available"),
+        orElse: () => ProductStatus.available,
+      ),
+      viewCount: json["viewCount"] ?? 0,
+      interestedUsers: (json["interestedUsers"] as List<dynamic>?)
+              ?.map((obj) => obj.toString())
+              .toList() ??
+          [],
+      viewedUserIds: (json["viewedUserIds"] as List<dynamic>?)
+              ?.map((obj) => obj.toString())
+              .toList() ??
+          [],
+      reportedByUserIds: (json["reportedByUserIds"] as List<dynamic>?)
+              ?.map((obj) => obj.toString())
+              .toList() ??
+          [],
+      type: ProductType.values.firstWhere(
+        (t) => t.name == (json["type"] ?? "item"),
+        orElse: () => ProductType.item,
+      ),
+      serviceCategory: json["serviceCategory"],
+      customServiceCategory: json["customServiceCategory"],
+      estimatedDuration: json["estimatedDuration"],
+      priceRange: json["priceRange"]?.toDouble(),
+      availabilitySchedule: json["availabilitySchedule"],
+      skills: (json["skills"] as List<dynamic>?)
+          ?.map((obj) => obj.toString())
+          .toList(),
+      duration: json["duration"],
+      availability: json["availability"],
+    );
+  }
 
   static DateTime _parseDateTime(dynamic value) {
     if (value == null) {
@@ -95,7 +170,6 @@ class ProductModel {
     } else if (value is DateTime) {
       return value;
     } else {
-      // Handle Firestore Timestamp
       try {
         return (value as dynamic).toDate();
       } catch (e) {
@@ -105,26 +179,35 @@ class ProductModel {
   }
 
   Map<String, dynamic> toJson() => {
-    "id": id,
-    "title": title,
-    "description": description,
-    "category": category,
-    "customCategory": customCategory,
-    "condition": condition,
-    "ownerId": ownerId,
-    "ownerName": ownerName,
-    "images": images,
-    "createdAt": createdAt.toIso8601String(),
-    "updatedAt": updatedAt.toIso8601String(),
-    "isAvailable": isAvailable,
-    "tags": tags,
-    "location": location,
-    "status": status.name,
-    "viewCount": viewCount,
-    "interestedUsers": interestedUsers,
-    "viewedUserIds": viewedUserIds,
-    "reportedByUserIds": reportedByUserIds,
-  };
+        "id": id,
+        "title": title,
+        "description": description,
+        "category": category,
+        "customCategory": customCategory,
+        "condition": condition,
+        "ownerId": ownerId,
+        "ownerName": ownerName,
+        "images": images,
+        "createdAt": createdAt.toIso8601String(),
+        "updatedAt": updatedAt.toIso8601String(),
+        "isAvailable": isAvailable,
+        "tags": tags,
+        "location": location,
+        "status": status.name,
+        "viewCount": viewCount,
+        "interestedUsers": interestedUsers,
+        "viewedUserIds": viewedUserIds,
+        "reportedByUserIds": reportedByUserIds,
+        "type": type.name,
+        "serviceCategory": serviceCategory,
+        "customServiceCategory": customServiceCategory,
+        "estimatedDuration": estimatedDuration,
+        "priceRange": priceRange,
+        "availabilitySchedule": availabilitySchedule,
+        "skills": skills,
+        "duration": duration,
+        "availability": availability,
+      };
 
   ProductModel copyWith({
     String? id,
@@ -146,6 +229,15 @@ class ProductModel {
     List<String>? interestedUsers,
     List<String>? viewedUserIds,
     List<String>? reportedByUserIds,
+    ProductType? type,
+    String? serviceCategory,
+    String? customServiceCategory,
+    int? estimatedDuration,
+    double? priceRange,
+    String? availabilitySchedule,
+    List<String>? skills,
+    String? duration,
+    String? availability,
   }) {
     return ProductModel(
       id: id ?? this.id,
@@ -167,12 +259,22 @@ class ProductModel {
       interestedUsers: interestedUsers ?? this.interestedUsers,
       viewedUserIds: viewedUserIds ?? this.viewedUserIds,
       reportedByUserIds: reportedByUserIds ?? this.reportedByUserIds,
+      type: type ?? this.type,
+      serviceCategory: serviceCategory ?? this.serviceCategory,
+      customServiceCategory:
+          customServiceCategory ?? this.customServiceCategory,
+      estimatedDuration: estimatedDuration ?? this.estimatedDuration,
+      priceRange: priceRange ?? this.priceRange,
+      availabilitySchedule: availabilitySchedule ?? this.availabilitySchedule,
+      skills: skills ?? this.skills,
+      duration: duration ?? this.duration,
+      availability: availability ?? this.availability,
     );
   }
 
   @override
   String toString() {
-    return 'ProductModel(id: $id, title: $title, category: $category, status: $status)';
+    return 'ProductModel(id: $id, title: $title, category: $category, status: $status, type: $type)';
   }
 
   @override
@@ -185,23 +287,7 @@ class ProductModel {
   int get hashCode => id.hashCode;
 }
 
-enum ProductStatus { available, traded, reserved, unavailable }
-
-enum ProductCondition { new_item, like_new, good, fair, poor }
-
-enum ProductCategory {
-  electronics,
-  clothing,
-  books,
-  sports,
-  home,
-  toys,
-  automotive,
-  jewelry,
-  health,
-  others,
-}
-
+// Extension Methods
 extension ProductStatusExtension on ProductStatus {
   String get displayName {
     switch (this) {
@@ -270,6 +356,97 @@ extension ProductCategoryExtension on ProductCategory {
     return ProductCategory.values.firstWhere(
       (category) => category.displayName == displayName,
       orElse: () => ProductCategory.others,
+    );
+  }
+}
+
+extension ProductTypeExtension on ProductType {
+  String get displayName {
+    switch (this) {
+      case ProductType.item:
+        return 'Item';
+      case ProductType.service:
+        return 'Service';
+    }
+  }
+}
+
+extension ServiceCategoryExtension on ServiceCategory {
+  String get displayName {
+    switch (this) {
+      case ServiceCategory.tutoring:
+        return 'Tutoring & Education';
+      case ServiceCategory.homeCleaning:
+        return 'Home Cleaning';
+      case ServiceCategory.petCare:
+        return 'Pet Care';
+      case ServiceCategory.gardening:
+        return 'Gardening & Landscaping';
+      case ServiceCategory.repairs:
+        return 'Repairs & Maintenance';
+      case ServiceCategory.photography:
+        return 'Photography & Videography';
+      case ServiceCategory.cooking:
+        return 'Cooking & Catering';
+      case ServiceCategory.transportation:
+        return 'Transportation';
+      case ServiceCategory.webDevelopment:
+        return 'Web Development';
+      case ServiceCategory.graphicDesign:
+        return 'Graphic Design';
+      case ServiceCategory.writing:
+        return 'Writing & Content';
+      case ServiceCategory.musicLessons:
+        return 'Music Lessons';
+      case ServiceCategory.fitness:
+        return 'Fitness & Training';
+      case ServiceCategory.beautyServices:
+        return 'Beauty Services';
+      case ServiceCategory.eventPlanning:
+        return 'Event Planning';
+      case ServiceCategory.others:
+        return 'Other Services';
+    }
+  }
+
+  static List<String> get allDisplayNames {
+    return ServiceCategory.values
+        .map((category) => category.displayName)
+        .toList();
+  }
+
+  static ServiceCategory fromDisplayName(String displayName) {
+    return ServiceCategory.values.firstWhere(
+      (category) => category.displayName == displayName,
+      orElse: () => ServiceCategory.others,
+    );
+  }
+}
+
+extension ProductAvailabilityExtension on ProductAvailability {
+  String get displayName {
+    switch (this) {
+      case ProductAvailability.weekdays:
+        return 'Weekdays';
+      case ProductAvailability.weekends:
+        return 'Weekends';
+      case ProductAvailability.flexible:
+        return 'Flexible';
+      case ProductAvailability.byAppointment:
+        return 'By Appointment';
+    }
+  }
+
+  static List<String> get allDisplayNames {
+    return ProductAvailability.values
+        .map((availability) => availability.displayName)
+        .toList();
+  }
+
+  static ProductAvailability fromDisplayName(String displayName) {
+    return ProductAvailability.values.firstWhere(
+      (availability) => availability.displayName == displayName,
+      orElse: () => ProductAvailability.flexible,
     );
   }
 }

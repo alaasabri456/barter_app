@@ -223,9 +223,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                   child: Text('Clear'),
                 ),
               ),
-
               SizedBox(width: 12.w),
-
               Expanded(
                 child: ElevatedButton(
                   onPressed: () {
@@ -348,23 +346,20 @@ class _ProductsScreenState extends State<ProductsScreen>
       // Search query
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
-        matchesFilter =
-            matchesFilter &&
+        matchesFilter = matchesFilter &&
             (product.title.toLowerCase().contains(query) ||
                 product.description.toLowerCase().contains(query));
       }
 
       // Category filter
       if (_selectedCategory != 'All') {
-        matchesFilter =
-            matchesFilter &&
+        matchesFilter = matchesFilter &&
             product.category.toLowerCase() == _selectedCategory.toLowerCase();
       }
 
       // Condition filter
       if (_selectedCondition != 'All') {
-        matchesFilter =
-            matchesFilter &&
+        matchesFilter = matchesFilter &&
             product.condition.toLowerCase() == _selectedCondition.toLowerCase();
       }
 
@@ -385,10 +380,10 @@ class _ProductsScreenState extends State<ProductsScreen>
             Text(
               _products.isEmpty ? 'No products yet' : 'No products found',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.color?.withOpacity(0.5),
-              ),
+                    color: Theme.of(
+                      context,
+                    ).textTheme.titleMedium?.color?.withOpacity(0.5),
+                  ),
             ),
             SizedBox(height: 8.h),
             Text(
@@ -396,10 +391,10 @@ class _ProductsScreenState extends State<ProductsScreen>
                   ? 'Start by adding your first product'
                   : 'Try adjusting your search or filters',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.color?.withOpacity(0.5),
-              ),
+                    color: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                  ),
             ),
           ],
         ),
@@ -426,6 +421,8 @@ class _ProductsScreenState extends State<ProductsScreen>
               createdAt: product.createdAt,
               imageUrl: product.images.isNotEmpty ? product.images.first : null,
               location: product.location,
+              type: product.type.name,
+              availability: product.availability,
               onTap: () {
                 Navigator.of(context)
                     .push(
@@ -475,8 +472,8 @@ class _ProductsScreenState extends State<ProductsScreen>
                     // Check if item is in pending trade
                     final isInTrade =
                         await FirebaseService.isProductInPendingTrade(
-                          product.id,
-                        );
+                      product.id,
+                    );
 
                     if (isInTrade && mounted) {
                       await showDialog(

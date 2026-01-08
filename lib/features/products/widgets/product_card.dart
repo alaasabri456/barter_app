@@ -20,6 +20,8 @@ class ProductCard extends StatefulWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final double? imageHeight;
+  final String? type; // 'item' or 'service'
+  final String? availability; // For services
 
   const ProductCard({
     super.key,
@@ -39,6 +41,8 @@ class ProductCard extends StatefulWidget {
     this.onEdit,
     this.onDelete,
     this.imageHeight,
+    this.type,
+    this.availability,
   });
 
   @override
@@ -212,10 +216,32 @@ class _ProductCardState extends State<ProductCard> {
           ),
           SizedBox(height: 6.h),
 
-          // Condition Badge
-          _buildTag(
-            _formatCondition(widget.condition),
-            color: _getConditionColor(widget.condition),
+          // Type Badge and Condition/Availability Badge
+          Wrap(
+            spacing: 8.w,
+            runSpacing: 4.h,
+            children: [
+              // Type badge (Item/Service)
+              if (widget.type != null)
+                _buildTag(
+                  widget.type == 'item' ? 'Item' : 'Service',
+                  color: widget.type == 'item' ? Colors.blue : Colors.purple,
+                ),
+
+              if (widget.type != null) SizedBox(width: 8.w),
+
+              // Condition or Availability badge
+              if (widget.type == 'service' && widget.availability != null)
+                _buildTag(
+                  _formatCondition(widget.availability!),
+                  color: Colors.teal,
+                )
+              else
+                _buildTag(
+                  _formatCondition(widget.condition),
+                  color: _getConditionColor(widget.condition),
+                ),
+            ],
           ),
           SizedBox(height: 8.h),
 

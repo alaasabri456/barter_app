@@ -388,18 +388,18 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.color?.withOpacity(0.7),
-                    ),
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.color?.withOpacity(0.7),
+                        ),
                   ),
                   SizedBox(height: 2.h),
                   Text(
                     value,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                          fontWeight: FontWeight.w600,
+                        ),
                   ),
                 ],
               ),
@@ -442,8 +442,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         child: _errorLoading
             ? _buildErrorState()
             : _product == null
-            ? _buildEmptyState()
-            : _buildProductDetails(isOwnProduct),
+                ? _buildEmptyState()
+                : _buildProductDetails(isOwnProduct),
       ),
     );
   }
@@ -532,7 +532,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           Expanded(
                             child: Text(
                               product.title,
-                              style: Theme.of(context).textTheme.headlineSmall
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall
                                   ?.copyWith(fontWeight: FontWeight.bold),
                             ),
                           ),
@@ -564,8 +566,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                                   size: 14.w,
                                   color:
                                       product.status == ProductStatus.available
-                                      ? Colors.green
-                                      : Colors.grey,
+                                          ? Colors.green
+                                          : Colors.grey,
                                 ),
                                 SizedBox(width: 4.w),
                                 Text(
@@ -573,8 +575,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                                   style: TextStyle(
                                     fontSize: 12.sp,
                                     fontWeight: FontWeight.w600,
-                                    color:
-                                        product.status ==
+                                    color: product.status ==
                                             ProductStatus.available
                                         ? Colors.green
                                         : Colors.grey,
@@ -586,7 +587,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                         ],
                       ),
                       SizedBox(height: 8.h),
-                      Row(
+                      Wrap(
+                        spacing: 8.w,
+                        runSpacing: 8.h,
                         children: [
                           Container(
                             padding: EdgeInsets.symmetric(
@@ -608,7 +611,6 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                               ),
                             ),
                           ),
-                          SizedBox(width: 8.w),
                           Container(
                             padding: EdgeInsets.symmetric(
                               horizontal: 12.w,
@@ -636,7 +638,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       // Description
                       Text(
                         'Description',
-                        style: Theme.of(context).textTheme.titleMedium
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       SizedBox(height: 8.h),
@@ -651,7 +655,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       // Product Details
                       Text(
                         'Item Details',
-                        style: Theme.of(context).textTheme.titleMedium
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       SizedBox(height: 12.h),
@@ -769,10 +775,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       Text(
                         'No Image',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).textTheme.bodyMedium?.color?.withOpacity(0.5),
-                        ),
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                            ),
                       ),
                     ],
                   )
@@ -837,15 +843,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 if (_product != null) {
                   Navigator.of(context)
                       .push(
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              CreateProduct(product: _product!),
-                        ),
-                      )
+                    MaterialPageRoute(
+                      builder: (context) => CreateProduct(product: _product!),
+                    ),
+                  )
                       .then((_) {
-                        // Reload product details when returning from edit screen
-                        _loadProductDetails();
-                      });
+                    // Reload product details when returning from edit screen
+                    _loadProductDetails();
+                  });
                 }
               },
       ),
@@ -875,10 +880,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           Text(
             'This product is ${product.status.displayName.toLowerCase()}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(
-                context,
-              ).textTheme.bodySmall?.color?.withOpacity(0.6),
-            ),
+                  color: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.color?.withOpacity(0.6),
+                ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -920,9 +925,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   : Icon(
                       _isFavourite ? Icons.favorite : Icons.favorite_outline,
                       size: 20.w,
-                      color: _isFavourite
-                          ? Theme.of(context).primaryColor
-                          : null,
+                      color:
+                          _isFavourite ? Theme.of(context).primaryColor : null,
                     ),
             ),
           ],

@@ -530,6 +530,8 @@ class _HomeScreenState extends State<HomeScreen> {
       isFavorite: _favouriteStates[product.id] ?? false,
       onFavoriteToggle: () => _toggleFavourite(product),
       imageHeight: 150.h,
+      type: product.type.name,
+      availability: product.availability,
       onTap: () {
         Navigator.of(
           context,
