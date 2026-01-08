@@ -21,6 +21,11 @@ class ServiceCategoryDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String? effectiveValue = value;
+    if (value != null && !ServiceCategory.values.any((e) => e.name == value)) {
+      effectiveValue = ServiceCategory.others.name;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -33,7 +38,7 @@ class ServiceCategoryDropdown extends StatelessWidget {
         ),
         SizedBox(height: 8.h),
         DropdownButtonFormField<String>(
-          value: value,
+          value: effectiveValue,
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint ?? 'Select service category',
@@ -81,6 +86,11 @@ class ProductCategoryDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String? effectiveValue = value;
+    if (value != null && !ProductCategory.values.any((e) => e.name == value)) {
+      effectiveValue = ProductCategory.others.name;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -93,7 +103,7 @@ class ProductCategoryDropdown extends StatelessWidget {
         ),
         SizedBox(height: 8.h),
         DropdownButtonFormField<String>(
-          value: value,
+          value: effectiveValue,
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint ?? 'Select category',
@@ -141,6 +151,11 @@ class ProductConditionDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String? effectiveValue = value;
+    if (value != null && !ProductCondition.values.any((e) => e.name == value)) {
+      effectiveValue = ProductCondition.good.name;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -153,7 +168,7 @@ class ProductConditionDropdown extends StatelessWidget {
         ),
         SizedBox(height: 8.h),
         DropdownButtonFormField<String>(
-          value: value,
+          value: effectiveValue,
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint ?? 'Select condition',
@@ -201,6 +216,11 @@ class ProductStatusDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String? effectiveValue = value;
+    if (value != null && !ProductStatus.values.any((e) => e.name == value)) {
+      effectiveValue = ProductStatus.available.name;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -213,7 +233,7 @@ class ProductStatusDropdown extends StatelessWidget {
         ),
         SizedBox(height: 8.h),
         DropdownButtonFormField<String>(
-          value: value,
+          value: effectiveValue,
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint ?? 'Select status',
@@ -261,6 +281,12 @@ class ProductAvailabilityDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String? effectiveValue = value;
+    if (value != null &&
+        !ProductAvailability.values.any((e) => e.name == value)) {
+      effectiveValue = ProductAvailability.flexible.name;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -273,12 +299,12 @@ class ProductAvailabilityDropdown extends StatelessWidget {
         ),
         SizedBox(height: 8.h),
         DropdownButtonFormField<String>(
-          value: value,
+          value: effectiveValue,
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint ?? 'Select availability',
             prefixIcon: Icon(
-              Icons.schedule_outlined,
+              Icons.calendar_today_outlined,
               color: Theme.of(context).iconTheme.color?.withOpacity(0.6),
               size: 20.w,
             ),
@@ -296,12 +322,52 @@ class ProductAvailabilityDropdown extends StatelessWidget {
           items: ProductAvailability.values.map((availability) {
             return DropdownMenuItem<String>(
               value: availability.name,
-              child: Text(availability.displayName),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _getAvailabilityIcon(availability),
+                    size: 20.w,
+                    color: _getAvailabilityColor(availability),
+                  ),
+                  SizedBox(width: 12.w),
+                  Text(
+                    availability.displayName,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             );
           }).toList(),
         ),
       ],
     );
+  }
+
+  IconData _getAvailabilityIcon(ProductAvailability availability) {
+    switch (availability) {
+      case ProductAvailability.weekdays:
+        return Icons.work_outline;
+      case ProductAvailability.weekends:
+        return Icons.weekend_outlined;
+      case ProductAvailability.flexible:
+        return Icons.sync_outlined;
+      case ProductAvailability.byAppointment:
+        return Icons.event_available_outlined;
+    }
+  }
+
+  Color _getAvailabilityColor(ProductAvailability availability) {
+    switch (availability) {
+      case ProductAvailability.weekdays:
+        return Colors.blue;
+      case ProductAvailability.weekends:
+        return Colors.orange;
+      case ProductAvailability.flexible:
+        return Colors.green;
+      case ProductAvailability.byAppointment:
+        return Colors.purple;
+    }
   }
 }
 

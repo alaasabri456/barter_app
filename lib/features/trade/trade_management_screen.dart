@@ -315,13 +315,6 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
     return Scaffold(
       appBar: CustomAppBar(
         title: 'Trade Management',
-        actions: [
-          IconButton(
-            onPressed: _loadTrades,
-            icon: Icon(Icons.refresh),
-            tooltip: 'Refresh',
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -515,8 +508,8 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                           ? 'From: ${trade.fromUserName}'
                           : 'To: ${trade.toUserName}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
+                            fontWeight: FontWeight.w500,
+                          ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -533,8 +526,8 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                   Text(
                     'You ${isReceived ? 'receive' : 'offer'}:',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                          fontWeight: FontWeight.w600,
+                        ),
                   ),
                   SizedBox(height: 8.h),
                   FutureBuilder<List<ProductModel>>(
@@ -602,8 +595,8 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                   Text(
                     'You ${isReceived ? 'give' : 'receive'}:',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                          fontWeight: FontWeight.w600,
+                        ),
                   ),
                   SizedBox(height: 8.h),
                   FutureBuilder<List<ProductModel>>(
@@ -687,7 +680,9 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                       children: [
                         Text(
                           'Expires in ${_getTimeUntil(trade.expiresAt)}',
-                          style: Theme.of(context).textTheme.bodySmall
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
                               ?.copyWith(
                                 color: Theme.of(
                                   context,
@@ -696,11 +691,11 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                         ),
                         Text(
                           '${_getDaysUntil(trade.expiresAt)} days left',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.w500,
-                                color: Theme.of(context).primaryColor,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                    color: Theme.of(context).primaryColor,
+                                  ),
                         ),
                       ],
                     ),
@@ -759,7 +754,9 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                           Expanded(
                             child: Text(
                               'Trade accepted! Coordinate via chat.',
-                              style: Theme.of(context).textTheme.bodySmall
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
                                   ?.copyWith(color: Colors.green),
                             ),
                           ),
@@ -783,12 +780,10 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                       RoutesManager.leaveReview,
                       arguments: {
                         'trade': trade,
-                        'targetUserId': isReceived
-                            ? trade.fromUserId
-                            : trade.toUserId,
-                        'targetUserName': isReceived
-                            ? trade.fromUserName
-                            : trade.toUserName,
+                        'targetUserId':
+                            isReceived ? trade.fromUserId : trade.toUserId,
+                        'targetUserName':
+                            isReceived ? trade.fromUserName : trade.toUserName,
                       },
                     );
 
@@ -885,9 +880,9 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                     Text(
                       product.title,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11.sp,
-                      ),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11.sp,
+                          ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),

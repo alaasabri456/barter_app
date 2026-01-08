@@ -49,74 +49,71 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadStats),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error_outline, size: 64.sp, color: Colors.red),
-                  SizedBox(height: 16.h),
-                  Text('Error: $_error'),
-                  SizedBox(height: 16.h),
-                  ElevatedButton(
-                    onPressed: _loadStats,
-                    child: const Text('Retry'),
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline, size: 64.sp, color: Colors.red),
+                      SizedBox(height: 16.h),
+                      Text('Error: $_error'),
+                      SizedBox(height: 16.h),
+                      ElevatedButton(
+                        onPressed: _loadStats,
+                        child: const Text('Retry'),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            )
-          : RefreshIndicator(
-              onRefresh: _loadStats,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.all(16.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Statistics Cards
-                    Text(
-                      'System Overview',
-                      style: TextStyle(
-                        fontSize: 24.sp,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 16.h),
-                    _buildStatsGrid(),
-                    SizedBox(height: 32.h),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadStats,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.all(16.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Statistics Cards
+                        Text(
+                          'System Overview',
+                          style: TextStyle(
+                            fontSize: 24.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 16.h),
+                        _buildStatsGrid(),
+                        SizedBox(height: 32.h),
 
-                    // Quick Actions
-                    Text(
-                      'Quick Actions',
-                      style: TextStyle(
-                        fontSize: 24.sp,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 16.h),
-                    _buildQuickActions(),
-                    SizedBox(height: 32.h),
+                        // Quick Actions
+                        Text(
+                          'Quick Actions',
+                          style: TextStyle(
+                            fontSize: 24.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 16.h),
+                        _buildQuickActions(),
+                        SizedBox(height: 32.h),
 
-                    // User Role Distribution
-                    Text(
-                      'User Distribution',
-                      style: TextStyle(
-                        fontSize: 24.sp,
-                        fontWeight: FontWeight.bold,
-                      ),
+                        // User Role Distribution
+                        Text(
+                          'User Distribution',
+                          style: TextStyle(
+                            fontSize: 24.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 16.h),
+                        _buildUserRoleDistribution(),
+                      ],
                     ),
-                    SizedBox(height: 16.h),
-                    _buildUserRoleDistribution(),
-                  ],
+                  ),
                 ),
-              ),
-            ),
     );
   }
 

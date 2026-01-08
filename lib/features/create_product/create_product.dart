@@ -48,7 +48,6 @@ class _CreateProductState extends State<CreateProduct> {
   final _customServiceCategoryController = TextEditingController();
   final _estimatedDurationController = TextEditingController();
   final _priceRangeController = TextEditingController();
-  final _availabilityScheduleController = TextEditingController();
   final _skillsController = TextEditingController();
 
   bool _isLoading = false;
@@ -58,6 +57,7 @@ class _CreateProductState extends State<CreateProduct> {
   String _selectedCategory = ProductCategory.others.name;
   String _selectedCondition = ProductCondition.good.name;
   String _selectedServiceCategory = ServiceCategory.others.name;
+  String? _selectedAvailability;
   List<File> _selectedImageFiles = [];
   List<String> _uploadedImageUrls = [];
   List<String> _tags = [];
@@ -126,7 +126,7 @@ class _CreateProductState extends State<CreateProduct> {
       _priceRangeController.text = product.priceRange.toString();
     }
     if (product.availabilitySchedule != null) {
-      _availabilityScheduleController.text = product.availabilitySchedule!;
+      _selectedAvailability = product.availabilitySchedule!;
     }
     if (product.skills != null && product.skills!.isNotEmpty) {
       _skills = List.from(product.skills!);
@@ -144,7 +144,6 @@ class _CreateProductState extends State<CreateProduct> {
     _customServiceCategoryController.dispose();
     _estimatedDurationController.dispose();
     _priceRangeController.dispose();
-    _availabilityScheduleController.dispose();
     _skillsController.dispose();
     super.dispose();
   }
@@ -392,11 +391,14 @@ class _CreateProductState extends State<CreateProduct> {
         SizedBox(height: 24.h),
 
         // Availability Schedule
-        AuthTextField(
+        ProductAvailabilityDropdown(
           label: 'Availability Schedule',
-          hint: 'e.g., Weekends only, Evenings, Flexible',
-          controller: _availabilityScheduleController,
-          textInputAction: TextInputAction.next,
+          value: _selectedAvailability,
+          onChanged: (value) {
+            setState(() {
+              _selectedAvailability = value;
+            });
+          },
         ),
 
         SizedBox(height: 24.h),
@@ -557,8 +559,8 @@ class _CreateProductState extends State<CreateProduct> {
             ? double.tryParse(_priceRangeController.text)
             : null,
         availabilitySchedule: _selectedType == ProductType.service &&
-                _availabilityScheduleController.text.isNotEmpty
-            ? _availabilityScheduleController.text.trim()
+                _selectedAvailability != null
+            ? _selectedAvailability
             : null,
         skills: _selectedType == ProductType.service && _skills.isNotEmpty
             ? _skills
@@ -699,8 +701,6 @@ class _CreateProductState extends State<CreateProduct> {
                     maxLines: 4,
                     textInputAction: TextInputAction.newline,
                   ),
-
-                  SizedBox(height: 24.h),
 
                   // Conditional rendering based on type
                   if (_selectedType == ProductType.item) ...[

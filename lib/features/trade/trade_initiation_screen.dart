@@ -31,7 +31,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
   bool _isLoading = false;
   bool _loadingProducts = true;
   String? _errorMessage;
-  TradeType _selectedTradeType = TradeType.itemForItem;
+  TradeType _selectedTradeType = TradeType.any;
   List<ProductModel> _targetUserProducts = []; // NEW
   List<ProductModel> _selectedRequestedProducts = []; // NEW
 
@@ -59,8 +59,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
           .where(
             (p) =>
                 p.id !=
-                    widget
-                        .targetProduct
+                    widget.targetProduct
                         .id && // Don't allow trading the same product
                 p.status.name.toLowerCase() !=
                     'traded' && // Don't allow traded products
@@ -98,7 +97,8 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
         _selectedOfferedProducts.remove(product);
       } else {
         // For single-item trades, allow only one selection
-        if (_selectedTradeType != TradeType.multiForSingle) {
+        if (_selectedTradeType != TradeType.multiForSingle &&
+            _selectedTradeType != TradeType.any) {
           _selectedOfferedProducts.clear();
         }
         _selectedOfferedProducts.add(product);
@@ -127,17 +127,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
   }
 
   bool _canProceedWithTrade() {
-    if (_selectedOfferedProducts.isEmpty) return false;
-
-    switch (_selectedTradeType) {
-      case TradeType.itemForItem:
-        return _selectedOfferedProducts.length == 1;
-      case TradeType.multiForSingle:
-        return _selectedOfferedProducts.length >= 1;
-      case TradeType.serviceForItem:
-      case TradeType.serviceForService:
-        return true;
-    }
+    return _selectedOfferedProducts.isNotEmpty;
   }
 
   Future<void> _submitTradeOffer() async {
@@ -181,9 +171,8 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
         toUserId: widget.targetProduct.ownerId,
         toUserName: widget.targetProduct.ownerName,
         offeredProductIds: _selectedOfferedProducts.map((p) => p.id).toList(),
-        requestedProductIds: _selectedRequestedProducts
-            .map((p) => p.id)
-            .toList(),
+        requestedProductIds:
+            _selectedRequestedProducts.map((p) => p.id).toList(),
         message: _messageController.text.trim(),
         status: TradeStatus.pending,
         type: _selectedTradeType,
@@ -227,28 +216,6 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
     return Scaffold(
       appBar: CustomAppBar(
         title: 'Initiate Trade',
-        actions: [
-          IconButton(
-            onPressed: _loadUserProducts, // Add retry functionality
-            icon: Icon(Icons.refresh),
-            tooltip: 'Retry',
-          ),
-          IconButton(
-            onPressed: () {
-              showInfoDialog(
-                context: context,
-                title: 'Trade Types',
-                message:
-                    '• Item for Item: Exchange one item for another\n'
-                    '• Multi for Single: Offer multiple items for one valuable item\n'
-                    '• Service for Item: Offer a service in exchange for an item\n'
-                    '• Service for Service: Exchange services',
-                icon: Icons.help_outline,
-              );
-            },
-            icon: Icon(Icons.help_outline),
-          ),
-        ],
       ),
       body: _buildBody(),
     );
@@ -286,8 +253,8 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
             Text(
               'Failed to Load Items',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Theme.of(context).colorScheme.error,
-              ),
+                    color: Theme.of(context).colorScheme.error,
+                  ),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 8.h),
@@ -349,60 +316,22 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
                 SizedBox(height: 20.h),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Your Items',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  child: Text(
+                    'Your Items',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
-                      ),
-                      // Trade Type Chip
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 12.w,
-                          vertical: 6.h,
-                        ),
-                        decoration: BoxDecoration(
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20.w),
+                  child: Text(
+                    'Select one or more items/services to offer in exchange.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(
                             context,
-                          ).primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20.r),
+                          ).textTheme.bodySmall?.color?.withOpacity(0.7),
                         ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<TradeType>(
-                            value: _selectedTradeType,
-                            isDense: true,
-                            onChanged: (TradeType? newValue) {
-                              if (newValue != null) {
-                                setState(() {
-                                  _selectedTradeType = newValue;
-                                  _selectedOfferedProducts.clear();
-                                });
-                              }
-                            },
-                            items: TradeType.values
-                                .map<DropdownMenuItem<TradeType>>((
-                                  TradeType value,
-                                ) {
-                                  return DropdownMenuItem<TradeType>(
-                                    value: value,
-                                    child: Text(
-                                      _getTradeTypeDisplayName(value),
-                                      style: TextStyle(
-                                        fontSize: 12.sp,
-                                        fontWeight: FontWeight.w600,
-                                        color: Theme.of(context).primaryColor,
-                                      ),
-                                    ),
-                                  );
-                                })
-                                .toList(),
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
                 SizedBox(height: 16.h),
@@ -485,9 +414,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
                   children: [
                     _buildStageCard(
                       image: _selectedRequestedProducts
-                          .firstOrNull
-                          ?.images
-                          .firstOrNull,
+                          .firstOrNull?.images.firstOrNull,
                       title: _selectedRequestedProducts.length == 1
                           ? _selectedRequestedProducts.first.title
                           : '${_selectedRequestedProducts.length} Items',
@@ -581,16 +508,16 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
                 _selectedOfferedProducts.isEmpty
                     ? _buildEmptyOfferPlaceholder()
                     : _selectedOfferedProducts.length == 1
-                    ? _buildStageCard(
-                        image:
-                            _selectedOfferedProducts.first.images.firstOrNull,
-                        title: _selectedOfferedProducts.first.title,
-                        owner: 'You',
-                        onTap: () => _toggleProductSelection(
-                          _selectedOfferedProducts.first,
-                        ),
-                      )
-                    : _buildMultiOfferStack(),
+                        ? _buildStageCard(
+                            image: _selectedOfferedProducts
+                                .first.images.firstOrNull,
+                            title: _selectedOfferedProducts.first.title,
+                            owner: 'You',
+                            onTap: () => _toggleProductSelection(
+                              _selectedOfferedProducts.first,
+                            ),
+                          )
+                        : _buildMultiOfferStack(),
               ],
             ),
           ),
@@ -643,11 +570,11 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
                           padding: EdgeInsets.all(16.w),
                           gridDelegate:
                               SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                crossAxisSpacing: 12.w,
-                                mainAxisSpacing: 12.h,
-                                childAspectRatio: 0.8,
-                              ),
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 12.w,
+                            mainAxisSpacing: 12.h,
+                            childAspectRatio: 0.8,
+                          ),
                           itemCount: _targetUserProducts.length,
                           itemBuilder: (context, index) {
                             final product = _targetUserProducts[index];
@@ -892,19 +819,6 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
     );
   }
 
-  String _getTradeTypeDisplayName(TradeType type) {
-    switch (type) {
-      case TradeType.itemForItem:
-        return 'Item for Item';
-      case TradeType.serviceForItem:
-        return 'Service for Item';
-      case TradeType.serviceForService:
-        return 'Service for Service';
-      case TradeType.multiForSingle:
-        return 'Multi for Single';
-    }
-  }
-
   Widget _buildProductsGrid() {
     return GridView.builder(
       padding: EdgeInsets.all(20.w),
@@ -936,9 +850,8 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(
-            color: isSelected
-                ? Theme.of(context).primaryColor
-                : Colors.grey[200]!,
+            color:
+                isSelected ? Theme.of(context).primaryColor : Colors.grey[200]!,
             width: isSelected ? 2 : 1,
           ),
           color: isSelected
@@ -973,7 +886,6 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
                               color: Colors.grey[300],
                             ),
                           ),
-
                     if (isSelected)
                       Container(
                         color: Theme.of(context).primaryColor.withOpacity(0.2),

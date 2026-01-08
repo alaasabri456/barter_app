@@ -8,6 +8,7 @@ enum TradeType {
   serviceForItem,
   serviceForService,
   multiForSingle,
+  any,
 }
 
 class TradeOffer {
@@ -78,8 +79,7 @@ class TradeOffer {
       updatedAt: json['updatedAt'] != null
           ? (json['updatedAt'] as Timestamp).toDate()
           : null,
-      counterOffers:
-          (json['counterOffers'] as List<dynamic>?)
+      counterOffers: (json['counterOffers'] as List<dynamic>?)
               ?.map((e) => TradeCounterOffer.fromJson(e))
               .toList() ??
           [],
@@ -111,9 +111,8 @@ class TradeOffer {
       'counterOffers': counterOffers.map((e) => e.toJson()).toList(),
       'isCounterOffer': isCounterOffer,
       'lastMessage': lastMessage,
-      'lastMessageTime': lastMessageTime != null
-          ? Timestamp.fromDate(lastMessageTime!)
-          : null,
+      'lastMessageTime':
+          lastMessageTime != null ? Timestamp.fromDate(lastMessageTime!) : null,
       'lastMessageSenderId': lastMessageSenderId,
       'hasUnreadMessages': hasUnreadMessages,
     };

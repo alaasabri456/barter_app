@@ -193,9 +193,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('User Management'),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadUsers),
-        ],
       ),
       body: Column(
         children: [
@@ -222,43 +219,44 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 64.sp,
-                          color: Colors.red,
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 64.sp,
+                              color: Colors.red,
+                            ),
+                            SizedBox(height: 16.h),
+                            Text('Error: $_error'),
+                            SizedBox(height: 16.h),
+                            ElevatedButton(
+                              onPressed: _loadUsers,
+                              child: const Text('Retry'),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: 16.h),
-                        Text('Error: $_error'),
-                        SizedBox(height: 16.h),
-                        ElevatedButton(
-                          onPressed: _loadUsers,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  )
-                : _filteredUsers.isEmpty
-                ? Center(
-                    child: Text(
-                      'No users found',
-                      style: TextStyle(fontSize: 16.sp, color: Colors.grey),
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _loadUsers,
-                    child: ListView.builder(
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
-                      itemCount: _filteredUsers.length,
-                      itemBuilder: (context, index) {
-                        final user = _filteredUsers[index];
-                        return _buildUserCard(user);
-                      },
-                    ),
-                  ),
+                      )
+                    : _filteredUsers.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No users found',
+                              style: TextStyle(
+                                  fontSize: 16.sp, color: Colors.grey),
+                            ),
+                          )
+                        : RefreshIndicator(
+                            onRefresh: _loadUsers,
+                            child: ListView.builder(
+                              padding: EdgeInsets.symmetric(horizontal: 16.w),
+                              itemCount: _filteredUsers.length,
+                              itemBuilder: (context, index) {
+                                final user = _filteredUsers[index];
+                                return _buildUserCard(user);
+                              },
+                            ),
+                          ),
           ),
         ],
       ),

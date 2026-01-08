@@ -172,12 +172,6 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Category Management'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadSuggestions,
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -224,43 +218,44 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 64.sp,
-                          color: Colors.red,
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 64.sp,
+                              color: Colors.red,
+                            ),
+                            SizedBox(height: 16.h),
+                            Text('Error: $_error'),
+                            SizedBox(height: 16.h),
+                            ElevatedButton(
+                              onPressed: _loadSuggestions,
+                              child: const Text('Retry'),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: 16.h),
-                        Text('Error: $_error'),
-                        SizedBox(height: 16.h),
-                        ElevatedButton(
-                          onPressed: _loadSuggestions,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  )
-                : _filteredSuggestions.isEmpty
-                ? Center(
-                    child: Text(
-                      'No category suggestions found',
-                      style: TextStyle(fontSize: 16.sp, color: Colors.grey),
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _loadSuggestions,
-                    child: ListView.builder(
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
-                      itemCount: _filteredSuggestions.length,
-                      itemBuilder: (context, index) {
-                        final suggestion = _filteredSuggestions[index];
-                        return _buildSuggestionCard(suggestion);
-                      },
-                    ),
-                  ),
+                      )
+                    : _filteredSuggestions.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No category suggestions found',
+                              style: TextStyle(
+                                  fontSize: 16.sp, color: Colors.grey),
+                            ),
+                          )
+                        : RefreshIndicator(
+                            onRefresh: _loadSuggestions,
+                            child: ListView.builder(
+                              padding: EdgeInsets.symmetric(horizontal: 16.w),
+                              itemCount: _filteredSuggestions.length,
+                              itemBuilder: (context, index) {
+                                final suggestion = _filteredSuggestions[index];
+                                return _buildSuggestionCard(suggestion);
+                              },
+                            ),
+                          ),
           ),
         ],
       ),
@@ -334,7 +329,6 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
               'Date: ${_formatDate(suggestion.createdAt)}',
               style: TextStyle(fontSize: 12.sp, color: Colors.grey),
             ),
-
             if (suggestion.reviewedByName != null) ...[
               SizedBox(height: 4.h),
               Text(
@@ -342,7 +336,6 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                 style: TextStyle(fontSize: 12.sp, color: Colors.grey),
               ),
             ],
-
             if (isPending) ...[
               SizedBox(height: 16.h),
               Row(

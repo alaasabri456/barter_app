@@ -1,4 +1,5 @@
 import 'package:barter/features/on_boarding/on_boarding_screen.dart';
+import 'package:barter/features/splash/splash_screen.dart';
 import 'package:barter/features/trade/trade_initiation_screen.dart';
 import 'package:barter/features/products/models/product_model.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +11,6 @@ import '../../features/main_layout/main_layout.dart';
 import '../../features/on_boarding/start_screen.dart';
 import '../../features/products/product_details_screen.dart';
 
-import '../../features/splash/splash_screen.dart';
 import '../../features/trade/trade_management_screen.dart';
 import '../../features/profile/trade_history_screen.dart';
 import '../../features/favourites/favourites_screen.dart';

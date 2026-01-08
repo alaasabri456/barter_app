@@ -123,9 +123,6 @@ class _ProductModerationScreenState extends State<ProductModerationScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Product Moderation'),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadProducts),
-        ],
       ),
       body: Column(
         children: [
@@ -175,43 +172,44 @@ class _ProductModerationScreenState extends State<ProductModerationScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 64.sp,
-                          color: Colors.red,
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 64.sp,
+                              color: Colors.red,
+                            ),
+                            SizedBox(height: 16.h),
+                            Text('Error: $_error'),
+                            SizedBox(height: 16.h),
+                            ElevatedButton(
+                              onPressed: _loadProducts,
+                              child: const Text('Retry'),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: 16.h),
-                        Text('Error: $_error'),
-                        SizedBox(height: 16.h),
-                        ElevatedButton(
-                          onPressed: _loadProducts,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  )
-                : _filteredProducts.isEmpty
-                ? Center(
-                    child: Text(
-                      'No products found',
-                      style: TextStyle(fontSize: 16.sp, color: Colors.grey),
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _loadProducts,
-                    child: ListView.builder(
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
-                      itemCount: _filteredProducts.length,
-                      itemBuilder: (context, index) {
-                        final product = _filteredProducts[index];
-                        return _buildProductCard(product);
-                      },
-                    ),
-                  ),
+                      )
+                    : _filteredProducts.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No products found',
+                              style: TextStyle(
+                                  fontSize: 16.sp, color: Colors.grey),
+                            ),
+                          )
+                        : RefreshIndicator(
+                            onRefresh: _loadProducts,
+                            child: ListView.builder(
+                              padding: EdgeInsets.symmetric(horizontal: 16.w),
+                              itemCount: _filteredProducts.length,
+                              itemBuilder: (context, index) {
+                                final product = _filteredProducts[index];
+                                return _buildProductCard(product);
+                              },
+                            ),
+                          ),
           ),
         ],
       ),

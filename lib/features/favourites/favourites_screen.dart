@@ -99,10 +99,10 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
       body: _isLoading
           ? _buildLoadingState()
           : _errorMessage != null
-          ? _buildErrorState()
-          : _favouriteProducts == null || _favouriteProducts!.isEmpty
-          ? _buildEmptyState()
-          : _buildFavouritesList(),
+              ? _buildErrorState()
+              : _favouriteProducts == null || _favouriteProducts!.isEmpty
+                  ? _buildEmptyState()
+                  : _buildFavouritesList(),
     );
   }
 
@@ -137,10 +137,9 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 24.h),
-            ElevatedButton.icon(
+            ElevatedButton(
               onPressed: _loadFavourites,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+              child: const Text('Retry'),
             ),
           ],
         ),
@@ -188,7 +187,6 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                 context,
                 RoutesManager.mainLayout,
               ),
-
               icon: const Icon(Icons.explore),
               label: const Text('Explore Items'),
               style: ElevatedButton.styleFrom(
@@ -283,8 +281,8 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                     Text(
                       product.title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                            fontWeight: FontWeight.bold,
+                          ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -292,8 +290,8 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                     Text(
                       product.description,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: ColorsManager.grey600,
-                      ),
+                            color: ColorsManager.grey600,
+                          ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -313,11 +311,11 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                           ),
                           child: Text(
                             product.category,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: ColorsManager.primaryLight,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: ColorsManager.primaryLight,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                           ),
                         ),
                         Container(
@@ -333,7 +331,9 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                           ),
                           child: Text(
                             product.status.name.toUpperCase(),
-                            style: Theme.of(context).textTheme.bodySmall
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
                                 ?.copyWith(
                                   color: _getStatusColor(product.status.name),
                                   fontWeight: FontWeight.w600,
