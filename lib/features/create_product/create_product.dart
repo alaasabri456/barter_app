@@ -1,15 +1,8 @@
 import 'dart:io';
-import 'package:barter/core/routes_manager/routes_manager.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'dart:async';
-import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:path/path.dart' as path;
+import 'package:barter/core/routes_manager/routes_manager.dart';
 
-import '../../config/api_config.dart';
 import '../../core/validators.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
@@ -19,17 +12,11 @@ import '../../features/authentication/models/user_model.dart';
 import '../authentication/widgets/auth_button.dart';
 import '../authentication/widgets/auth_text_field.dart';
 import 'widgets/product_form_field.dart';
-import 'widgets/transaction_type_selector.dart';
-import '../../core/services/location_service.dart';
-import '../../core/widgets/map_picker.dart';
-import 'package:latlong2/latlong.dart' as ll;
-
-extension StringExtension on String {
-  String capitalize() {
-    if (isEmpty) return this;
-    return '${this[0].toUpperCase()}${substring(1)}';
-  }
-}
+import 'widgets/location_selection.dart';
+import 'widgets/service_details_section.dart';
+import 'widgets/transaction_details_section.dart';
+import 'product_image_picker.dart';
+import 'services/imgbb_service.dart';
 
 class CreateProduct extends StatefulWidget {
   final ProductModel? product;
@@ -58,6 +45,7 @@ class _CreateProductState extends State<CreateProduct> {
   bool _isLoading = false;
   bool _isUploadingImages = false;
   bool _isEditing = false;
+
   ProductType _selectedType = ProductType.item;
   String _selectedCategory = ProductCategory.others.name;
   String _selectedCondition = ProductCondition.good.name;
@@ -65,17 +53,12 @@ class _CreateProductState extends State<CreateProduct> {
   TransactionType _selectedTransactionType = TransactionType.barter;
   String _selectedSwapCategory = ProductCategory.electronics.name;
   String? _selectedAvailability;
+
   final List<File> _selectedImageFiles = [];
   List<String> _uploadedImageUrls = [];
   List<String> _skills = [];
   double? _latitude;
   double? _longitude;
-  bool _isFetchingLocation = false;
-
-  // Autocomplete state
-  Timer? _debounce;
-  List<Map<String, dynamic>> _locationSuggestions = [];
-  bool _isSearchingLocation = false;
 
   @override
   void initState() {
@@ -98,10 +81,8 @@ class _CreateProductState extends State<CreateProduct> {
     final user = UserModel.currentUser;
     if (user != null) {
       setState(() => _isLoading = true);
-      final count = await FirebaseService.getUntradedProductsCount(
-        user.id,
-        context,
-      );
+      final count =
+          await FirebaseService.getUntradedProductsCount(user.id, context);
       setState(() => _isLoading = false);
 
       if (count >= 5 && mounted) {
@@ -113,7 +94,9 @@ class _CreateProductState extends State<CreateProduct> {
           icon: Icons.warning_outlined,
           iconColor: Theme.of(context).colorScheme.error,
         );
-        if (mounted) Navigator.of(context).pop();
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
       }
     }
   }
@@ -160,7 +143,6 @@ class _CreateProductState extends State<CreateProduct> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _titleController.dispose();
     _descriptionController.dispose();
     _locationController.dispose();
@@ -177,412 +159,14 @@ class _CreateProductState extends State<CreateProduct> {
     setState(() {
       _skills = value
           .split(',')
-          .map((skill) => skill.trim())
-          .where((skill) => skill.isNotEmpty)
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
           .toList();
     });
   }
 
-  // ==================== IMAGE UPLOAD ====================
-  Future<String?> _uploadImageToImgBB(File imageFile) async {
-    try {
-      final bytes = await imageFile.readAsBytes();
-      final base64Image = base64Encode(bytes);
-      final uri = Uri.parse('https://api.imgbb.com/1/upload');
-
-      final response = await http.post(
-        uri,
-        body: {
-          'key': ApiConfig.imgbbApiKey,
-          'image': base64Image,
-          'name': path.basename(imageFile.path),
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['data']['url'];
-      }
-      return null;
-    } catch (e) {
-      print('Error uploading to ImgBB: $e');
-      return null;
-    }
-  }
-
-  Future<List<String>> _uploadImagesToImgBB(List<File> imageFiles) async {
-    setState(() => _isUploadingImages = true);
-    final List<String> uploadedUrls = [];
-
-    for (final imageFile in imageFiles) {
-      if (_uploadedImageUrls.length >= 5) break;
-      final url = await _uploadImageToImgBB(imageFile);
-      if (url != null) {
-        uploadedUrls.add(url);
-        setState(() => _uploadedImageUrls.add(url));
-      }
-    }
-
-    setState(() => _isUploadingImages = false);
-    return uploadedUrls;
-  }
-
-  // ==================== IMAGE PICKER ====================
-  Future<void> _pickImages() async {
-    final ImagePicker picker = ImagePicker();
-    final source = await _showImageSourceDialog();
-    if (source == null) return;
-
-    try {
-      if (source == ImageSource.gallery) {
-        final List<XFile> pickedFiles = await picker.pickMultiImage(
-          maxWidth: 1200,
-          maxHeight: 1200,
-          imageQuality: 80,
-        );
-        if (pickedFiles != null && pickedFiles.isNotEmpty) {
-          _addSelectedImages(pickedFiles);
-        }
-      } else {
-        final XFile? pickedFile = await picker.pickImage(
-          source: source,
-          maxWidth: 1200,
-          maxHeight: 1200,
-          imageQuality: 80,
-        );
-        if (pickedFile != null) {
-          _addSelectedImages([pickedFile]);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        await showInfoDialog(
-          context: context,
-          title: 'Error',
-          message: 'Failed to pick images: $e',
-          icon: Icons.error_outline,
-          iconColor: Theme.of(context).colorScheme.error,
-        );
-      }
-    }
-  }
-
-  void _addSelectedImages(List<XFile> pickedFiles) {
-    final remainingSlots = 5 - _selectedImageFiles.length;
-    if (remainingSlots <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Maximum 5 images allowed'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
-      return;
-    }
-
-    final filesToAdd = pickedFiles.length > remainingSlots
-        ? pickedFiles.sublist(0, remainingSlots)
-        : pickedFiles;
-
-    setState(() {
-      _selectedImageFiles.addAll(filesToAdd.map((file) => File(file.path)));
-    });
-
-    if (pickedFiles.length > remainingSlots) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Only $remainingSlots images added (max 5)')),
-      );
-    }
-  }
-
-  void _removeImage(int index) {
-    setState(() {
-      if (index < _selectedImageFiles.length) {
-        _selectedImageFiles.removeAt(index);
-      } else {
-        final urlIndex = index - _selectedImageFiles.length;
-        if (urlIndex < _uploadedImageUrls.length) {
-          _uploadedImageUrls.removeAt(urlIndex);
-        }
-      }
-    });
-  }
-
-  Future<ImageSource?> _showImageSourceDialog() async {
-    return await showModalBottomSheet<ImageSource>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: Icon(Icons.photo_library,
-                  color: Theme.of(context).primaryColor),
-              title: Text('Choose from Gallery'),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
-            ListTile(
-              leading: Icon(Icons.photo_camera,
-                  color: Theme.of(context).primaryColor),
-              title: Text('Take a Photo'),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ==================== SERVICE FIELDS ====================
-  Widget _buildServiceFields() {
-    return Column(
-      children: [
-        ServiceCategoryDropdown(
-          // Service Category Dropdown
-
-          label: 'Service Category',
-          value: _selectedServiceCategory,
-          onChanged: (value) {
-            setState(() {
-              _selectedServiceCategory = value ?? ServiceCategory.others.name;
-              if (_selectedServiceCategory != ServiceCategory.others.name) {
-                _customServiceCategoryController.clear();
-              }
-            });
-          },
-        ),
-
-        // Custom Service Category
-        if (_selectedServiceCategory == ServiceCategory.others.name) ...[
-          SizedBox(height: 16.h),
-          AuthTextField(
-            label: 'Custom Service Category',
-            hint: 'Enter your service category',
-            controller: _customServiceCategoryController,
-            validator: (value) {
-              if (_selectedServiceCategory == ServiceCategory.others.name) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter a service category name';
-                }
-                if (value.trim().length < 3) {
-                  return 'Category name must be at least 3 characters';
-                }
-              }
-              return null;
-            },
-            textInputAction: TextInputAction.next,
-          ),
-        ],
-
-        SizedBox(height: 24.h),
-
-        // Estimated Duration
-        AuthTextField(
-          label: 'Estimated Duration (hours)',
-          hint: 'e.g., 2 for 2 hours',
-          controller: _estimatedDurationController,
-          keyboardType: TextInputType.number,
-          validator: (value) {
-            if (value != null && value.isNotEmpty) {
-              final duration = int.tryParse(value);
-              if (duration == null || duration <= 0) {
-                return 'Please enter a valid duration';
-              }
-            }
-            return null;
-          },
-          textInputAction: TextInputAction.next,
-        ),
-
-        SizedBox(height: 24.h),
-
-        // Price Range (Optional)
-        AuthTextField(
-          label: 'Price Range (Optional)',
-          hint: 'e.g., 50-100',
-          controller: _priceRangeController,
-          keyboardType: TextInputType.number,
-          textInputAction: TextInputAction.next,
-        ),
-
-        SizedBox(height: 24.h),
-
-        // Availability Schedule
-        ProductAvailabilityDropdown(
-          label: 'Availability Schedule',
-          value: _selectedAvailability,
-          onChanged: (value) {
-            setState(() {
-              _selectedAvailability = value;
-            });
-          },
-        ),
-
-        SizedBox(height: 24.h),
-
-        // Skills/Qualifications
-        AuthTextField(
-          label: 'Skills & Qualifications',
-          hint: 'Enter skills separated by commas',
-          controller: _skillsController,
-          onChanged: _onSkillsChanged,
-          maxLines: 2,
-          textInputAction: TextInputAction.done,
-        ),
-
-        if (_skills.isNotEmpty) ...[
-          SizedBox(height: 12.h),
-          Wrap(
-            spacing: 8.w,
-            runSpacing: 8.h,
-            children: _skills.map((skill) {
-              return Chip(
-                label: Text(skill, style: TextStyle(fontSize: 12.sp)),
-                backgroundColor: Colors.blue.withOpacity(0.1),
-                side: BorderSide(color: Colors.blue.withOpacity(0.3)),
-                deleteIcon: const Icon(Icons.close, size: 16),
-                onDeleted: () {
-                  setState(() {
-                    _skills.remove(skill);
-                    _skillsController.text = _skills.join(', ');
-                  });
-                },
-              );
-            }).toList(),
-          ),
-        ],
-      ],
-    );
-  }
-
-  // ==================== LOCATION ====================
-  Future<void> _fetchLocation() async {
-    setState(() => _isFetchingLocation = true);
-    try {
-      final position = await LocationService.getCurrentPosition();
-      final address = await LocationService.getAddressFromCoordinates(
-          position.latitude, position.longitude);
-
-      if (!mounted) return;
-      setState(() {
-        _latitude = position.latitude;
-        _longitude = position.longitude;
-        if (address != null) {
-          _locationController.text = address;
-        }
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location captured successfully')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        await showInfoDialog(
-          context: context,
-          title: 'Location Error',
-          message: e.toString(),
-          icon: Icons.location_off_outlined,
-          iconColor: Theme.of(context).colorScheme.error,
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isFetchingLocation = false);
-    }
-  }
-
-  Future<void> _pickOnMap() async {
-    // Default to Cairo if no current coordinates
-    double lat = _latitude ?? 30.0444;
-    double long = _longitude ?? 31.2357;
-
-    final result = await Navigator.push<ll.LatLng>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MapPicker(
-          initialLocation: ll.LatLng(lat, long),
-        ),
-      ),
-    );
-
-    if (result != null) {
-      if (!mounted) return;
-      setState(() {
-        _latitude = result.latitude;
-        _longitude = result.longitude;
-      });
-
-      // Try to get address for the picked location
-      final address = await LocationService.getAddressFromCoordinates(
-        result.latitude,
-        result.longitude,
-      );
-
-      if (address != null && mounted) {
-        setState(() {
-          _locationController.text = address;
-        });
-      }
-    }
-  }
-
-  void _onLocationSearch(String query) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () async {
-      if (query.trim().length < 3) {
-        if (!mounted) return;
-        setState(() => _locationSuggestions = []);
-        return;
-      }
-
-      if (!mounted) return;
-      setState(() => _isSearchingLocation = true);
-      try {
-        final suggestions = await LocationService.searchLocations(query);
-        if (!mounted) return;
-        setState(() {
-          _locationSuggestions = suggestions;
-        });
-      } finally {
-        if (mounted) setState(() => _isSearchingLocation = false);
-      }
-    });
-  }
-
-  void _selectSuggestion(Map<String, dynamic> suggestion) {
-    setState(() {
-      _latitude = double.tryParse(suggestion['lat'].toString());
-      _longitude = double.tryParse(suggestion['lon'].toString());
-      _locationController.text = suggestion['display_name'] ?? '';
-      _locationSuggestions = [];
-    });
-    FocusScope.of(context).unfocus();
-  }
-
-  // ==================== SAVE PRODUCT ====================
   Future<void> _saveProduct() async {
     if (!_formKey.currentState!.validate()) return;
-
-    if (!_isEditing) {
-      final user = UserModel.currentUser;
-      if (user != null) {
-        setState(() => _isLoading = true);
-        final count =
-            await FirebaseService.getUntradedProductsCount(user.id, context);
-        if (count >= 5) {
-          setState(() => _isLoading = false);
-          if (mounted) {
-            await showInfoDialog(
-              context: context,
-              title: 'Limit Reached',
-              message: 'You already have 5 untraded items.',
-              icon: Icons.error_outline,
-              iconColor: Theme.of(context).colorScheme.error,
-            );
-          }
-          return;
-        }
-      }
-    }
 
     if (_selectedImageFiles.isEmpty && _uploadedImageUrls.isEmpty) {
       await showInfoDialog(
@@ -604,12 +188,15 @@ class _CreateProductState extends State<CreateProduct> {
       List<String> finalImageUrls = List.from(_uploadedImageUrls);
 
       if (_selectedImageFiles.isNotEmpty) {
-        final uploadedUrls = await _uploadImagesToImgBB(_selectedImageFiles);
+        final uploadedUrls = await ImgbbService.uploadMultipleImages(
+          _selectedImageFiles,
+          onLoadingStateChanged: (loading) =>
+              setState(() => _isUploadingImages = loading),
+        );
         if (uploadedUrls.isEmpty && _selectedImageFiles.isNotEmpty) {
           throw Exception('Failed to upload images. Please try again.');
         }
         finalImageUrls.addAll(uploadedUrls);
-        _selectedImageFiles.clear();
       }
 
       if (finalImageUrls.isEmpty) {
@@ -621,26 +208,14 @@ class _CreateProductState extends State<CreateProduct> {
           ? widget.product!.id
           : 'product_${now.millisecondsSinceEpoch}';
 
-      // Handle custom categories
       String? customCategoryName;
-      String? customServiceCategoryName;
-
       if (_selectedType == ProductType.item &&
-          _selectedCategory == ProductCategory.others.name &&
-          _customCategoryController.text.trim().isNotEmpty) {
+          _selectedCategory == ProductCategory.others.name) {
         customCategoryName = _customCategoryController.text.trim();
-        await FirebaseService.suggestCategory(
-          name: customCategoryName,
-          userId: user.id,
-          userName: user.name,
-        );
-      }
-
-      if (_selectedType == ProductType.service &&
-          _selectedServiceCategory == ServiceCategory.others.name &&
-          _customServiceCategoryController.text.trim().isNotEmpty) {
-        customServiceCategoryName =
-            _customServiceCategoryController.text.trim();
+        if (customCategoryName.isNotEmpty) {
+          await FirebaseService.suggestCategory(
+              name: customCategoryName, userId: user.id, userName: user.name);
+        }
       }
 
       final product = ProductModel(
@@ -658,32 +233,27 @@ class _CreateProductState extends State<CreateProduct> {
         images: finalImageUrls,
         createdAt: _isEditing ? widget.product!.createdAt : now,
         updatedAt: now,
-        location: _locationController.text.trim().isNotEmpty
-            ? _locationController.text.trim()
-            : null,
+        location: _locationController.text.trim(),
         latitude: _latitude,
         longitude: _longitude,
-        tags: const [], // Removed tags
+        tags: const [],
         status: _isEditing ? widget.product!.status : ProductStatus.available,
-        viewCount: _isEditing ? widget.product!.viewCount : 0,
-        interestedUsers: _isEditing ? widget.product!.interestedUsers : [],
         type: _selectedType,
         serviceCategory: _selectedType == ProductType.service
             ? _selectedServiceCategory
             : null,
-        customServiceCategory: customServiceCategoryName,
-        estimatedDuration: _selectedType == ProductType.service &&
-                _estimatedDurationController.text.isNotEmpty
+        customServiceCategory: _selectedType == ProductType.service &&
+                _selectedServiceCategory == ServiceCategory.others.name
+            ? _customServiceCategoryController.text.trim()
+            : null,
+        estimatedDuration: _selectedType == ProductType.service
             ? int.tryParse(_estimatedDurationController.text)
             : null,
-        priceRange: _selectedType == ProductType.service &&
-                _priceRangeController.text.isNotEmpty
+        priceRange: _selectedType == ProductType.service
             ? double.tryParse(_priceRangeController.text)
             : null,
-        availabilitySchedule: _selectedType == ProductType.service &&
-                _selectedAvailability != null
-            ? _selectedAvailability
-            : null,
+        availabilitySchedule:
+            _selectedType == ProductType.service ? _selectedAvailability : null,
         skills: _selectedType == ProductType.service && _skills.isNotEmpty
             ? _skills
             : null,
@@ -708,21 +278,19 @@ class _CreateProductState extends State<CreateProduct> {
           title: _isEditing
               ? '${_selectedType.displayName} Updated'
               : '${_selectedType.displayName} Created',
-          message: _isEditing
-              ? 'Your ${_selectedType.displayName.toLowerCase()} has been updated successfully!'
-              : 'Your ${_selectedType.displayName.toLowerCase()} has been created successfully!',
+          message:
+              'Your ${_selectedType.displayName.toLowerCase()} has been ${_isEditing ? 'updated' : 'created'} successfully!',
           icon: Icons.check_circle_outlined,
           iconColor: Colors.green,
         );
-
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          RoutesManager.mainLayout,
-          (route) => false,
-        );
+        if (mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil(
+              RoutesManager.mainLayout, (route) => false);
+        }
       }
     } catch (e) {
       if (mounted) {
-        await showInfoDialog(
+        showInfoDialog(
           context: context,
           title: 'Error',
           message: 'Failed to ${_isEditing ? 'update' : 'create'} product: $e',
@@ -744,27 +312,19 @@ class _CreateProductState extends State<CreateProduct> {
       cancelText: 'Keep Editing',
       icon: Icons.warning_outlined,
     );
-
     if (confirmed == true && mounted) {
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        RoutesManager.mainLayout,
-        (route) => false,
-      );
+      Navigator.of(context)
+          .pushNamedAndRemoveUntil(RoutesManager.mainLayout, (route) => false);
     }
   }
 
-  // ==================== BUILD METHOD ====================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CustomAppBar(
-        title: _isEditing
-            ? 'Edit ${_selectedType.displayName}'
-            : 'Create ${_selectedType.displayName}',
+        title: '${_isEditing ? 'Edit' : 'Create'} ${_selectedType.displayName}',
         leading: IconButton(
-          onPressed: _showDiscardDialog,
-          icon: const Icon(Icons.close),
-        ),
+            onPressed: _showDiscardDialog, icon: const Icon(Icons.close)),
         actions: [
           TextButton(
             onPressed: (_isLoading || _isUploadingImages) ? null : _saveProduct,
@@ -789,312 +349,134 @@ class _CreateProductState extends State<CreateProduct> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Transaction Type Selector
-                  TransactionTypeSelector(
-                    selectedType: _selectedTransactionType,
-                    onChanged: (type) {
-                      setState(() {
-                        _selectedTransactionType = type;
-                      });
-                    },
+                  TransactionDetailsSection(
+                    selectedTransactionType: _selectedTransactionType,
+                    priceController: _priceController,
+                    selectedSwapCategory: _selectedSwapCategory,
+                    onTypeChanged: (type) =>
+                        setState(() => _selectedTransactionType = type),
+                    onSwapCategoryChanged: (val) => setState(() =>
+                        _selectedSwapCategory =
+                            val ?? ProductCategory.others.name),
                   ),
-
-                  if (_selectedTransactionType == TransactionType.sell) ...[
-                    SizedBox(height: 24.h),
-                    AuthTextField(
-                      label: 'Price',
-                      hint: 'Enter price (e.g., 100)',
-                      controller: _priceController,
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (_selectedTransactionType == TransactionType.sell) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter a price';
-                          }
-                          if (double.tryParse(value) == null) {
-                            return 'Please enter a valid price';
-                          }
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-
-                  if (_selectedTransactionType == TransactionType.barter) ...[
-                    SizedBox(height: 24.h),
-                    ProductCategoryDropdown(
-                      label: 'Desired Swap Category',
-                      hint: 'What category do you want to swap with?',
-                      value: _selectedSwapCategory,
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedSwapCategory =
-                              value ?? ProductCategory.others.name;
-                        });
-                      },
-                    ),
-                  ],
-
                   SizedBox(height: 32.h),
-
                   _buildSectionTitle('Visual Information'),
                   SizedBox(height: 16.h),
-
-                  // Product Images Section
-                  _buildImagePickerSection(),
-
+                  ProductImagePicker(
+                    selectedImageFiles: _selectedImageFiles,
+                    uploadedImageUrls: _uploadedImageUrls,
+                    onImageFilesChanged: (files) =>
+                        setState(() => _selectedImageFiles.assignAll(files)),
+                    onUploadedUrlsChanged: (urls) =>
+                        setState(() => _uploadedImageUrls = urls),
+                  ),
                   SizedBox(height: 32.h),
-
                   _buildSectionTitle('Item Details'),
                   SizedBox(height: 16.h),
-
-                  // Product Title
                   AuthTextField(
-                    label: _selectedType == ProductType.item
-                        ? 'Item Title'
-                        : 'Service Title',
-                    hint: _selectedType == ProductType.item
-                        ? 'Enter item title'
-                        : 'Enter service title',
+                    label: '${_selectedType.displayName} Title',
+                    hint:
+                        'Enter ${_selectedType.displayName.toLowerCase()} title',
                     controller: _titleController,
                     validator: Validators.validateProductTitle,
                     textInputAction: TextInputAction.next,
                   ),
-
                   SizedBox(height: 24.h),
-
-                  // Product Description
                   AuthTextField(
                     label: 'Description',
-                    hint: 'Describe your product in detail',
+                    hint:
+                        'Describe your ${_selectedType.displayName.toLowerCase()} in detail',
                     controller: _descriptionController,
                     validator: Validators.validateProductDescription,
                     maxLines: 4,
                     textInputAction: TextInputAction.newline,
                   ),
-
-                  // Conditional rendering based on type
                   if (_selectedType == ProductType.item) ...[
-                    // Item Category Dropdown
+                    SizedBox(height: 24.h),
                     ProductCategoryDropdown(
                       label: 'Category',
                       value: _selectedCategory,
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedCategory =
-                              value ?? ProductCategory.others.name;
-                          if (_selectedCategory !=
-                              ProductCategory.others.name) {
-                            _customCategoryController.clear();
-                          }
-                        });
-                      },
+                      onChanged: (val) => setState(() {
+                        _selectedCategory = val ?? ProductCategory.others.name;
+                        if (_selectedCategory != ProductCategory.others.name) {
+                          _customCategoryController.clear();
+                        }
+                      }),
                     ),
-
-                    // Custom Category Input
                     if (_selectedCategory == ProductCategory.others.name) ...[
                       SizedBox(height: 16.h),
                       AuthTextField(
                         label: 'Custom Category Name',
                         hint: 'Enter your category name',
                         controller: _customCategoryController,
-                        validator: (value) {
+                        validator: (val) {
                           if (_selectedCategory ==
-                              ProductCategory.others.name) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Please enter a category name';
-                            }
-                            if (value.trim().length < 3) {
-                              return 'Category name must be at least 3 characters';
-                            }
-                            if (value.trim().length > 30) {
-                              return 'Category name must be less than 30 characters';
-                            }
+                                  ProductCategory.others.name &&
+                              (val == null || val.isEmpty)) {
+                            return 'Required';
                           }
                           return null;
                         },
-                        textInputAction: TextInputAction.next,
-                      ),
-                      SizedBox(height: 8.h),
-                      Container(
-                        padding: EdgeInsets.all(12.w),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8.r),
-                          border:
-                              Border.all(color: Colors.blue.withOpacity(0.3)),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.info_outline,
-                                size: 20.w, color: Colors.blue),
-                            SizedBox(width: 8.w),
-                            Expanded(
-                              child: Text(
-                                'Your custom category will be reviewed by an admin before being added to the category list.',
-                                style: TextStyle(
-                                  fontSize: 12.sp,
-                                  color: Colors.blue.shade700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
                     ],
-
                     SizedBox(height: 24.h),
-
-                    // Condition Dropdown
                     ProductConditionDropdown(
                       label: 'Condition',
                       value: _selectedCondition,
-                      onChanged: (value) {
+                      onChanged: (val) => setState(() => _selectedCondition =
+                          val ?? ProductCondition.good.name),
+                    ),
+                  ] else ...[
+                    SizedBox(height: 24.h),
+                    ServiceDetailsSection(
+                      selectedServiceCategory: _selectedServiceCategory,
+                      customCategoryController:
+                          _customServiceCategoryController,
+                      durationController: _estimatedDurationController,
+                      priceRangeController: _priceRangeController,
+                      skillsController: _skillsController,
+                      skills: _skills,
+                      selectedAvailability: _selectedAvailability,
+                      onCategoryChanged: (val) => setState(() {
+                        _selectedServiceCategory =
+                            val ?? ServiceCategory.others.name;
+                        if (_selectedServiceCategory !=
+                            ServiceCategory.others.name)
+                          _customServiceCategoryController.clear();
+                      }),
+                      onAvailabilityChanged: (val) =>
+                          setState(() => _selectedAvailability = val),
+                      onSkillsChanged: _onSkillsChanged,
+                      onSkillDeleted: (skill) {
                         setState(() {
-                          _selectedCondition =
-                              value ?? ProductCondition.good.name;
+                          _skills.remove(skill);
+                          _skillsController.text = _skills.join(', ');
                         });
                       },
                     ),
-                  ] else ...[
-                    // Show service fields
-                    _buildServiceFields(),
                   ],
-
                   SizedBox(height: 24.h),
-
-                  // Location (Optional)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: AuthTextField(
-                          label: 'Location',
-                          hint: 'Enter your location',
-                          controller: _locationController,
-                          textInputAction: TextInputAction.next,
-                          onChanged: _onLocationSearch,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Please enter or pick a location';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                      SizedBox(width: 8.w),
-                      if (_isFetchingLocation)
-                        Padding(
-                          padding: EdgeInsets.only(bottom: 16.h),
-                          child: SizedBox(
-                            width: 24.w,
-                            height: 24.w,
-                            child:
-                                const CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        )
-                      else ...[
-                        IconButton(
-                          onPressed: _fetchLocation,
-                          icon: Icon(
-                            Icons.my_location,
-                            color: Theme.of(context).primaryColor,
-                          ),
-                          tooltip: 'Use My Location',
-                        ),
-                        IconButton(
-                          onPressed: _pickOnMap,
-                          icon: Icon(
-                            Icons.map_outlined,
-                            color: Theme.of(context).primaryColor,
-                          ),
-                          tooltip: 'Pick on Map',
-                        ),
-                      ],
-                    ],
+                  LocationSelection(
+                    controller: _locationController,
+                    latitude: _latitude,
+                    longitude: _longitude,
+                    onLocationChanged: (lat, lng, addr) => setState(() {
+                      _latitude = lat;
+                      _longitude = lng;
+                    }),
                   ),
-
-                  // Location Suggestions
-                  if (_locationSuggestions.isNotEmpty)
-                    Container(
-                      margin: EdgeInsets.only(top: 4.h),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardColor,
-                        borderRadius: BorderRadius.circular(8.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        padding: EdgeInsets.zero,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _locationSuggestions.length,
-                        separatorBuilder: (context, index) =>
-                            const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final suggestion = _locationSuggestions[index];
-                          return ListTile(
-                            leading: const Icon(Icons.location_on_outlined,
-                                size: 20),
-                            title: Text(
-                              suggestion['display_name'] ?? '',
-                              style: TextStyle(fontSize: 13.sp),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            onTap: () => _selectSuggestion(suggestion),
-                          );
-                        },
-                      ),
-                    ),
-
-                  if (_isSearchingLocation)
-                    Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.h),
-                      child: const Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                    ),
-
-                  if (_latitude != null && _longitude != null) ...[
-                    SizedBox(height: 8.h),
-                    Text(
-                      'Coordinates Captured: ${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}',
-                      style: TextStyle(
-                        fontSize: 10.sp,
-                        color: Colors.grey,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-
                   SizedBox(height: 32.h),
-
-                  // Save Button
                   AuthButton(
-                    text: _isEditing
-                        ? 'Update ${_selectedType.displayName}'
-                        : 'Create ${_selectedType.displayName}',
+                    text:
+                        '${_isEditing ? 'Update' : 'Create'} ${_selectedType.displayName}',
                     onPressed: _saveProduct,
                     isLoading: _isLoading || _isUploadingImages,
                     height: 56.h,
                   ),
-
                   SizedBox(height: 40.h),
                 ],
               ),
             ),
-
-            // Uploading overlay
             if (_isUploadingImages)
               Container(
                 color: Colors.black54,
@@ -1102,12 +484,11 @@ class _CreateProductState extends State<CreateProduct> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(),
+                      const CircularProgressIndicator(),
                       SizedBox(height: 16.h),
-                      Text(
-                        'Uploading images...',
-                        style: TextStyle(color: Colors.white, fontSize: 16.sp),
-                      ),
+                      Text('Uploading images...',
+                          style:
+                              TextStyle(color: Colors.white, fontSize: 16.sp)),
                     ],
                   ),
                 ),
@@ -1115,129 +496,6 @@ class _CreateProductState extends State<CreateProduct> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildImagePickerSection() {
-    final totalImages = _selectedImageFiles.length + _uploadedImageUrls.length;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Product Images',
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w500,
-                fontSize: 14.sp,
-              ),
-        ),
-        SizedBox(height: 12.h),
-        SizedBox(
-          height: 120.h,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: totalImages + 1,
-            itemBuilder: (context, index) {
-              if (index == totalImages) {
-                return GestureDetector(
-                  onTap: _pickImages,
-                  child: Container(
-                    width: 120.w,
-                    height: 120.h,
-                    margin: EdgeInsets.only(right: 8.w),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12.r),
-                      border: Border.all(
-                        color: Theme.of(context).primaryColor.withOpacity(0.3),
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.add_photo_alternate_outlined,
-                          size: 32.w,
-                          color: Theme.of(context).primaryColor,
-                        ),
-                        SizedBox(height: 8.h),
-                        Text(
-                          'Add Photo',
-                          style: TextStyle(
-                            fontSize: 12.sp,
-                            color: Theme.of(context).primaryColor,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-
-              final isLocalFile = index < _selectedImageFiles.length;
-              final imagePath = isLocalFile
-                  ? _selectedImageFiles[index].path
-                  : (index - _selectedImageFiles.length) <
-                          _uploadedImageUrls.length
-                      ? _uploadedImageUrls[index - _selectedImageFiles.length]
-                      : null;
-
-              if (imagePath == null) return SizedBox();
-
-              return Container(
-                width: 120.w,
-                height: 120.h,
-                margin: EdgeInsets.only(right: 8.w),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12.r),
-                  border: Border.all(color: Theme.of(context).dividerColor),
-                ),
-                child: Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12.r),
-                      child: isLocalFile
-                          ? Image.file(File(imagePath), fit: BoxFit.cover)
-                          : Image.network(imagePath, fit: BoxFit.cover),
-                    ),
-                    Positioned(
-                      top: 4.w,
-                      right: 4.w,
-                      child: GestureDetector(
-                        onTap: () => _removeImage(index),
-                        child: Container(
-                          padding: EdgeInsets.all(4.w),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.error,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.close,
-                            size: 16.w,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        SizedBox(height: 8.h),
-        Text(
-          '$totalImages/5 images',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.color
-                    ?.withOpacity(0.7),
-              ),
-        ),
-      ],
     );
   }
 
@@ -1253,5 +511,12 @@ class _CreateProductState extends State<CreateProduct> {
         ),
       ),
     );
+  }
+}
+
+extension ListExtension<T> on List<T> {
+  void assignAll(Iterable<T> iterable) {
+    clear();
+    addAll(iterable);
   }
 }
