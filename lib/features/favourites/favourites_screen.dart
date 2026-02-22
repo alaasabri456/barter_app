@@ -315,31 +315,21 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                                 Theme.of(context).textTheme.bodySmall?.copyWith(
                                       color: ColorsManager.primaryLight,
                                       fontWeight: FontWeight.w600,
+                                      fontSize: 10.sp,
                                     ),
                           ),
                         ),
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 8.w,
-                            vertical: 4.h,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _getStatusColor(
-                              product.status.name,
-                            ).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6.r),
-                          ),
-                          child: Text(
-                            product.status.name.toUpperCase(),
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                  color: _getStatusColor(product.status.name),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 10.sp,
-                                ),
-                          ),
+                        _buildBadge(
+                          product.status.name.toUpperCase(),
+                          color: _getStatusColor(product.status.name),
+                        ),
+                        _buildBadge(
+                          product.transactionType == TransactionType.sell
+                              ? 'BUY${product.price != null ? ' - \$${product.price!.toStringAsFixed(0)}' : ''}'
+                              : 'SWAP',
+                          color: product.transactionType == TransactionType.sell
+                              ? Colors.orange[800]!
+                              : Colors.deepPurple,
                         ),
                       ],
                     ),
@@ -375,5 +365,26 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
       default:
         return Colors.grey;
     }
+  }
+
+  Widget _buildBadge(String text, {required Color color}) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: 8.w,
+        vertical: 4.h,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6.r),
+      ),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontSize: 10.sp,
+            ),
+      ),
+    );
   }
 }

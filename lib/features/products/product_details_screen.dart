@@ -633,6 +633,32 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           ),
                         ],
                       ),
+                      SizedBox(height: 12.h),
+
+                      // Transaction Type Info
+                      Row(
+                        children: [
+                          Icon(
+                            product.transactionType == TransactionType.sell
+                                ? Icons.attach_money
+                                : Icons.swap_horiz,
+                            size: 20.w,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                          SizedBox(width: 8.w),
+                          Text(
+                            product.transactionType == TransactionType.sell
+                                ? 'Price: \$${product.price?.toStringAsFixed(2) ?? "0.00"}'
+                                : 'For Barter (Swap with: ${product.desiredSwapCategory ?? "Any"})',
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w600,
+                              color:
+                                  Theme.of(context).textTheme.bodyLarge?.color,
+                            ),
+                          ),
+                        ],
+                      ),
                       SizedBox(height: 16.h),
 
                       // Description

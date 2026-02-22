@@ -20,6 +20,7 @@ import '../authentication/widgets/auth_button.dart';
 import '../authentication/widgets/auth_text_field.dart';
 import 'widgets/product_form_field.dart';
 import 'widgets/product_type_selector.dart';
+import 'widgets/transaction_type_selector.dart';
 import '../../core/services/location_service.dart';
 import '../../core/widgets/map_picker.dart';
 import 'package:latlong2/latlong.dart' as ll;
@@ -53,6 +54,7 @@ class _CreateProductState extends State<CreateProduct> {
   final _estimatedDurationController = TextEditingController();
   final _priceRangeController = TextEditingController();
   final _skillsController = TextEditingController();
+  final _priceController = TextEditingController();
 
   bool _isLoading = false;
   bool _isUploadingImages = false;
@@ -61,6 +63,8 @@ class _CreateProductState extends State<CreateProduct> {
   String _selectedCategory = ProductCategory.others.name;
   String _selectedCondition = ProductCondition.good.name;
   String _selectedServiceCategory = ServiceCategory.others.name;
+  TransactionType _selectedTransactionType = TransactionType.barter;
+  String _selectedSwapCategory = ProductCategory.electronics.name;
   String? _selectedAvailability;
   final List<File> _selectedImageFiles = [];
   List<String> _uploadedImageUrls = [];
@@ -146,6 +150,13 @@ class _CreateProductState extends State<CreateProduct> {
     }
     _latitude = product.latitude;
     _longitude = product.longitude;
+    _selectedTransactionType = product.transactionType;
+    if (product.price != null) {
+      _priceController.text = product.price.toString();
+    }
+    if (product.desiredSwapCategory != null) {
+      _selectedSwapCategory = product.desiredSwapCategory!;
+    }
   }
 
   @override
@@ -160,6 +171,7 @@ class _CreateProductState extends State<CreateProduct> {
     _estimatedDurationController.dispose();
     _priceRangeController.dispose();
     _skillsController.dispose();
+    _priceController.dispose();
     super.dispose();
   }
 
@@ -687,6 +699,13 @@ class _CreateProductState extends State<CreateProduct> {
         skills: _selectedType == ProductType.service && _skills.isNotEmpty
             ? _skills
             : null,
+        transactionType: _selectedTransactionType,
+        price: _selectedTransactionType == TransactionType.sell
+            ? double.tryParse(_priceController.text)
+            : null,
+        desiredSwapCategory: _selectedTransactionType == TransactionType.barter
+            ? _selectedSwapCategory
+            : null,
       );
 
       if (_isEditing) {
@@ -782,6 +801,8 @@ class _CreateProductState extends State<CreateProduct> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _buildSectionTitle('Item Type'),
+                  SizedBox(height: 8.h),
                   // Product Type Selector
                   ProductTypeSelector(
                     selectedType: _selectedType,
@@ -794,10 +815,64 @@ class _CreateProductState extends State<CreateProduct> {
 
                   SizedBox(height: 32.h),
 
+                  // Transaction Type Selector
+                  TransactionTypeSelector(
+                    selectedType: _selectedTransactionType,
+                    onChanged: (type) {
+                      setState(() {
+                        _selectedTransactionType = type;
+                      });
+                    },
+                  ),
+
+                  if (_selectedTransactionType == TransactionType.sell) ...[
+                    SizedBox(height: 24.h),
+                    AuthTextField(
+                      label: 'Price',
+                      hint: 'Enter price (e.g., 100)',
+                      controller: _priceController,
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (_selectedTransactionType == TransactionType.sell) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter a price';
+                          }
+                          if (double.tryParse(value) == null) {
+                            return 'Please enter a valid price';
+                          }
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+
+                  if (_selectedTransactionType == TransactionType.barter) ...[
+                    SizedBox(height: 24.h),
+                    ProductCategoryDropdown(
+                      label: 'Desired Swap Category',
+                      hint: 'What category do you want to swap with?',
+                      value: _selectedSwapCategory,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedSwapCategory =
+                              value ?? ProductCategory.others.name;
+                        });
+                      },
+                    ),
+                  ],
+
+                  SizedBox(height: 32.h),
+
+                  _buildSectionTitle('Visual Information'),
+                  SizedBox(height: 16.h),
+
                   // Product Images Section
                   _buildImagePickerSection(),
 
                   SizedBox(height: 32.h),
+
+                  _buildSectionTitle('Product Details'),
+                  SizedBox(height: 16.h),
 
                   // Product Title
                   AuthTextField(
@@ -916,7 +991,7 @@ class _CreateProductState extends State<CreateProduct> {
 
                   // Location (Optional)
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Expanded(
                         child: AuthTextField(
@@ -927,37 +1002,35 @@ class _CreateProductState extends State<CreateProduct> {
                           onChanged: _onLocationSearch,
                         ),
                       ),
-                      SizedBox(width: 12.w),
-                      Padding(
-                        padding: EdgeInsets.only(top: 28.h),
-                        child: _isFetchingLocation
-                            ? SizedBox(
-                                width: 24.w,
-                                height: 24.w,
-                                child: const CircularProgressIndicator(
-                                    strokeWidth: 2),
-                              )
-                            : Row(
-                                children: [
-                                  IconButton(
-                                    onPressed: _fetchLocation,
-                                    icon: Icon(
-                                      Icons.my_location,
-                                      color: Theme.of(context).primaryColor,
-                                    ),
-                                    tooltip: 'Use My Location',
-                                  ),
-                                  IconButton(
-                                    onPressed: _pickOnMap,
-                                    icon: Icon(
-                                      Icons.map_outlined,
-                                      color: Theme.of(context).primaryColor,
-                                    ),
-                                    tooltip: 'Pick on Map',
-                                  ),
-                                ],
-                              ),
-                      ),
+                      SizedBox(width: 8.w),
+                      if (_isFetchingLocation)
+                        Padding(
+                          padding: EdgeInsets.only(bottom: 16.h),
+                          child: SizedBox(
+                            width: 24.w,
+                            height: 24.w,
+                            child:
+                                const CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      else ...[
+                        IconButton(
+                          onPressed: _fetchLocation,
+                          icon: Icon(
+                            Icons.my_location,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                          tooltip: 'Use My Location',
+                        ),
+                        IconButton(
+                          onPressed: _pickOnMap,
+                          icon: Icon(
+                            Icons.map_outlined,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                          tooltip: 'Pick on Map',
+                        ),
+                      ],
                     ],
                   ),
 
@@ -1221,6 +1294,20 @@ class _CreateProductState extends State<CreateProduct> {
               ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8.h),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 18.sp,
+          fontWeight: FontWeight.bold,
+          color: Theme.of(context).primaryColor,
+        ),
+      ),
     );
   }
 }

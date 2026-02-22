@@ -275,169 +275,188 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
     final types = ['All', 'Item', 'Service'];
 
-    return Container(
-      padding: EdgeInsets.all(20.w),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20.r),
-          topRight: Radius.circular(20.r),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 40.w,
-              height: 4.h,
-              margin: EdgeInsets.symmetric(vertical: 8.h),
-              decoration: BoxDecoration(
-                color: Theme.of(context).dividerColor,
-                borderRadius: BorderRadius.circular(2.r),
-              ),
+    return StatefulBuilder(
+      builder: (context, setModalState) {
+        return Container(
+          padding: EdgeInsets.all(20.w),
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20.r),
+              topRight: Radius.circular(20.r),
             ),
           ),
-          SizedBox(height: 12.h),
-          Text(
-            'Filter Items',
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 20.h),
-          Text(
-            'Condition',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          SizedBox(height: 12.h),
-          Wrap(
-            spacing: 8.w,
-            runSpacing: 8.h,
-            children: conditions.map((condition) {
-              final isSelected = _selectedCondition == condition['value'];
-              return FilterChip(
-                label: Text(condition['label']!),
-                selected: isSelected,
-                selectedColor: Theme.of(context).primaryColor,
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : null,
-                  fontWeight: isSelected ? FontWeight.bold : null,
-                ),
-                checkmarkColor: Colors.white,
-                onSelected: (selected) {
-                  setState(() {
-                    _selectedCondition = condition['value']!;
-                  });
-                },
-              );
-            }).toList(),
-          ),
-          SizedBox(height: 20.h),
-          Text(
-            'Type',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          SizedBox(height: 12.h),
-          Wrap(
-            spacing: 8.w,
-            runSpacing: 8.h,
-            children: types.map((type) {
-              final isSelected = _selectedType == type;
-              return FilterChip(
-                label: Text(type),
-                selected: isSelected,
-                selectedColor: Theme.of(context).primaryColor,
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : null,
-                  fontWeight: isSelected ? FontWeight.bold : null,
-                ),
-                checkmarkColor: Colors.white,
-                onSelected: (selected) {
-                  setState(() {
-                    _selectedType = type;
-                  });
-                },
-              );
-            }).toList(),
-          ),
-          SizedBox(height: 20.h),
-
-          // Distance filter
-          if (_currentPosition != null) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Distance',
-                  style: Theme.of(
-                    context,
-                  )
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                Text(
-                  '${_maxDistance.toInt()} km',
-                  style: TextStyle(
-                    color: Theme.of(context).primaryColor,
-                    fontWeight: FontWeight.bold,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40.w,
+                  height: 4.h,
+                  margin: EdgeInsets.symmetric(vertical: 8.h),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).dividerColor,
+                    borderRadius: BorderRadius.circular(2.r),
                   ),
                 ),
-              ],
-            ),
-            Slider(
-              value: _maxDistance,
-              min: 1,
-              max: 200,
-              divisions: 199,
-              label: '${_maxDistance.toInt()} km',
-              activeColor: Theme.of(context).primaryColor,
-              onChanged: (value) {
-                setState(() {
-                  _maxDistance = value;
-                });
-              },
-            ),
-            SizedBox(height: 12.h),
-          ],
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () {
+              ),
+              SizedBox(height: 12.h),
+              Text(
+                'Filter Items',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 20.h),
+              Text(
+                'Condition',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              SizedBox(height: 12.h),
+              Wrap(
+                spacing: 8.w,
+                runSpacing: 8.h,
+                children: conditions.map((condition) {
+                  final isSelected = _selectedCondition == condition['value'];
+                  return FilterChip(
+                    label: Text(condition['label']!),
+                    selected: isSelected,
+                    selectedColor: Theme.of(context).primaryColor,
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : null,
+                      fontWeight: isSelected ? FontWeight.bold : null,
+                    ),
+                    checkmarkColor: Colors.white,
+                    onSelected: (selected) {
+                      setModalState(() {
+                        _selectedCondition = condition['value']!;
+                      });
+                      setState(() {
+                        _selectedCondition = condition['value']!;
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              SizedBox(height: 20.h),
+              Text(
+                'Type',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              SizedBox(height: 12.h),
+              Wrap(
+                spacing: 8.w,
+                runSpacing: 8.h,
+                children: types.map((type) {
+                  final isSelected = _selectedType == type;
+                  return FilterChip(
+                    label: Text(type),
+                    selected: isSelected,
+                    selectedColor: Theme.of(context).primaryColor,
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : null,
+                      fontWeight: isSelected ? FontWeight.bold : null,
+                    ),
+                    checkmarkColor: Colors.white,
+                    onSelected: (selected) {
+                      setModalState(() {
+                        _selectedType = type;
+                      });
+                      setState(() {
+                        _selectedType = type;
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              SizedBox(height: 20.h),
+
+              // Distance filter
+              if (_currentPosition != null) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Distance',
+                      style: Theme.of(
+                        context,
+                      )
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      '${_maxDistance.toInt()} km',
+                      style: TextStyle(
+                        color: Theme.of(context).primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: _maxDistance,
+                  min: 1,
+                  max: 200,
+                  divisions: 199,
+                  label: '${_maxDistance.toInt()} km',
+                  activeColor: Theme.of(context).primaryColor,
+                  onChanged: (value) {
+                    setModalState(() {
+                      _maxDistance = value;
+                    });
                     setState(() {
-                      _selectedCondition = 'All';
-                      _selectedType = 'All';
-                      _selectedCategory = null;
-                      _maxDistance = 50.0;
+                      _maxDistance = value;
                     });
                   },
-                  child: const Text('Clear'),
                 ),
+                SizedBox(height: 12.h),
+              ],
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        setModalState(() {
+                          _selectedCondition = 'All';
+                          _selectedType = 'All';
+                          _selectedCategory = null;
+                          _maxDistance = 50.0;
+                        });
+                        setState(() {
+                          _selectedCondition = 'All';
+                          _selectedType = 'All';
+                          _selectedCategory = null;
+                          _maxDistance = 50.0;
+                        });
+                      },
+                      child: const Text('Clear'),
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Apply'),
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('Apply'),
-                ),
-              ),
+              SizedBox(height: MediaQuery.of(context).viewInsets.bottom + 20.h),
             ],
           ),
-          SizedBox(height: MediaQuery.of(context).viewInsets.bottom + 20.h),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -779,6 +798,8 @@ class _HomeScreenState extends State<HomeScreen> {
       onFavoriteToggle: () => _toggleFavourite(product),
       imageHeight: 150.h,
       type: product.type.name,
+      transactionType: product.transactionType.name,
+      price: product.price,
       availability: product.availability,
       distance: (_currentPosition != null &&
               product.latitude != null &&

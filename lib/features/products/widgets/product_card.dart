@@ -23,6 +23,8 @@ class ProductCard extends StatefulWidget {
   final String? type; // 'item' or 'service'
   final String? availability; // For services
   final double? distance; // In kilometers
+  final String? transactionType; // 'sell' or 'barter'
+  final double? price;
 
   const ProductCard({
     super.key,
@@ -45,6 +47,8 @@ class ProductCard extends StatefulWidget {
     this.type,
     this.availability,
     this.distance,
+    this.transactionType,
+    this.price,
   });
 
   @override
@@ -242,6 +246,17 @@ class _ProductCardState extends State<ProductCard> {
                 _buildTag(
                   _formatCondition(widget.condition),
                   color: _getConditionColor(widget.condition),
+                ),
+
+              // Transaction Type Badge (Buy/Swap)
+              if (widget.transactionType != null)
+                _buildTag(
+                  widget.transactionType == 'sell'
+                      ? 'Buy${widget.price != null ? ' - \$${widget.price!.toStringAsFixed(0)}' : ''}'
+                      : 'Swap',
+                  color: widget.transactionType == 'sell'
+                      ? Colors.orange[800]
+                      : Colors.deepPurple,
                 ),
             ],
           ),

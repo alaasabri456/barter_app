@@ -18,6 +18,8 @@ enum ProductCategory {
 
 enum ProductType { item, service }
 
+enum TransactionType { sell, barter }
+
 enum ServiceCategory {
   tutoring,
   homeCleaning,
@@ -76,6 +78,9 @@ class ProductModel {
   final List<String>? skills; // Skills/qualifications for services
   final String? duration; // For backward compatibility
   final String? availability; // For backward compatibility
+  final TransactionType transactionType;
+  final double? price;
+  final String? desiredSwapCategory;
 
   ProductModel({
     required this.id,
@@ -108,6 +113,9 @@ class ProductModel {
     this.skills,
     this.duration,
     this.availability,
+    this.transactionType = TransactionType.barter,
+    this.price,
+    this.desiredSwapCategory,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -165,6 +173,12 @@ class ProductModel {
           .toList(),
       duration: json["duration"],
       availability: json["availability"],
+      transactionType: TransactionType.values.firstWhere(
+        (t) => t.name == (json["transactionType"] ?? "barter"),
+        orElse: () => TransactionType.barter,
+      ),
+      price: json["price"]?.toDouble(),
+      desiredSwapCategory: json["desiredSwapCategory"],
     );
   }
 
@@ -215,6 +229,9 @@ class ProductModel {
         "skills": skills,
         "duration": duration,
         "availability": availability,
+        "transactionType": transactionType.name,
+        "price": price,
+        "desiredSwapCategory": desiredSwapCategory,
       };
 
   ProductModel copyWith({
@@ -248,6 +265,9 @@ class ProductModel {
     List<String>? skills,
     String? duration,
     String? availability,
+    TransactionType? transactionType,
+    double? price,
+    String? desiredSwapCategory,
   }) {
     return ProductModel(
       id: id ?? this.id,
@@ -281,6 +301,9 @@ class ProductModel {
       skills: skills ?? this.skills,
       duration: duration ?? this.duration,
       availability: availability ?? this.availability,
+      transactionType: transactionType ?? this.transactionType,
+      price: price ?? this.price,
+      desiredSwapCategory: desiredSwapCategory ?? this.desiredSwapCategory,
     );
   }
 
@@ -379,6 +402,17 @@ extension ProductTypeExtension on ProductType {
         return 'Item';
       case ProductType.service:
         return 'Service';
+    }
+  }
+}
+
+extension TransactionTypeExtension on TransactionType {
+  String get displayName {
+    switch (this) {
+      case TransactionType.sell:
+        return 'Sell';
+      case TransactionType.barter:
+        return 'Barter';
     }
   }
 }
