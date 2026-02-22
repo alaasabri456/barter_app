@@ -3,6 +3,7 @@ import 'package:barter/core/routes_manager/routes_manager.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'dart:async';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -19,6 +20,9 @@ import '../authentication/widgets/auth_button.dart';
 import '../authentication/widgets/auth_text_field.dart';
 import 'widgets/product_form_field.dart';
 import 'widgets/product_type_selector.dart';
+import '../../core/services/location_service.dart';
+import '../../core/widgets/map_picker.dart';
+import 'package:latlong2/latlong.dart' as ll;
 
 extension StringExtension on String {
   String capitalize() {
@@ -58,10 +62,18 @@ class _CreateProductState extends State<CreateProduct> {
   String _selectedCondition = ProductCondition.good.name;
   String _selectedServiceCategory = ServiceCategory.others.name;
   String? _selectedAvailability;
-  List<File> _selectedImageFiles = [];
+  final List<File> _selectedImageFiles = [];
   List<String> _uploadedImageUrls = [];
   List<String> _tags = [];
   List<String> _skills = [];
+  double? _latitude;
+  double? _longitude;
+  bool _isFetchingLocation = false;
+
+  // Autocomplete state
+  Timer? _debounce;
+  List<Map<String, dynamic>> _locationSuggestions = [];
+  bool _isSearchingLocation = false;
 
   @override
   void initState() {
@@ -132,10 +144,13 @@ class _CreateProductState extends State<CreateProduct> {
       _skills = List.from(product.skills!);
       _skillsController.text = _skills.join(', ');
     }
+    _latitude = product.latitude;
+    _longitude = product.longitude;
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _titleController.dispose();
     _descriptionController.dispose();
     _locationController.dispose();
@@ -220,7 +235,7 @@ class _CreateProductState extends State<CreateProduct> {
 
     try {
       if (source == ImageSource.gallery) {
-        final List<XFile>? pickedFiles = await picker.pickMultiImage(
+        final List<XFile> pickedFiles = await picker.pickMultiImage(
           maxWidth: 1200,
           maxHeight: 1200,
           imageQuality: 80,
@@ -438,6 +453,111 @@ class _CreateProductState extends State<CreateProduct> {
     );
   }
 
+  // ==================== LOCATION ====================
+  Future<void> _fetchLocation() async {
+    setState(() => _isFetchingLocation = true);
+    try {
+      final position = await LocationService.getCurrentPosition();
+      final address = await LocationService.getAddressFromCoordinates(
+          position.latitude, position.longitude);
+
+      if (!mounted) return;
+      setState(() {
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+        if (address != null) {
+          _locationController.text = address;
+        }
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location captured successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Location Error',
+          message: e.toString(),
+          icon: Icons.location_off_outlined,
+          iconColor: Theme.of(context).colorScheme.error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isFetchingLocation = false);
+    }
+  }
+
+  Future<void> _pickOnMap() async {
+    // Default to Cairo if no current coordinates
+    double lat = _latitude ?? 30.0444;
+    double long = _longitude ?? 31.2357;
+
+    final result = await Navigator.push<ll.LatLng>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MapPicker(
+          initialLocation: ll.LatLng(lat, long),
+        ),
+      ),
+    );
+
+    if (result != null) {
+      if (!mounted) return;
+      setState(() {
+        _latitude = result.latitude;
+        _longitude = result.longitude;
+      });
+
+      // Try to get address for the picked location
+      final address = await LocationService.getAddressFromCoordinates(
+        result.latitude,
+        result.longitude,
+      );
+
+      if (address != null && mounted) {
+        setState(() {
+          _locationController.text = address;
+        });
+      }
+    }
+  }
+
+  void _onLocationSearch(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () async {
+      if (query.trim().length < 3) {
+        if (!mounted) return;
+        setState(() => _locationSuggestions = []);
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() => _isSearchingLocation = true);
+      try {
+        final suggestions = await LocationService.searchLocations(query);
+        if (!mounted) return;
+        setState(() {
+          _locationSuggestions = suggestions;
+        });
+      } finally {
+        if (mounted) setState(() => _isSearchingLocation = false);
+      }
+    });
+  }
+
+  void _selectSuggestion(Map<String, dynamic> suggestion) {
+    setState(() {
+      _latitude = double.tryParse(suggestion['lat'].toString());
+      _longitude = double.tryParse(suggestion['lon'].toString());
+      _locationController.text = suggestion['display_name'] ?? '';
+      _locationSuggestions = [];
+    });
+    FocusScope.of(context).unfocus();
+  }
+
   // ==================== SAVE PRODUCT ====================
   Future<void> _saveProduct() async {
     if (!_formKey.currentState!.validate()) return;
@@ -541,6 +661,8 @@ class _CreateProductState extends State<CreateProduct> {
         location: _locationController.text.trim().isNotEmpty
             ? _locationController.text.trim()
             : null,
+        latitude: _latitude,
+        longitude: _longitude,
         tags: _tags,
         status: _isEditing ? widget.product!.status : ProductStatus.available,
         viewCount: _isEditing ? widget.product!.viewCount : 0,
@@ -793,12 +915,114 @@ class _CreateProductState extends State<CreateProduct> {
                   SizedBox(height: 24.h),
 
                   // Location (Optional)
-                  AuthTextField(
-                    label: 'Location (Optional)',
-                    hint: 'Enter your location',
-                    controller: _locationController,
-                    textInputAction: TextInputAction.next,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: AuthTextField(
+                          label: 'Location (Optional)',
+                          hint: 'Enter your location',
+                          controller: _locationController,
+                          textInputAction: TextInputAction.next,
+                          onChanged: _onLocationSearch,
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Padding(
+                        padding: EdgeInsets.only(top: 28.h),
+                        child: _isFetchingLocation
+                            ? SizedBox(
+                                width: 24.w,
+                                height: 24.w,
+                                child: const CircularProgressIndicator(
+                                    strokeWidth: 2),
+                              )
+                            : Row(
+                                children: [
+                                  IconButton(
+                                    onPressed: _fetchLocation,
+                                    icon: Icon(
+                                      Icons.my_location,
+                                      color: Theme.of(context).primaryColor,
+                                    ),
+                                    tooltip: 'Use My Location',
+                                  ),
+                                  IconButton(
+                                    onPressed: _pickOnMap,
+                                    icon: Icon(
+                                      Icons.map_outlined,
+                                      color: Theme.of(context).primaryColor,
+                                    ),
+                                    tooltip: 'Pick on Map',
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ],
                   ),
+
+                  // Location Suggestions
+                  if (_locationSuggestions.isNotEmpty)
+                    Container(
+                      margin: EdgeInsets.only(top: 4.h),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(8.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        padding: EdgeInsets.zero,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _locationSuggestions.length,
+                        separatorBuilder: (context, index) =>
+                            const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final suggestion = _locationSuggestions[index];
+                          return ListTile(
+                            leading: const Icon(Icons.location_on_outlined,
+                                size: 20),
+                            title: Text(
+                              suggestion['display_name'] ?? '',
+                              style: TextStyle(fontSize: 13.sp),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            onTap: () => _selectSuggestion(suggestion),
+                          );
+                        },
+                      ),
+                    ),
+
+                  if (_isSearchingLocation)
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8.h),
+                      child: const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    ),
+
+                  if (_latitude != null && _longitude != null) ...[
+                    SizedBox(height: 8.h),
+                    Text(
+                      'Coordinates Captured: ${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}',
+                      style: TextStyle(
+                        fontSize: 10.sp,
+                        color: Colors.grey,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
 
                   SizedBox(height: 24.h),
 
@@ -891,7 +1115,7 @@ class _CreateProductState extends State<CreateProduct> {
               ),
         ),
         SizedBox(height: 12.h),
-        Container(
+        SizedBox(
           height: 120.h,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
@@ -987,7 +1211,7 @@ class _CreateProductState extends State<CreateProduct> {
         ),
         SizedBox(height: 8.h),
         Text(
-          '${totalImages}/5 images',
+          '$totalImages/5 images',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context)
                     .textTheme

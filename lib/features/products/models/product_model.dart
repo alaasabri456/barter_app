@@ -60,6 +60,8 @@ class ProductModel {
   final bool isAvailable;
   final List<String> tags;
   final String? location;
+  final double? latitude;
+  final double? longitude;
   final ProductStatus status;
   final int viewCount;
   final List<String> interestedUsers;
@@ -90,6 +92,8 @@ class ProductModel {
     this.isAvailable = true,
     this.tags = const [],
     this.location,
+    this.latitude,
+    this.longitude,
     this.status = ProductStatus.available,
     this.viewCount = 0,
     this.interestedUsers = const [],
@@ -128,6 +132,8 @@ class ProductModel {
               .toList() ??
           [],
       location: json["location"],
+      latitude: json["latitude"]?.toDouble(),
+      longitude: json["longitude"]?.toDouble(),
       status: ProductStatus.values.firstWhere(
         (status) => status.name == (json["status"] ?? "available"),
         orElse: () => ProductStatus.available,
@@ -193,6 +199,8 @@ class ProductModel {
         "isAvailable": isAvailable,
         "tags": tags,
         "location": location,
+        "latitude": latitude,
+        "longitude": longitude,
         "status": status.name,
         "viewCount": viewCount,
         "interestedUsers": interestedUsers,
@@ -224,6 +232,8 @@ class ProductModel {
     bool? isAvailable,
     List<String>? tags,
     String? location,
+    double? latitude,
+    double? longitude,
     ProductStatus? status,
     int? viewCount,
     List<String>? interestedUsers,
@@ -254,6 +264,8 @@ class ProductModel {
       isAvailable: isAvailable ?? this.isAvailable,
       tags: tags ?? this.tags,
       location: location ?? this.location,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
       status: status ?? this.status,
       viewCount: viewCount ?? this.viewCount,
       interestedUsers: interestedUsers ?? this.interestedUsers,

@@ -340,7 +340,7 @@ class _LoginState extends State<Login> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      AppLocalizations.of(context)!.dontHaveAccount + " ",
+                      "${AppLocalizations.of(context)!.dontHaveAccount} ",
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     LinkButton(

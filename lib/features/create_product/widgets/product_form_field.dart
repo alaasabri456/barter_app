@@ -38,7 +38,7 @@ class ServiceCategoryDropdown extends StatelessWidget {
         ),
         SizedBox(height: 8.h),
         DropdownButtonFormField<String>(
-          value: effectiveValue,
+          initialValue: effectiveValue,
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint ?? 'Select service category',
@@ -103,7 +103,7 @@ class ProductCategoryDropdown extends StatelessWidget {
         ),
         SizedBox(height: 8.h),
         DropdownButtonFormField<String>(
-          value: effectiveValue,
+          initialValue: effectiveValue,
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint ?? 'Select category',
@@ -168,7 +168,7 @@ class ProductConditionDropdown extends StatelessWidget {
         ),
         SizedBox(height: 8.h),
         DropdownButtonFormField<String>(
-          value: effectiveValue,
+          initialValue: effectiveValue,
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint ?? 'Select condition',
@@ -233,7 +233,7 @@ class ProductStatusDropdown extends StatelessWidget {
         ),
         SizedBox(height: 8.h),
         DropdownButtonFormField<String>(
-          value: effectiveValue,
+          initialValue: effectiveValue,
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint ?? 'Select status',
@@ -299,7 +299,7 @@ class ProductAvailabilityDropdown extends StatelessWidget {
         ),
         SizedBox(height: 8.h),
         DropdownButtonFormField<String>(
-          value: effectiveValue,
+          initialValue: effectiveValue,
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint ?? 'Select availability',
@@ -522,7 +522,7 @@ class ImagePickerGrid extends StatelessWidget {
         Row(
           children: [
             Text(
-              '${totalImages}/$maxImages images',
+              '$totalImages/$maxImages images',
               style: TextStyle(fontSize: 12.sp, color: Colors.grey[600]),
             ),
             if (isUploading) ...[

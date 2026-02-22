@@ -4,7 +4,7 @@ class ChatMessage {
   final String id;
   final String conversationId;
   final String?
-  tradeId; // Optional - only present when opened from trade context
+      tradeId; // Optional - only present when opened from trade context
   final String senderId;
   final String? text;
   final String? imageUrl;
@@ -23,19 +23,18 @@ class ChatMessage {
   });
 
   ChatMessage.fromJson(Map<String, dynamic> json)
-    : this(
-        id: json['id'] ?? '',
-        conversationId:
-            json['conversationId'] ??
-            json['tradeId'] ??
-            '', // Fallback for old messages
-        tradeId: json['tradeId'],
-        senderId: json['senderId'] ?? '',
-        text: json['text'],
-        imageUrl: json['imageUrl'],
-        timestamp: _parseDateTime(json['timestamp']),
-        isRead: json['isRead'] ?? false,
-      );
+      : this(
+          id: json['id'] ?? '',
+          conversationId: json['conversationId'] ??
+              json['tradeId'] ??
+              '', // Fallback for old messages
+          tradeId: json['tradeId'],
+          senderId: json['senderId'] ?? '',
+          text: json['text'],
+          imageUrl: json['imageUrl'],
+          timestamp: _parseDateTime(json['timestamp']),
+          isRead: json['isRead'] ?? false,
+        );
 
   static DateTime _parseDateTime(dynamic value) {
     if (value == null) {
@@ -83,7 +82,7 @@ class ChatMessage {
       tradeId: tradeId ?? this.tradeId,
       senderId: senderId ?? this.senderId,
       text: text ?? this.text,
-      imageUrl: imageUrl ?? this.imageUrl,
+      imageUrl: imageUrl ?? imageUrl,
       timestamp: timestamp ?? this.timestamp,
       isRead: isRead ?? this.isRead,
     );

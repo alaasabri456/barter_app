@@ -1,5 +1,4 @@
 import 'package:googleapis_auth/auth_io.dart';
-import 'package:http/http.dart' as http;
 
 class FcmV1Service {
   static const _scopes = ['https://www.googleapis.com/auth/firebase.messaging'];

@@ -33,7 +33,7 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
     }
 
     try {
-      final List<XFile>? pickedFiles = await _imagePicker.pickMultiImage(
+      final List<XFile> pickedFiles = await _imagePicker.pickMultiImage(
         maxWidth: 1200,
         maxHeight: 1200,
         imageQuality: 80,
@@ -57,7 +57,8 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
         if (pickedFiles.length > remainingSlots) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Only $remainingSlots images added (max ${widget.maxImages})'),
+              content: Text(
+                  'Only $remainingSlots images added (max ${widget.maxImages})'),
             ),
           );
         }
@@ -219,13 +220,12 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
         Text(
           'Product Images',
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w500,
-            fontSize: 14.sp,
-          ),
+                fontWeight: FontWeight.w500,
+                fontSize: 14.sp,
+              ),
         ),
         SizedBox(height: 8.h),
-
-        Container(
+        SizedBox(
           height: 120.h,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
@@ -294,7 +294,9 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
                             return Container(
-                              color: Theme.of(context).primaryColor.withOpacity(0.1),
+                              color: Theme.of(context)
+                                  .primaryColor
+                                  .withOpacity(0.1),
                               child: Icon(
                                 Icons.error_outline,
                                 size: 32.w,
@@ -328,7 +330,8 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
                           bottom: 4.w,
                           left: 4.w,
                           child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 6.w, vertical: 2.h),
                             decoration: BoxDecoration(
                               color: Theme.of(context).primaryColor,
                               borderRadius: BorderRadius.circular(4.r),
@@ -350,24 +353,29 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
             },
           ),
         ),
-
         SizedBox(height: 8.h),
-
         Text(
           '${widget.selectedImages.length}/${widget.maxImages} images selected',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
-          ),
+                color: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.color
+                    ?.withOpacity(0.7),
+              ),
         ),
-
         if (widget.selectedImages.isNotEmpty) ...[
           SizedBox(height: 4.h),
           Text(
             'Tap image to view, tap × to remove',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.5),
-              fontSize: 10.sp,
-            ),
+                  color: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.color
+                      ?.withOpacity(0.5),
+                  fontSize: 10.sp,
+                ),
           ),
         ],
       ],

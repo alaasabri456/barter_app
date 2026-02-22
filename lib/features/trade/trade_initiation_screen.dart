@@ -31,7 +31,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
   bool _isLoading = false;
   bool _loadingProducts = true;
   String? _errorMessage;
-  TradeType _selectedTradeType = TradeType.any;
+  final TradeType _selectedTradeType = TradeType.any;
   List<ProductModel> _targetUserProducts = []; // NEW
   List<ProductModel> _selectedRequestedProducts = []; // NEW
 

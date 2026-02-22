@@ -22,6 +22,7 @@ class ProductCard extends StatefulWidget {
   final double? imageHeight;
   final String? type; // 'item' or 'service'
   final String? availability; // For services
+  final double? distance; // In kilometers
 
   const ProductCard({
     super.key,
@@ -43,6 +44,7 @@ class ProductCard extends StatefulWidget {
     this.imageHeight,
     this.type,
     this.availability,
+    this.distance,
   });
 
   @override
@@ -250,14 +252,28 @@ class _ProductCardState extends State<ProductCard> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text(
-                  widget.location ?? 'No location',
-                  style: TextStyle(
-                    fontSize: 11.sp,
-                    color: Colors.grey[600],
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.location ?? 'No location',
+                      style: TextStyle(
+                        fontSize: 11.sp,
+                        color: Colors.grey[600],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (widget.distance != null)
+                      Text(
+                        '${widget.distance!.toStringAsFixed(1)} km away',
+                        style: TextStyle(
+                          fontSize: 10.sp,
+                          color: Theme.of(context).primaryColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                  ],
                 ),
               ),
               SizedBox(width: 8.w),

@@ -11,6 +11,8 @@ import '../authentication/widgets/auth_text_field.dart';
 import 'widgets/product_card.dart';
 import '../create_product/create_product.dart';
 import 'product_details_screen.dart';
+import '../../core/services/location_service.dart';
+import 'package:geolocator/geolocator.dart';
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
@@ -31,6 +33,8 @@ class _ProductsScreenState extends State<ProductsScreen>
   String _selectedType = 'All';
   List<ProductModel> _products = [];
   String? _errorMessage;
+  double _maxDistance = 50.0; // Default 50km
+  Position? _currentPosition;
 
   final List<String> _categories = [
     'All',
@@ -56,6 +60,19 @@ class _ProductsScreenState extends State<ProductsScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadProducts();
+    _initLocation();
+  }
+
+  Future<void> _initLocation() async {
+    try {
+      final position = await LocationService.getCurrentPosition();
+      if (!mounted) return;
+      setState(() {
+        _currentPosition = position;
+      });
+    } catch (e) {
+      print('Could not get current location: $e');
+    }
   }
 
   @override
@@ -82,11 +99,13 @@ class _ProductsScreenState extends State<ProductsScreen>
 
     try {
       final products = await FirebaseService.getUserProducts(user.id, context);
+      if (!mounted) return;
       setState(() {
         _products = products;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'Failed to load items: $e';
         _isLoading = false;
@@ -246,6 +265,47 @@ class _ProductsScreenState extends State<ProductsScreen>
             }).toList(),
           ),
 
+          SizedBox(height: 24.h),
+
+          // Distance filter
+          if (_currentPosition != null) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Distance',
+                  style: Theme.of(
+                    context,
+                  )
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  '${_maxDistance.toInt()} km',
+                  style: TextStyle(
+                    color: Theme.of(context).primaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: _maxDistance,
+              min: 1,
+              max: 200,
+              divisions: 199,
+              label: '${_maxDistance.toInt()} km',
+              activeColor: Theme.of(context).primaryColor,
+              onChanged: (value) {
+                setState(() {
+                  _maxDistance = value;
+                });
+              },
+            ),
+            SizedBox(height: 12.h),
+          ],
+
           SizedBox(height: 32.h),
 
           Row(
@@ -257,6 +317,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                       _selectedCategory = 'All';
                       _selectedCondition = 'All';
                       _selectedType = 'All';
+                      _maxDistance = 50.0;
                     });
                   },
                   child: Text('Clear'),
@@ -410,6 +471,19 @@ class _ProductsScreenState extends State<ProductsScreen>
             product.type.name.toLowerCase() == _selectedType.toLowerCase();
       }
 
+      // Distance filter
+      if (_currentPosition != null &&
+          product.latitude != null &&
+          product.longitude != null) {
+        final distance = LocationService.calculateDistance(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          product.latitude!,
+          product.longitude!,
+        );
+        matchesFilter = matchesFilter && distance <= _maxDistance;
+      }
+
       return matchesFilter;
     }).toList();
 
@@ -470,6 +544,15 @@ class _ProductsScreenState extends State<ProductsScreen>
               location: product.location,
               type: product.type.name,
               availability: product.availability,
+              distance: (_currentPosition != null &&
+                      product.latitude != null &&
+                      product.longitude != null)
+                  ? LocationService.calculateDistance(
+                      _currentPosition!.latitude,
+                      _currentPosition!.longitude,
+                      product.latitude!,
+                      product.longitude!)
+                  : null,
               onTap: () {
                 Navigator.of(context)
                     .push(

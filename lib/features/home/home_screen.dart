@@ -12,6 +12,8 @@ import '../../core/theme/theme_provider.dart';
 import '../authentication/widgets/auth_text_field.dart';
 
 import '../products/widgets/product_card.dart';
+import '../../core/services/location_service.dart';
+import 'package:geolocator/geolocator.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,6 +31,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<List<ProductModel>>? _productsFuture;
   bool _isRefreshing = false;
   List<String> _allCategories = []; // Combined default + custom categories
+  double _maxDistance = 50.0; // Default 50km
+  Position? _currentPosition;
 
   // Track favorite states for each product
   final Map<String, bool> _favouriteStates = {};
@@ -40,6 +44,18 @@ class _HomeScreenState extends State<HomeScreen> {
     _productsFuture = FirebaseService.getProductsFromFireStore(context);
     _loadFavouriteStates();
     _loadCategories();
+    _initLocation();
+  }
+
+  Future<void> _initLocation() async {
+    try {
+      final position = await LocationService.getCurrentPosition();
+      setState(() {
+        _currentPosition = position;
+      });
+    } catch (e) {
+      print('Could not get current location: $e');
+    }
   }
 
   Future<void> _loadCategories() async {
@@ -156,6 +172,22 @@ class _HomeScreenState extends State<HomeScreen> {
             (p) => p.type.name.toLowerCase() == _selectedType.toLowerCase(),
           )
           .toList();
+    }
+
+    // Apply distance filter
+    if (_currentPosition != null) {
+      filtered = filtered.where((p) {
+        if (p.latitude != null && p.longitude != null) {
+          final distance = LocationService.calculateDistance(
+            _currentPosition!.latitude,
+            _currentPosition!.longitude,
+            p.latitude!,
+            p.longitude!,
+          );
+          return distance <= _maxDistance;
+        }
+        return true; // Keep if no coordinates (backwards compatibility)
+      }).toList();
     }
 
     // Apply search filter
@@ -337,7 +369,46 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             }).toList(),
           ),
-          SizedBox(height: 32.h),
+          SizedBox(height: 20.h),
+
+          // Distance filter
+          if (_currentPosition != null) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Distance',
+                  style: Theme.of(
+                    context,
+                  )
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  '${_maxDistance.toInt()} km',
+                  style: TextStyle(
+                    color: Theme.of(context).primaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: _maxDistance,
+              min: 1,
+              max: 200,
+              divisions: 199,
+              label: '${_maxDistance.toInt()} km',
+              activeColor: Theme.of(context).primaryColor,
+              onChanged: (value) {
+                setState(() {
+                  _maxDistance = value;
+                });
+              },
+            ),
+            SizedBox(height: 12.h),
+          ],
           Row(
             children: [
               Expanded(
@@ -347,6 +418,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       _selectedCondition = 'All';
                       _selectedType = 'All';
                       _selectedCategory = null;
+                      _maxDistance = 50.0;
                     });
                   },
                   child: const Text('Clear'),
@@ -708,6 +780,15 @@ class _HomeScreenState extends State<HomeScreen> {
       imageHeight: 150.h,
       type: product.type.name,
       availability: product.availability,
+      distance: (_currentPosition != null &&
+              product.latitude != null &&
+              product.longitude != null)
+          ? LocationService.calculateDistance(
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+              product.latitude!,
+              product.longitude!)
+          : null,
       onTap: () {
         Navigator.of(
           context,
