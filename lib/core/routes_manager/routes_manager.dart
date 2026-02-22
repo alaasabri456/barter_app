@@ -59,9 +59,18 @@ class RoutesManager {
         }
       case createProduct:
         {
-          final ProductModel? product = setting.arguments as ProductModel?;
+          final dynamic args = setting.arguments;
+          if (args is ProductModel) {
+            return MaterialPageRoute(
+              builder: (context) => CreateProduct(product: args),
+            );
+          } else if (args is ProductType) {
+            return MaterialPageRoute(
+              builder: (context) => CreateProduct(initialType: args),
+            );
+          }
           return MaterialPageRoute(
-            builder: (context) => CreateProduct(product: product),
+            builder: (context) => CreateProduct(),
           );
         }
       case initiateTrade:

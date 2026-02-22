@@ -11,6 +11,7 @@ import '../authentication/models/user_model.dart';
 import '../../core/widgets/custom_dialog.dart';
 import '../../core/resources/colors_manager.dart';
 import 'package:barter/l10n/app_localizations.dart';
+import '../create_product/widgets/create_offer_popup.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -33,7 +34,20 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       _showGuestLoginPrompt();
       return;
     }
-    Navigator.pushNamed(context, RoutesManager.createProduct);
+
+    showDialog(
+      context: context,
+      builder: (context) => CreateOfferPopup(
+        onSelect: (type) {
+          Navigator.pop(context); // Close popup
+          Navigator.pushNamed(
+            context,
+            RoutesManager.createProduct,
+            arguments: type,
+          );
+        },
+      ),
+    );
   }
 
   void _showGuestLoginPrompt() {

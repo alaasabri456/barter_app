@@ -19,7 +19,6 @@ import '../../features/authentication/models/user_model.dart';
 import '../authentication/widgets/auth_button.dart';
 import '../authentication/widgets/auth_text_field.dart';
 import 'widgets/product_form_field.dart';
-import 'widgets/product_type_selector.dart';
 import 'widgets/transaction_type_selector.dart';
 import '../../core/services/location_service.dart';
 import '../../core/widgets/map_picker.dart';
@@ -34,8 +33,9 @@ extension StringExtension on String {
 
 class CreateProduct extends StatefulWidget {
   final ProductModel? product;
+  final ProductType? initialType;
 
-  const CreateProduct({super.key, this.product});
+  const CreateProduct({super.key, this.product, this.initialType});
 
   @override
   State<CreateProduct> createState() => _CreateProductState();
@@ -46,7 +46,6 @@ class _CreateProductState extends State<CreateProduct> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
-  final _tagsController = TextEditingController();
   final _customCategoryController = TextEditingController();
 
   // NEW SERVICE FIELDS
@@ -68,7 +67,6 @@ class _CreateProductState extends State<CreateProduct> {
   String? _selectedAvailability;
   final List<File> _selectedImageFiles = [];
   List<String> _uploadedImageUrls = [];
-  List<String> _tags = [];
   List<String> _skills = [];
   double? _latitude;
   double? _longitude;
@@ -87,6 +85,9 @@ class _CreateProductState extends State<CreateProduct> {
     if (_isEditing) {
       _populateFields();
     } else {
+      if (widget.initialType != null) {
+        _selectedType = widget.initialType!;
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _checkProductLimit();
       });
@@ -126,8 +127,6 @@ class _CreateProductState extends State<CreateProduct> {
     _selectedCategory = product.category;
     _selectedCondition = product.condition;
     _uploadedImageUrls = List.from(product.images);
-    _tags = List.from(product.tags);
-    _tagsController.text = _tags.join(', ');
 
     if (product.serviceCategory != null) {
       _selectedServiceCategory = product.serviceCategory!;
@@ -165,7 +164,6 @@ class _CreateProductState extends State<CreateProduct> {
     _titleController.dispose();
     _descriptionController.dispose();
     _locationController.dispose();
-    _tagsController.dispose();
     _customCategoryController.dispose();
     _customServiceCategoryController.dispose();
     _estimatedDurationController.dispose();
@@ -173,16 +171,6 @@ class _CreateProductState extends State<CreateProduct> {
     _skillsController.dispose();
     _priceController.dispose();
     super.dispose();
-  }
-
-  void _onTagsChanged(String value) {
-    setState(() {
-      _tags = value
-          .split(',')
-          .map((tag) => tag.trim())
-          .where((tag) => tag.isNotEmpty)
-          .toList();
-    });
   }
 
   void _onSkillsChanged(String value) {
@@ -675,7 +663,7 @@ class _CreateProductState extends State<CreateProduct> {
             : null,
         latitude: _latitude,
         longitude: _longitude,
-        tags: _tags,
+        tags: const [], // Removed tags
         status: _isEditing ? widget.product!.status : ProductStatus.available,
         viewCount: _isEditing ? widget.product!.viewCount : 0,
         interestedUsers: _isEditing ? widget.product!.interestedUsers : [],
@@ -801,20 +789,6 @@ class _CreateProductState extends State<CreateProduct> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSectionTitle('Item Type'),
-                  SizedBox(height: 8.h),
-                  // Product Type Selector
-                  ProductTypeSelector(
-                    selectedType: _selectedType,
-                    onChanged: (type) {
-                      setState(() {
-                        _selectedType = type;
-                      });
-                    },
-                  ),
-
-                  SizedBox(height: 32.h),
-
                   // Transaction Type Selector
                   TransactionTypeSelector(
                     selectedType: _selectedTransactionType,
@@ -871,7 +845,7 @@ class _CreateProductState extends State<CreateProduct> {
 
                   SizedBox(height: 32.h),
 
-                  _buildSectionTitle('Product Details'),
+                  _buildSectionTitle('Item Details'),
                   SizedBox(height: 16.h),
 
                   // Product Title
@@ -995,11 +969,17 @@ class _CreateProductState extends State<CreateProduct> {
                     children: [
                       Expanded(
                         child: AuthTextField(
-                          label: 'Location (Optional)',
+                          label: 'Location',
                           hint: 'Enter your location',
                           controller: _locationController,
                           textInputAction: TextInputAction.next,
                           onChanged: _onLocationSearch,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Please enter or pick a location';
+                            }
+                            return null;
+                          },
                         ),
                       ),
                       SizedBox(width: 8.w),
@@ -1097,43 +1077,7 @@ class _CreateProductState extends State<CreateProduct> {
                     ),
                   ],
 
-                  SizedBox(height: 24.h),
-
-                  // Tags
-                  AuthTextField(
-                    label: 'Tags (Optional)',
-                    hint: 'Enter tags separated by commas',
-                    controller: _tagsController,
-                    onChanged: _onTagsChanged,
-                    textInputAction: TextInputAction.done,
-                  ),
-
-                  if (_tags.isNotEmpty) ...[
-                    SizedBox(height: 12.h),
-                    Wrap(
-                      spacing: 8.w,
-                      runSpacing: 8.h,
-                      children: _tags.map((tag) {
-                        return Chip(
-                          label: Text(tag, style: TextStyle(fontSize: 12.sp)),
-                          backgroundColor:
-                              Theme.of(context).primaryColor.withOpacity(0.1),
-                          side: BorderSide(
-                              color: Theme.of(context)
-                                  .primaryColor
-                                  .withOpacity(0.3)),
-                          deleteIcon: const Icon(Icons.close, size: 16),
-                          onDeleted: () {
-                            setState(() {
-                              _tags.remove(tag);
-                              _tagsController.text = _tags.join(', ');
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    SizedBox(height: 24.h),
-                  ],
+                  SizedBox(height: 32.h),
 
                   // Save Button
                   AuthButton(
