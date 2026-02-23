@@ -37,6 +37,13 @@
             {
               "client_id": "460987873980-s29ubpkkass8m9c106sf491oc6rbrhrl.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "460987873980-mk49c4opdbb8duaht7beap5li4n7hgrb.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.barter"
+              }
             }
           ]
         }

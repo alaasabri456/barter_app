@@ -1,13 +1,14 @@
 // ignore_for_file: avoid_print
 
 import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart' hide Badge;
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:image_picker/image_picker.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
 
 import '../features/authentication/models/login_request.dart';
@@ -405,7 +406,7 @@ class FirebaseService {
   }
 
   static Future<String> uploadProductImage(
-    File imageFile,
+    XFile imageFile,
     String fileName,
   ) async {
     try {
@@ -414,29 +415,33 @@ class FirebaseService {
           .child('product_images')
           .child('$fileName.jpg');
 
-      final UploadTask uploadTask = storageRef.putFile(imageFile);
-      final TaskSnapshot snapshot = await uploadTask;
-      final String downloadUrl = await snapshot.ref.getDownloadURL();
-
-      return downloadUrl;
+      if (kIsWeb) {
+        final bytes = await imageFile.readAsBytes();
+        final uploadTask = storageRef.putData(bytes);
+        final snapshot = await uploadTask;
+        return await snapshot.ref.getDownloadURL();
+      } else {
+        final uploadTask = storageRef.putFile(File(imageFile.path));
+        final snapshot = await uploadTask;
+        return await snapshot.ref.getDownloadURL();
+      }
     } catch (e) {
       throw Exception('Failed to upload image: $e');
     }
   }
 
   static Future<List<String>> uploadProductImages(
-    List<String> imagePaths,
+    List<XFile> images,
     String userId,
   ) async {
     try {
       List<String> uploadedUrls = [];
 
-      for (int i = 0; i < imagePaths.length; i++) {
-        final File imageFile = File(imagePaths[i]);
+      for (int i = 0; i < images.length; i++) {
         final String fileName =
             '${userId}_${DateTime.now().millisecondsSinceEpoch}_$i';
         final String downloadUrl = await uploadProductImage(
-          imageFile,
+          images[i],
           fileName,
         );
         uploadedUrls.add(downloadUrl);

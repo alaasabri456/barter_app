@@ -1,14 +1,14 @@
 // ignore_for_file: avoid_print, depend_on_referenced_packages
 
-import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 
 import '../config/api_config.dart';
 
 class ImageUploadService {
-  static Future<String?> uploadImageToImgBB(File imageFile) async {
+  static Future<String?> uploadImageToImgBB(XFile imageFile) async {
     try {
       // Convert image to base64
       final bytes = await imageFile.readAsBytes();
@@ -43,7 +43,7 @@ class ImageUploadService {
 
   // Upload multiple images
   static Future<List<String>> uploadMultipleImages(
-    List<File> imageFiles,
+    List<XFile> imageFiles,
   ) async {
     final List<String> imageUrls = [];
 

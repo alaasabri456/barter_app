@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
@@ -23,7 +24,7 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-  File? _imageFile;
+  XFile? _imageFile;
   bool _isLoading = false;
   final ImagePicker _picker = ImagePicker();
 
@@ -71,7 +72,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
         if (croppedFile != null) {
           setState(() {
-            _imageFile = File(croppedFile.path);
+            _imageFile = XFile(croppedFile.path);
           });
         }
       }
@@ -190,10 +191,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           width: 2,
                         ),
                         image: _imageFile != null
-                            ? DecorationImage(
-                                image: FileImage(_imageFile!),
-                                fit: BoxFit.cover,
-                              )
+                            ? (kIsWeb
+                                ? DecorationImage(
+                                    image: NetworkImage(_imageFile!.path),
+                                    fit: BoxFit.cover,
+                                  )
+                                : DecorationImage(
+                                    image: FileImage(File(_imageFile!.path)),
+                                    fit: BoxFit.cover,
+                                  ))
                             : (user?.profileImageUrl != null
                                 ? DecorationImage(
                                     image: CachedNetworkImageProvider(

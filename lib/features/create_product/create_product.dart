@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:barter/core/routes_manager/routes_manager.dart';
 
@@ -54,7 +54,7 @@ class _CreateProductState extends State<CreateProduct> {
   String _selectedSwapCategory = ProductCategory.electronics.name;
   String? _selectedAvailability;
 
-  final List<File> _selectedImageFiles = [];
+  final List<XFile> _selectedImageFiles = [];
   List<String> _uploadedImageUrls = [];
   List<String> _skills = [];
   double? _latitude;
@@ -366,7 +366,9 @@ class _CreateProductState extends State<CreateProduct> {
                     selectedImageFiles: _selectedImageFiles,
                     uploadedImageUrls: _uploadedImageUrls,
                     onImageFilesChanged: (files) =>
-                        setState(() => _selectedImageFiles.assignAll(files)),
+                        setState(() => _selectedImageFiles
+                          ..clear()
+                          ..addAll(files)),
                     onUploadedUrlsChanged: (urls) =>
                         setState(() => _uploadedImageUrls = urls),
                   ),

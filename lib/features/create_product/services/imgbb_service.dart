@@ -1,11 +1,11 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import '../../../config/api_config.dart';
 
 class ImgbbService {
-  static Future<String?> uploadImage(File imageFile) async {
+  static Future<String?> uploadImage(XFile imageFile) async {
     try {
       final bytes = await imageFile.readAsBytes();
       final base64Image = base64Encode(bytes);
@@ -30,7 +30,7 @@ class ImgbbService {
     }
   }
 
-  static Future<List<String>> uploadMultipleImages(List<File> imageFiles,
+  static Future<List<String>> uploadMultipleImages(List<XFile> imageFiles,
       {Function(bool)? onLoadingStateChanged}) async {
     onLoadingStateChanged?.call(true);
     final List<String> uploadedUrls = [];

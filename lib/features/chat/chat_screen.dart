@@ -5,7 +5,6 @@ import '../../features/chat/models/chat_message.dart';
 import '../../firebase/firebase_service.dart';
 import '../../services/image_upload_service.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -41,8 +40,7 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     // Generate conversation ID if not provided
     final currentUserId = UserModel.currentUser?.id ?? '';
-    _conversationId =
-        widget.conversationId ??
+    _conversationId = widget.conversationId ??
         FirebaseService.getConversationId(currentUserId, widget.otherUserId);
 
     // Initialize conversation and mark messages as read
@@ -134,9 +132,8 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
-      final File imageFile = File(image.path);
       final String? imageUrl = await ImageUploadService.uploadImageToImgBB(
-        imageFile,
+        image,
       );
 
       if (imageUrl == null) {
@@ -278,8 +275,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   itemBuilder: (context, index) {
                     final message = messages[index];
                     final isMe = message.senderId == currentUser?.id;
-                    final showDate =
-                        index == messages.length - 1 ||
+                    final showDate = index == messages.length - 1 ||
                         _shouldShowDate(messages[index + 1], message);
 
                     return Column(
@@ -389,9 +385,8 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
         child: Column(
-          crossAxisAlignment: isMe
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
+          crossAxisAlignment:
+              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             if (message.imageUrl != null)
               GestureDetector(
@@ -461,9 +456,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 Text(
                   _formatTime(message.timestamp),
                   style: TextStyle(
-                    color: isMe
-                        ? Colors.white.withOpacity(0.7)
-                        : Colors.black54,
+                    color:
+                        isMe ? Colors.white.withOpacity(0.7) : Colors.black54,
                     fontSize: 10.sp,
                   ),
                 ),

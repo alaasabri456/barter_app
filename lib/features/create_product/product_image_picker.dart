@@ -1,13 +1,14 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/widgets/custom_dialog.dart';
 
 class ProductImagePicker extends StatelessWidget {
-  final List<File> selectedImageFiles;
+  final List<XFile> selectedImageFiles;
   final List<String> uploadedImageUrls;
-  final Function(List<File>) onImageFilesChanged;
+  final Function(List<XFile>) onImageFilesChanged;
   final Function(List<String>) onUploadedUrlsChanged;
   final int maxImages;
 
@@ -77,8 +78,8 @@ class ProductImagePicker extends StatelessWidget {
         ? pickedFiles.sublist(0, remainingSlots)
         : pickedFiles;
 
-    final newList = List<File>.from(selectedImageFiles);
-    newList.addAll(filesToAdd.map((file) => File(file.path)));
+    final newList = List<XFile>.from(selectedImageFiles);
+    newList.addAll(filesToAdd);
     onImageFilesChanged(newList);
 
     if (pickedFiles.length > remainingSlots) {
@@ -92,7 +93,7 @@ class ProductImagePicker extends StatelessWidget {
 
   void _removeImage(int index) {
     if (index < selectedImageFiles.length) {
-      final newList = List<File>.from(selectedImageFiles);
+      final newList = List<XFile>.from(selectedImageFiles);
       newList.removeAt(index);
       onImageFilesChanged(newList);
     } else {
@@ -205,8 +206,15 @@ class ProductImagePicker extends StatelessWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12.r),
                       child: isLocalFile
-                          ? Image.file(File(imagePath),
-                              fit: BoxFit.cover, width: 120.w, height: 120.h)
+                          ? (kIsWeb
+                              ? Image.network(imagePath,
+                                  fit: BoxFit.cover,
+                                  width: 120.w,
+                                  height: 120.h)
+                              : Image.file(File(imagePath),
+                                  fit: BoxFit.cover,
+                                  width: 120.w,
+                                  height: 120.h))
                           : Image.network(imagePath,
                               fit: BoxFit.cover, width: 120.w, height: 120.h),
                     ),
