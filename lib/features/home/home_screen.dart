@@ -467,21 +467,71 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: CustomAppBar(
-        title: '',
-        titleWidget: Image.asset(
-          'assets/images/logo.png',
-          height: 120.h,
-          fit: BoxFit.contain,
-        ),
+        title: 'Home',
+        centerTitle: false,
         height: 80,
         actions: [
+          // Profile Photo
+          Container(
+            padding: EdgeInsets.all(2.w),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).primaryColor,
+                  Theme.of(context).primaryColor.withOpacity(0.3),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: CircleAvatar(
+              radius: 20.w,
+              backgroundColor: Colors.white,
+              backgroundImage: user?.profileImageUrl != null
+                  ? NetworkImage(user!.profileImageUrl!)
+                  : null,
+              child: user?.profileImageUrl == null
+                  ? Text(
+                      (user?.name ?? 'G').substring(0, 1).toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+          SizedBox(width: 12.w),
+          // Notification Icon
           Stack(
+            clipBehavior: Clip.none,
             children: [
-              IconButton(
-                onPressed: () {
+              GestureDetector(
+                onTap: () {
                   Navigator.pushNamed(context, RoutesManager.notifications);
                 },
-                icon: Icon(Icons.notifications_outlined, size: 28.sp),
+                child: Container(
+                  width: 44.w,
+                  height: 44.w,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.notifications,
+                    color: Colors.deepOrangeAccent,
+                    size: 24.sp,
+                  ),
+                ),
               ),
               StreamBuilder<int>(
                 stream: FirebaseService.getUnreadNotificationCount(
@@ -492,18 +542,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     return const SizedBox.shrink();
                   }
                   return Positioned(
-                    right: 8.w,
-                    top: 8.h,
+                    right: -2.w,
+                    top: -2.h,
                     child: Container(
                       padding: EdgeInsets.all(4.w),
                       decoration: BoxDecoration(
                         color: Colors.red,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.5),
+                        border: Border.all(color: Colors.white, width: 2),
                       ),
                       constraints: BoxConstraints(
-                        minWidth: 16.w,
-                        minHeight: 16.w,
+                        minWidth: 18.w,
+                        minHeight: 18.w,
                       ),
                       child: Center(
                         child: Text(
@@ -521,7 +571,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 20.w),
         ],
       ),
       drawer: Drawer(

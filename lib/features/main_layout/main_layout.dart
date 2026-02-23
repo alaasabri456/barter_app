@@ -1,7 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:barter/features/home/home_screen.dart';
-import 'package:barter/features/products/products_screen.dart';
+import 'package:barter/features/chat/chat_list_screen.dart';
 import 'package:barter/features/profile/profile_screen.dart';
 import 'package:barter/features/trade/trade_management_screen.dart';
 import 'package:flutter/material.dart';
@@ -23,7 +23,7 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   List<Widget> tabs = [
     HomeScreen(),
-    ProductsScreen(),
+    ChatListScreen(),
     TradeManagementScreen(),
     ProfileScreen(),
   ];
@@ -90,8 +90,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             onTap: () => _onTap(0),
           ),
           _buildNavItem(
-            icon: selectedIndex == 1 ? Icons.list : Icons.list_outlined,
-            label: AppLocalizations.of(context)!.items,
+            icon: selectedIndex == 1 ? Icons.chat : Icons.chat_outlined,
+            label: AppLocalizations.of(context)!.chats,
             isSelected: selectedIndex == 1,
             onTap: () => _onTap(1),
           ),

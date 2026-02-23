@@ -236,6 +236,12 @@ abstract class AppLocalizations {
   /// **'Home'**
   String get home;
 
+  /// No description provided for @chats.
+  ///
+  /// In en, this message translates to:
+  /// **'Chats'**
+  String get chats;
+
   /// No description provided for @items.
   ///
   /// In en, this message translates to:

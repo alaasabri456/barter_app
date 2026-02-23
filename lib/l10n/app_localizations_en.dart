@@ -80,6 +80,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get home => 'Home';
 
   @override
+  String get chats => 'Chats';
+
+  @override
   String get items => 'Items';
 
   @override

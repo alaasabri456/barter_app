@@ -80,6 +80,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get home => 'الرئيسية';
 
   @override
+  String get chats => 'المحادثات';
+
+  @override
   String get items => 'العناصر';
 
   @override

@@ -431,6 +431,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   if (!isGuest) ...[
                     _buildSettingItem(
+                      icon: Icons.inventory_2_outlined,
+                      title: locale.items,
+                      subtitle: 'Manage and edit your listed items',
+                      onTap: () {
+                        Navigator.of(
+                          context,
+                        ).pushNamed(RoutesManager.myProducts);
+                      },
+                    ),
+                    _buildSettingItem(
                       icon: Icons.person_outline,
                       title: locale.editProfile,
                       subtitle: 'Update your personal information',

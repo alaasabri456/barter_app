@@ -10,6 +10,7 @@ import '../../features/create_product/create_product.dart';
 import '../../features/main_layout/main_layout.dart';
 import '../../features/on_boarding/start_screen.dart';
 import '../../features/products/product_details_screen.dart';
+import '../../features/products/products_screen.dart';
 
 import '../../features/trade/trade_management_screen.dart';
 import '../../features/profile/trade_history_screen.dart';
@@ -41,6 +42,7 @@ class RoutesManager {
   static const String notifications = '/notifications';
   static const String leaveReview = '/leave-review';
   static const String editProfile = '/edit-profile';
+  static const String myProducts = '/myProducts';
 
   static Route? router(RouteSettings setting) {
     switch (setting.name) {
@@ -165,6 +167,11 @@ class RoutesManager {
         {
           return MaterialPageRoute(
               builder: (context) => const EditProfileScreen());
+        }
+      case myProducts:
+        {
+          return MaterialPageRoute(
+              builder: (context) => const ProductsScreen());
         }
     }
     return null;

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import '../../core/routes_manager/routes_manager.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/loading_widget.dart';
 import '../../features/authentication/models/user_model.dart';
@@ -12,6 +13,7 @@ import 'widgets/product_card.dart';
 import '../create_product/create_product.dart';
 import 'product_details_screen.dart';
 import '../../core/services/location_service.dart';
+import '../create_product/widgets/create_offer_popup.dart';
 import 'package:geolocator/geolocator.dart';
 
 class ProductsScreen extends StatefulWidget {
@@ -422,6 +424,25 @@ class _ProductsScreenState extends State<ProductsScreen>
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (context) => CreateOfferPopup(
+              onSelect: (type) {
+                Navigator.pop(context); // Close popup
+                Navigator.pushNamed(
+                  context,
+                  RoutesManager.createProduct,
+                  arguments: type,
+                ).then((_) => _loadProducts());
+              },
+            ),
+          );
+        },
+        backgroundColor: Theme.of(context).primaryColor,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
