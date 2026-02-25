@@ -12,6 +12,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:barter/l10n/app_localizations.dart';
 import 'core/i18n/language_provider.dart';
+import 'services/payment_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +20,9 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await PrefsManager.init();
+
+  // Initialize Stripe
+  PaymentService.initialize();
 
   // Initialize push notifications
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);

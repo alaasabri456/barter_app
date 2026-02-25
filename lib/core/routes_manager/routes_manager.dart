@@ -21,6 +21,7 @@ import '../../features/chat/chat_list_screen.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/reviews/leave_review_screen.dart';
+import '../../features/payment/checkout_screen.dart';
 
 class RoutesManager {
   static const String register = "/register";
@@ -43,6 +44,7 @@ class RoutesManager {
   static const String leaveReview = '/leave-review';
   static const String editProfile = '/edit-profile';
   static const String myProducts = '/myProducts';
+  static const String checkout = '/checkout';
 
   static Route? router(RouteSettings setting) {
     switch (setting.name) {
@@ -172,6 +174,13 @@ class RoutesManager {
         {
           return MaterialPageRoute(
               builder: (context) => const ProductsScreen());
+        }
+      case checkout:
+        {
+          final product = setting.arguments as ProductModel;
+          return MaterialPageRoute(
+            builder: (context) => CheckoutScreen(product: product),
+          );
         }
     }
     return null;

@@ -21,6 +21,7 @@ import '../features/reviews/models/review_model.dart';
 import '../features/notifications/models/notification_model.dart';
 import '../features/admin/models/admin_stats_model.dart';
 import '../features/admin/models/category_suggestion_model.dart';
+import '../features/payment/models/payment_model.dart';
 import '../services/fcm_v1_service.dart';
 
 const Map<String, Map<String, String>> _localizedNotificationStrings = {
@@ -1124,6 +1125,30 @@ class FirebaseService {
       });
     } catch (e) {
       throw Exception('Failed to update product availability: $e');
+    }
+  }
+
+  // ─── Payments ────────────────────────────────────────────────────────────
+
+  static Future<void> savePayment(PaymentModel payment) async {
+    try {
+      final ref = FirebaseFirestore.instance.collection('Payments').doc();
+      final withId = PaymentModel(
+        id: ref.id,
+        buyerId: payment.buyerId,
+        buyerName: payment.buyerName,
+        sellerId: payment.sellerId,
+        productId: payment.productId,
+        productTitle: payment.productTitle,
+        amount: payment.amount,
+        currency: payment.currency,
+        stripePaymentIntentId: payment.stripePaymentIntentId,
+        status: payment.status,
+        createdAt: payment.createdAt,
+      );
+      await ref.set(withId.toJson());
+    } catch (e) {
+      throw Exception('Failed to save payment: $e');
     }
   }
 

@@ -15,6 +15,7 @@ import '../authentication/widgets/auth_button.dart';
 import '../chat/chat_screen.dart';
 import '../trade/trade_initiation_screen.dart';
 import '../create_product/create_product.dart';
+import '../payment/checkout_screen.dart';
 import '../profile/public_profile_screen.dart';
 import '../../core/routes_manager/routes_manager.dart';
 
@@ -886,25 +887,53 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   Widget _buildVisitorActions() {
     final product = _product!;
     final isAvailable = product.status == ProductStatus.available;
+    final isSellItem = product.transactionType == TransactionType.sell;
+
+    void handleBuyNow() {
+      if (UserModel.isGuest) {
+        _showGuestLoginPrompt();
+        return;
+      }
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => CheckoutScreen(product: product),
+        ),
+      );
+    }
 
     return Column(
       children: [
-        // Primary action - Initiate Trade
+        // Primary action — Buy Now (sell) or Initiate Trade (barter)
         SizedBox(
           width: double.infinity,
-          child: AuthButton(
-            text: isAvailable ? 'Initiate Trade' : 'Not Available for Trade',
-            onPressed: isAvailable ? _initiateTrade : null,
-            icon: Icon(
-              isAvailable ? Icons.swap_horiz : Icons.block,
-              size: 20.w,
-            ),
-          ),
+          child: isSellItem
+              ? AuthButton(
+                  text: isAvailable
+                      ? 'Buy Now — \$${product.price?.toStringAsFixed(2) ?? '0.00'}'
+                      : 'Item Sold',
+                  onPressed: isAvailable ? handleBuyNow : null,
+                  icon: Icon(
+                    isAvailable ? Icons.shopping_bag_outlined : Icons.block,
+                    size: 20.w,
+                  ),
+                )
+              : AuthButton(
+                  text: isAvailable
+                      ? 'Initiate Trade'
+                      : 'Not Available for Trade',
+                  onPressed: isAvailable ? _initiateTrade : null,
+                  icon: Icon(
+                    isAvailable ? Icons.swap_horiz : Icons.block,
+                    size: 20.w,
+                  ),
+                ),
         ),
         if (!isAvailable) ...[
           SizedBox(height: 8.h),
           Text(
-            'This product is ${product.status.displayName.toLowerCase()}',
+            isSellItem
+                ? 'This item has already been sold'
+                : 'This product is ${product.status.displayName.toLowerCase()}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(
                     context,
