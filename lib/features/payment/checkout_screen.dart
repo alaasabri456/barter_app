@@ -1,7 +1,6 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 
 import '../../features/authentication/models/user_model.dart';
 import '../../features/payment/models/payment_model.dart';
@@ -34,15 +33,42 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final user = UserModel.currentUser;
       if (user == null) throw Exception('Please log in to continue.');
 
-      // Present Stripe Payment Sheet
-      final paymentIntentId = await PaymentService.presentPaymentSheet(
+      // Launch Paymob WebView checkout
+      final response = await PaymentService.pay(
         amount: _total,
-        currency: 'usd',
-        productTitle: widget.product.title,
         context: context,
       );
 
+      // User dismissed the WebView without completing payment
+      if (response == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Payment was cancelled.'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Payment was declined or failed
+      if (!response.success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Payment was declined. Please try again.'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
       // Save payment record to Firestore
+      final transactionId = response.transactionID?.toString() ?? '';
       final payment = PaymentModel(
         id: '',
         buyerId: user.id,
@@ -51,8 +77,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         productId: widget.product.id,
         productTitle: widget.product.title,
         amount: _total,
-        currency: 'usd',
-        stripePaymentIntentId: paymentIntentId,
+        currency: 'EGP',
+        transactionId: transactionId,
         status: PaymentStatus.completed,
         createdAt: DateTime.now(),
       );
@@ -72,19 +98,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             builder: (context) => PaymentSuccessScreen(
               product: widget.product,
               totalPaid: _total,
-              paymentIntentId: paymentIntentId,
+              transactionId: transactionId,
             ),
-          ),
-        );
-      }
-    } on StripeException catch (e) {
-      if (mounted) {
-        final msg = e.error.localizedMessage ?? 'Payment was cancelled.';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -261,7 +276,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                         SizedBox(width: 6.w),
                         Text(
-                          'Secured by Stripe · Your card is not stored',
+                          'Secured by Paymob · Your card is not stored',
                           style: TextStyle(
                             fontSize: 11.sp,
                             color: theme.textTheme.bodySmall?.color
@@ -290,7 +305,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: AuthButton(
-                      text: 'Pay \$${_total.toStringAsFixed(2)}',
+                      text: 'Pay ${_total.toStringAsFixed(2)} EGP',
                       onPressed: _isProcessing ? null : _handlePayment,
                       isLoading: _isProcessing,
                       icon: Icon(Icons.payment_rounded, size: 20.w),
@@ -298,7 +313,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                   SizedBox(height: 8.h),
                   Text(
-                    'You will be charged \$${_total.toStringAsFixed(2)} USD',
+                    'You will be charged ${_total.toStringAsFixed(2)} EGP',
                     style: TextStyle(
                       fontSize: 11.sp,
                       color: theme.textTheme.bodySmall?.color?.withOpacity(0.5),
@@ -335,7 +350,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         ),
         Text(
-          '\$${value.toStringAsFixed(2)}',
+          '${value.toStringAsFixed(2)} EGP',
           style: TextStyle(
             fontSize: isSmall ? 13.sp : 15.sp,
             fontWeight: isBold ? FontWeight.bold : FontWeight.w500,

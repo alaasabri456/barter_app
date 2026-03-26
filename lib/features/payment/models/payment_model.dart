@@ -11,7 +11,7 @@ class PaymentModel {
   final String productTitle;
   final double amount;
   final String currency;
-  final String stripePaymentIntentId;
+  final String transactionId;
   final PaymentStatus status;
   final DateTime createdAt;
 
@@ -24,7 +24,7 @@ class PaymentModel {
     required this.productTitle,
     required this.amount,
     required this.currency,
-    required this.stripePaymentIntentId,
+    required this.transactionId,
     required this.status,
     required this.createdAt,
   });
@@ -38,8 +38,8 @@ class PaymentModel {
       productId: json['productId'] ?? '',
       productTitle: json['productTitle'] ?? '',
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
-      currency: json['currency'] ?? 'usd',
-      stripePaymentIntentId: json['stripePaymentIntentId'] ?? '',
+      currency: json['currency'] ?? 'EGP',
+      transactionId: json['transactionId'] ?? '',
       status: PaymentStatus.values.firstWhere(
         (e) => e.name == json['status'],
         orElse: () => PaymentStatus.pending,
@@ -60,7 +60,7 @@ class PaymentModel {
       'productTitle': productTitle,
       'amount': amount,
       'currency': currency,
-      'stripePaymentIntentId': stripePaymentIntentId,
+      'transactionId': transactionId,
       'status': status.name,
       'createdAt': Timestamp.fromDate(createdAt),
     };

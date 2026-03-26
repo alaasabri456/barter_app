@@ -1142,7 +1142,7 @@ class FirebaseService {
         productTitle: payment.productTitle,
         amount: payment.amount,
         currency: payment.currency,
-        stripePaymentIntentId: payment.stripePaymentIntentId,
+        transactionId: payment.transactionId,
         status: payment.status,
         createdAt: payment.createdAt,
       );

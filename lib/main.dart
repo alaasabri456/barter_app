@@ -21,7 +21,7 @@ void main() async {
   );
   await PrefsManager.init();
 
-  // Initialize Stripe
+  // Initialize Paymob
   PaymentService.initialize();
 
   // Initialize push notifications

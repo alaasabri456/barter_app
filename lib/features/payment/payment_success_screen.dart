@@ -9,13 +9,13 @@ import '../authentication/widgets/auth_button.dart';
 class PaymentSuccessScreen extends StatefulWidget {
   final ProductModel product;
   final double totalPaid;
-  final String paymentIntentId;
+  final String transactionId;
 
   const PaymentSuccessScreen({
     super.key,
     required this.product,
     required this.totalPaid,
-    required this.paymentIntentId,
+    required this.transactionId,
   });
 
   @override
@@ -144,14 +144,14 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen>
                       SizedBox(height: 12.h),
                       _buildDetailRow(
                         'Amount Paid',
-                        '\$${widget.totalPaid.toStringAsFixed(2)} USD',
+                        '${widget.totalPaid.toStringAsFixed(2)} EGP',
                         theme,
                         valueColor: Colors.green,
                       ),
                       SizedBox(height: 12.h),
                       _buildDetailRow(
                         'Reference',
-                        widget.paymentIntentId,
+                        widget.transactionId,
                         theme,
                         isSmall: true,
                       ),

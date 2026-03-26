@@ -1,10 +1,13 @@
-// ⚠️ This file is gitignored — NEVER commit real keys.
-// Copy this file to payment_config.dart and fill in your keys.
-//
-// For production: move _secretKey to a backend endpoint and
-// only keep the publishable key here.
+// ⚠️ This file is committed as a template — NEVER commit real keys.
+// Copy this file to payment_config.dart and fill in your credentials.
 
 class PaymentConfig {
-  static const String publishableKey = 'pk_test_YOUR_PUBLISHABLE_KEY_HERE';
-  static const String secretKey = 'sk_test_YOUR_SECRET_KEY_HERE'; // TEST ONLY
+  // From Dashboard → Settings → Account Info → API Key
+  static const String apiKey = 'YOUR_PAYMOB_API_KEY_HERE';
+
+  // From Dashboard → Developers → Payment Integrations → Online Card
+  static const int integrationId = 0; // YOUR_INTEGRATION_ID
+
+  // From Dashboard → Developers → iFrames
+  static const int iFrameId = 0; // YOUR_IFRAME_ID
 }
