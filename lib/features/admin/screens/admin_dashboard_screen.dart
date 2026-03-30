@@ -2,6 +2,7 @@ import 'package:barter/features/admin/models/admin_stats_model.dart';
 import 'package:barter/features/admin/screens/product_moderation_screen.dart';
 import 'package:barter/features/admin/screens/user_management_screen.dart';
 import 'package:barter/features/admin/screens/category_management_screen.dart';
+import 'package:barter/features/admin/screens/reports_management_screen.dart';
 import 'package:barter/firebase/firebase_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -119,12 +120,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildStatsGrid() {
     return GridView.count(
-      crossAxisCount: 2,
+      crossAxisCount: 3,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 16.h,
-      crossAxisSpacing: 16.w,
-      childAspectRatio: 1.3,
+      mainAxisSpacing: 12.h,
+      crossAxisSpacing: 12.w,
+      childAspectRatio: 0.9,
       children: [
         _buildStatCard(
           'Total Users',
@@ -149,6 +150,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _stats!.pendingTrades.toString(),
           Icons.pending,
           Colors.purple,
+        ),
+        _buildStatCard(
+          'Total Reports',
+          _stats!.totalReports.toString(),
+          Icons.flag,
+          Colors.red,
+        ),
+        _buildStatCard(
+          'Pending Reports',
+          _stats!.pendingReports.toString(),
+          Icons.report_problem,
+          Colors.deepOrange,
         ),
       ],
     );
@@ -242,6 +255,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               context,
               MaterialPageRoute(
                 builder: (context) => const CategoryManagementScreen(),
+              ),
+            );
+          },
+        ),
+        SizedBox(height: 12.h),
+        _buildActionButton(
+          'Manage Reports',
+          Icons.flag_outlined,
+          Colors.red,
+          () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ReportsManagementScreen(),
               ),
             );
           },

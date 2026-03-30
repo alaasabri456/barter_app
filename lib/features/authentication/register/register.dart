@@ -134,12 +134,17 @@ class _RegisterState extends State<Register> {
       );
 
       if (userCredential.user != null) {
+        // Check if user is whitelisted as admin
+        final isWhitelisted = await FirebaseService.isEmailWhitelistedAsAdmin(email);
+        final role = isWhitelisted ? UserRole.admin : UserRole.user;
+
         // Create user document in Firestore
         final newUser = UserModel(
           id: userCredential.user!.uid,
           name: _nameController.text.trim(),
           email: _emailController.text.trim(),
           favouriteProductIds: [],
+          role: role,
         );
 
         await FirebaseService.addUserToFireStore(newUser);

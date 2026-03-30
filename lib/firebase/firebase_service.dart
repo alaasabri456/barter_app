@@ -21,6 +21,7 @@ import '../features/reviews/models/review_model.dart';
 import '../features/notifications/models/notification_model.dart';
 import '../features/admin/models/admin_stats_model.dart';
 import '../features/admin/models/category_suggestion_model.dart';
+import '../features/admin/models/report_model.dart';
 import '../features/payment/models/payment_model.dart';
 import '../services/fcm_v1_service.dart';
 
@@ -42,6 +43,8 @@ const Map<String, Map<String, String>> _localizedNotificationStrings = {
     'newMessageBody': '{sender}: {message}',
     'newReviewTitle': 'New Review received',
     'newReviewBody': '{sender} left you a review: {rating}⭐',
+    'newReportTitle': 'New Report Submitted',
+    'newReportBody': 'A new report was submitted for "{product}" by {reporter}.',
   },
   'ar': {
     'newOfferTitle': 'عرض مبادلة جديد',
@@ -58,7 +61,9 @@ const Map<String, Map<String, String>> _localizedNotificationStrings = {
     'newMessageTitle': 'رسالة جديدة',
     'newMessageBody': '{sender}: {message}',
     'newReviewTitle': 'تم استلام تقييم جديد',
-    'newReviewBody': 'ترك لك {sender} تقييماً: {rating}⭐',
+    'newReviewBody': 'ترك لك {sender} تقييمًا: {rating}⭐',
+    'newReportTitle': 'تم تقديم بلاغ جديد',
+    'newReportBody': 'تم تقديم بلاغ جديد عن "{product}" بواسطة {reporter}.',
   },
 };
 
@@ -2137,6 +2142,14 @@ class FirebaseService {
       final pendingTrades =
           trades.where((t) => t.status == TradeStatus.pending).length;
 
+      // Get report counts
+      final reportsSnapshot = await FirebaseFirestore.instance.collection('Reports').get();
+      final totalReports = reportsSnapshot.docs.length;
+      final pendingReports = reportsSnapshot.docs.where((doc) {
+        final data = doc.data();
+        return (data['status'] ?? 'pending') == 'pending';
+      }).length;
+
       return AdminStats(
         totalUsers: users.length,
         totalProducts: productsSnapshot.docs.length,
@@ -2145,6 +2158,8 @@ class FirebaseService {
         completedTrades: completedTrades,
         pendingTrades: pendingTrades,
         usersByRole: usersByRole,
+        totalReports: totalReports,
+        pendingReports: pendingReports,
         lastUpdated: DateTime.now(),
       );
     } catch (e) {
@@ -2363,6 +2378,147 @@ class FirebaseService {
       await _getCategorySuggestionsCollection().doc(suggestionId).delete();
     } catch (e) {
       throw Exception('Failed to delete category suggestion: $e');
+    }
+  }
+
+  // ==================== Reports Management ====================
+
+  /// Submit a new report
+  static Future<void> submitReport(ReportModel report) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('Reports')
+          .doc(report.id)
+          .set(report.toJson());
+    } catch (e) {
+      throw Exception('Failed to submit report: $e');
+    }
+  }
+
+  /// Get all reports (admin)
+  static Future<List<ReportModel>> getAllReports() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('Reports')
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => ReportModel.fromJson(doc.data()))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get reports: $e');
+    }
+  }
+
+  /// Update report status (admin)
+  static Future<void> updateReportStatus({
+    required String reportId,
+    required ReportStatus newStatus,
+    String? adminNote,
+  }) async {
+    try {
+      final updates = <String, dynamic>{
+        'status': newStatus.name,
+        'reviewedAt': Timestamp.now(),
+      };
+      if (adminNote != null) {
+        updates['adminNote'] = adminNote;
+      }
+      await FirebaseFirestore.instance
+          .collection('Reports')
+          .doc(reportId)
+          .update(updates);
+    } catch (e) {
+      throw Exception('Failed to update report status: $e');
+    }
+  }
+
+  /// Get emails of all admin users (for notifications)
+  static Future<List<String>> getAdminEmails() async {
+    try {
+      final usersCollection = _getUsersCollection();
+      final snapshot = await usersCollection.get();
+      final admins = snapshot.docs
+          .map((doc) => doc.data())
+          .where((user) => user.role == UserRole.admin)
+          .toList();
+      return admins.map((u) => u.email).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Get all admin users (for notifications)
+  static Future<List<UserModel>> getAdminUsers() async {
+    try {
+      final usersCollection = _getUsersCollection();
+      final snapshot = await usersCollection.get();
+      return snapshot.docs
+          .map((doc) => doc.data())
+          .where((user) => user.role == UserRole.admin)
+          .toList();
+    } catch (e) {
+      print('Error getting admin users: $e');
+      return [];
+    }
+  }
+
+  /// Notify all admins about a new report via system notifications
+  static Future<void> notifyAdminsOfReport(ReportModel report) async {
+    try {
+      final admins = await getAdminUsers();
+      final reporterName = UserModel.currentUser?.name ?? 'Someone';
+
+      for (final admin in admins) {
+        await _sendLocalizedNotification(
+          recipientId: admin.id,
+          titleKey: 'newReportTitle',
+          bodyKey: 'newReportBody',
+          type: NotificationType.system,
+          bodyArgs: {
+            'reporter': reporterName,
+            'product': report.reportedProductTitle,
+            'reason': report.reason.name,
+          },
+          data: {
+            'type': 'report',
+            'reportId': report.id,
+            'productId': report.reportedProductId,
+          },
+        );
+      }
+    } catch (e) {
+      print('Failed to notify admins of report: $e');
+    }
+  }
+
+  /// Whitelist an email to be automatically granted Admin role upon registration
+  static Future<void> addToAdminWhitelist(String email) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('AdminWhitelist')
+          .doc(email.toLowerCase())
+          .set({
+        'email': email.toLowerCase(),
+        'addedAt': Timestamp.now(),
+        'addedBy': UserModel.currentUser?.id,
+      });
+    } catch (e) {
+      throw Exception('Failed to whitelist admin: $e');
+    }
+  }
+
+  /// Check if an email is whitelisted for Admin role
+  static Future<bool> isEmailWhitelistedAsAdmin(String email) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('AdminWhitelist')
+          .doc(email.toLowerCase())
+          .get();
+      return doc.exists;
+    } catch (e) {
+      return false;
     }
   }
 }

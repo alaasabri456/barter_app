@@ -186,6 +186,84 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
   }
 
+  Future<void> _addAdminToWhitelist() async {
+    final emailController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add New Admin'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Enter the email of the user you want to authorize as an Admin. When they register, they will be given Admin privileges automatically.',
+              ),
+              SizedBox(height: 16.h),
+              TextFormField(
+                controller: emailController,
+                decoration: InputDecoration(
+                  labelText: 'Email Address',
+                  hintText: 'admin@example.com',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter an email';
+                  }
+                  if (!value.contains('@')) {
+                    return 'Please enter a valid email';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(context, true);
+              }
+            },
+            child: const Text('Authorize'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await FirebaseService.addToAdminWhitelist(emailController.text.trim());
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Email whitelisted! This user will be an Admin upon registration.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -259,6 +337,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _addAdminToWhitelist,
+        icon: const Icon(Icons.add_moderator),
+        label: const Text('Add Admin'),
+        backgroundColor: Colors.red,
       ),
     );
   }

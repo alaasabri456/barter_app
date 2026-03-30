@@ -6,6 +6,8 @@ class AdminStats {
   final int completedTrades;
   final int pendingTrades;
   final Map<String, int> usersByRole;
+  final int totalReports;
+  final int pendingReports;
   final DateTime lastUpdated;
 
   AdminStats({
@@ -16,6 +18,8 @@ class AdminStats {
     required this.completedTrades,
     required this.pendingTrades,
     required this.usersByRole,
+    this.totalReports = 0,
+    this.pendingReports = 0,
     required this.lastUpdated,
   });
 
@@ -28,6 +32,8 @@ class AdminStats {
       completedTrades: json['completedTrades'] ?? 0,
       pendingTrades: json['pendingTrades'] ?? 0,
       usersByRole: Map<String, int>.from(json['usersByRole'] ?? {}),
+      totalReports: json['totalReports'] ?? 0,
+      pendingReports: json['pendingReports'] ?? 0,
       lastUpdated: DateTime.parse(json['lastUpdated']),
     );
   }
@@ -40,6 +46,8 @@ class AdminStats {
     'completedTrades': completedTrades,
     'pendingTrades': pendingTrades,
     'usersByRole': usersByRole,
+    'totalReports': totalReports,
+    'pendingReports': pendingReports,
     'lastUpdated': lastUpdated.toIso8601String(),
   };
 }

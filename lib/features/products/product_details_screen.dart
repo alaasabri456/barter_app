@@ -18,6 +18,7 @@ import '../create_product/create_product.dart';
 import '../payment/checkout_screen.dart';
 import '../profile/public_profile_screen.dart';
 import '../../core/routes_manager/routes_manager.dart';
+import '../admin/models/report_model.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final String productId;
@@ -313,46 +314,129 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   void _reportProduct() {
-    showConfirmationDialog(
+    if (UserModel.isGuest || UserModel.currentUser == null) {
+      _showGuestLoginPrompt();
+      return;
+    }
+    if (_product == null) return;
+
+    ReportReason? selectedReason;
+    final descriptionController = TextEditingController();
+
+    showDialog(
       context: context,
-      title: 'Report Item',
-      message: 'Are you sure you want to report this item?',
-      confirmText: 'Report',
-      cancelText: 'Cancel',
-      icon: Icons.flag_outlined,
-    ).then((confirmed) async {
-      if (confirmed == true && _product != null) {
-        final userId = UserModel.currentUser?.id;
-        if (userId == null || UserModel.isGuest) {
-          _showGuestLoginPrompt();
-          return;
-        }
-
-        try {
-          await FirebaseService.reportProduct(
-            productId: _product!.id,
-            userId: userId,
-          );
-
-          if (mounted) {
-            showInfoDialog(
-              context: context,
-              title: 'Report Submitted',
-              message:
-                  'Thank you for reporting. We will review this item shortly.',
-              icon: Icons.check_circle,
-              iconColor: Colors.green,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Report Item'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Why are you reporting this item?',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.sp),
+                    ),
+                    SizedBox(height: 12.h),
+                    ...ReportReason.values.map((reason) {
+                      return RadioListTile<ReportReason>(
+                        title: Text(reason.displayName, style: TextStyle(fontSize: 14.sp)),
+                        value: reason,
+                        groupValue: selectedReason,
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (val) {
+                          setDialogState(() {
+                            selectedReason = val;
+                          });
+                        },
+                      );
+                    }),
+                    SizedBox(height: 12.h),
+                    TextField(
+                      controller: descriptionController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: 'Additional details (optional)',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.r),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: selectedReason == null
+                      ? null
+                      : () => Navigator.pop(context, {
+                            'reason': selectedReason,
+                            'description': descriptionController.text.trim(),
+                          }),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Submit Report'),
+                ),
+              ],
             );
+          },
+        );
+      },
+    ).then((result) async {
+      if (result == null) return;
 
-            // Refresh product to show updated report count
-            _loadProductDetails();
-          }
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('Failed to report: $e')));
-          }
+      final reason = result['reason'] as ReportReason;
+      final description = result['description'] as String;
+      final userId = UserModel.currentUser!.id;
+
+      try {
+        // 1. Update reportedByUserIds on the product (existing behavior)
+        await FirebaseService.reportProduct(
+          productId: _product!.id,
+          userId: userId,
+        );
+
+        // 2. Create a detailed report document
+        final report = ReportModel(
+          id: '${_product!.id}_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+          reporterId: userId,
+          reporterName: UserModel.currentUser!.name,
+          reportedProductId: _product!.id,
+          reportedProductTitle: _product!.title,
+          reportedProductOwnerId: _product!.ownerId,
+          reason: reason,
+          description: description,
+          createdAt: DateTime.now(),
+        );
+        await FirebaseService.submitReport(report);
+
+        // 3. Notify admin(s) via system notification
+        await FirebaseService.notifyAdminsOfReport(report);
+
+        if (mounted) {
+          showInfoDialog(
+            context: context,
+            title: 'Report Submitted',
+            message: 'Thank you for reporting. Our admin team has been notified and will review this item shortly.',
+            icon: Icons.check_circle,
+            iconColor: Colors.green,
+          );
+          _loadProductDetails();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to report: $e')),
+          );
         }
       }
     });
