@@ -10,6 +10,8 @@ import '../models/user_model.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
 import '../../../services/push_notification_service.dart';
+import 'dart:math';
+import '../../../services/email_service.dart';
 
 class Register extends StatefulWidget {
   const Register({super.key});
@@ -57,6 +59,70 @@ class _RegisterState extends State<Register> {
     });
 
     try {
+      // ── Step 1: Check if email is already registered ──
+      final email = _emailController.text.trim();
+      bool emailAlreadyExists = false;
+      try {
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: email,
+          password: '##DUMMY_CHECK##',
+        );
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'wrong-password' ||
+            e.code == 'invalid-credential' ||
+            e.code == 'user-disabled') {
+          emailAlreadyExists = true;
+        }
+        // 'user-not-found' or 'invalid-email' means the email is not registered
+      }
+
+      if (emailAlreadyExists) {
+        if (mounted) {
+          await showInfoDialog(
+            context: context,
+            title: 'Account Already Exists',
+            message: 'An account with this email address already exists. Please sign in instead.',
+            icon: Icons.person_off_outlined,
+            iconColor: Theme.of(context).colorScheme.error,
+          );
+          setState(() { _isLoading = false; });
+        }
+        return;
+      }
+
+      // ── Step 2: Send OTP for email verification ──
+      final newOtp = (100000 + Random().nextInt(900000)).toString();
+      final errorMsg = await EmailService.sendOtpEmail(
+        userEmail: email,
+        otpCode: newOtp,
+      );
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (errorMsg != null) {
+        if (mounted) {
+          await showInfoDialog(
+            context: context,
+            title: 'Email Delivery Error',
+            message: 'Failed to send verification email. Details: $errorMsg',
+            icon: Icons.error_outline,
+            iconColor: Theme.of(context).colorScheme.error,
+          );
+        }
+        return;
+      }
+
+      if (mounted) {
+        final verified = await _showOtpDialog(newOtp);
+        if (verified != true) return;
+      }
+
+      setState(() {
+        _isLoading = true;
+      });
+
       final registerRequest = RegisterRequest(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -145,6 +211,62 @@ class _RegisterState extends State<Register> {
       default:
         return 'Registration failed. Please try again.';
     }
+  }
+
+  Future<bool?> _showOtpDialog(String expectedOtp) async {
+    final otpController = TextEditingController();
+    final localFormKey = GlobalKey<FormState>();
+
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Verify Email'),
+          content: Form(
+            key: localFormKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('We sent a 6-digit code to ${_emailController.text.trim()}.\nPlease enter it below to verify your email.'),
+                SizedBox(height: 16.h),
+                AuthTextFieldWithIcon(
+                  label: 'Verification Code',
+                  hint: 'Enter 6-digit code',
+                  controller: otpController,
+                  icon: Icons.lock_outline,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter the code';
+                    }
+                    if (value.trim() != expectedOtp) {
+                      return 'Incorrect code';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (localFormKey.currentState!.validate()) {
+                  Navigator.of(context).pop(true);
+                }
+              },
+              child: Text('Verify'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _navigateToLogin() {

@@ -27,11 +27,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   XFile? _imageFile;
   bool _isLoading = false;
   final ImagePicker _picker = ImagePicker();
+  bool _is2faEnabled = false;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: UserModel.currentUser?.name);
+    _is2faEnabled = UserModel.currentUser?.is2faEnabled ?? false;
   }
 
   @override
@@ -133,6 +135,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         userId: user.id,
         name: _nameController.text.trim(),
         profileImageUrl: profileImageUrl,
+        is2faEnabled: _is2faEnabled,
       );
 
       if (mounted) {
@@ -266,6 +269,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   }
                   return null;
                 },
+              ),
+
+              SizedBox(height: 24.h),
+
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  'Two-Factor Authentication',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                subtitle: Text('Require an email code to log in.'),
+                value: _is2faEnabled,
+                onChanged: (val) {
+                  setState(() {
+                    _is2faEnabled = val;
+                  });
+                },
+                activeColor: Theme.of(context).primaryColor,
               ),
 
               SizedBox(height: 48.h),

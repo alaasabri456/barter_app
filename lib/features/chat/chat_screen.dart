@@ -34,6 +34,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isSending = false;
   late String _conversationId;
+  bool _isBlockedByMe = false;
+  bool _amIBlockedByOther = false;
 
   @override
   void initState() {
@@ -50,6 +52,12 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _initializeChat() async {
     final currentUserId = UserModel.currentUser?.id;
     if (currentUserId != null) {
+      if (mounted) {
+        setState(() {
+          _isBlockedByMe = UserModel.currentUser?.blockedUserIds.contains(widget.otherUserId) ?? false;
+        });
+      }
+
       // Create conversation if it doesn't exist
       await FirebaseService.getOrCreateConversation(
         currentUserId,
@@ -57,6 +65,72 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       // Mark messages as read
       _markAsRead();
+
+      try {
+        final otherUser = await FirebaseService.getUserFromFireStore(widget.otherUserId);
+        if (otherUser != null && mounted) {
+          setState(() {
+            _amIBlockedByOther = otherUser.blockedUserIds.contains(currentUserId);
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+  }
+
+  Future<void> _toggleBlock() async {
+    final currentUser = UserModel.currentUser;
+    if (currentUser == null) return;
+
+    try {
+      if (_isBlockedByMe) {
+        await FirebaseService.unblockUser(currentUser.id, widget.otherUserId);
+        if (mounted) {
+          setState(() {
+            _isBlockedByMe = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User unblocked')),
+          );
+        }
+      } else {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Block User'),
+            content: const Text('Are you sure you want to block this user? You will not be able to send or receive messages from them.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Block', style: TextStyle(color: Colors.red)),
+              ),
+            ],
+          ),
+        );
+
+        if (confirm != true) return;
+
+        await FirebaseService.blockUser(currentUser.id, widget.otherUserId);
+        if (mounted) {
+          setState(() {
+            _isBlockedByMe = true;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User blocked')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update block status: $e')),
+        );
+      }
     }
   }
 
@@ -225,6 +299,26 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
         elevation: 0,
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'block_unblock') {
+                _toggleBlock();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'block_unblock',
+                child: Text(
+                  _isBlockedByMe ? 'Unblock User' : 'Block User',
+                  style: TextStyle(
+                    color: _isBlockedByMe ? Colors.green : Colors.red,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -289,7 +383,12 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          _buildInputArea(),
+          if (_isBlockedByMe)
+            _buildBlockedByMeArea()
+          else if (_amIBlockedByOther)
+            _buildBlockedByOtherArea()
+          else
+            _buildInputArea(),
         ],
       ),
     );
@@ -481,6 +580,62 @@ class _ChatScreenState extends State<ChatScreen> {
     final hour = date.hour.toString().padLeft(2, '0');
     final minute = date.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
+  }
+
+  Widget _buildBlockedByMeArea() {
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Column(
+          children: [
+            Text(
+              'You have blocked this user.',
+              style: TextStyle(color: Colors.grey, fontSize: 14.sp),
+            ),
+            SizedBox(height: 8.h),
+            TextButton(
+              onPressed: _toggleBlock,
+              child: const Text('Unblock to send messages'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBlockedByOtherArea() {
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 8.h),
+          child: Text(
+            'You cannot reply to this conversation.',
+            style: TextStyle(color: Colors.grey, fontSize: 14.sp),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildInputArea() {

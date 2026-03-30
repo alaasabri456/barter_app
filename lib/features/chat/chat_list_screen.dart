@@ -86,6 +86,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   }
 
                   final otherUser = userSnapshot.data!;
+                  final isBlocked = currentUser.blockedUserIds.contains(otherUser.id);
                   final lastMessage =
                       conversation['lastMessage'] ?? 'No messages yet';
                   final lastMessageTime =
@@ -144,14 +145,25 @@ class _ChatListScreenState extends State<ChatListScreen> {
                     ),
                     subtitle: Padding(
                       padding: EdgeInsets.only(top: 4.h),
-                      child: Text(
-                        lastMessage,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14.sp,
-                        ),
+                      child: Row(
+                        children: [
+                          if (isBlocked) ...[
+                            Icon(Icons.block, size: 14.sp, color: Colors.red[300]),
+                            SizedBox(width: 4.w),
+                          ],
+                          Expanded(
+                            child: Text(
+                              isBlocked ? 'Blocked User' : lastMessage,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: isBlocked ? Colors.red[300] : Colors.grey[600],
+                                fontSize: 14.sp,
+                                fontStyle: isBlocked ? FontStyle.italic : FontStyle.normal,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     onTap: () {

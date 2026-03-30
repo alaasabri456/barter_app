@@ -26,22 +26,26 @@ class UserModel {
   String name;
   String email;
   List<String> favouriteProductIds;
+  List<String> blockedUserIds;
   UserRole role;
   String? fcmToken;
   String languageCode;
   String? profileImageUrl;
   bool isAnonymous;
+  bool is2faEnabled;
 
   UserModel({
     required this.id,
     required this.email,
     required this.name,
     required this.favouriteProductIds,
+    this.blockedUserIds = const [],
     this.role = UserRole.user,
     this.fcmToken,
     this.languageCode = 'en',
     this.profileImageUrl,
     this.isAnonymous = false,
+    this.is2faEnabled = false,
   });
 
   factory UserModel.guest(String uid) {
@@ -50,8 +54,10 @@ class UserModel {
       email: 'guest@barter.app',
       name: 'Guest User',
       favouriteProductIds: [],
+      blockedUserIds: [],
       languageCode: 'en',
       isAnonymous: true,
+      is2faEnabled: false,
     );
   }
 
@@ -64,11 +70,16 @@ class UserModel {
                   ?.map((obj) => obj.toString())
                   .toList() ??
               [],
+          blockedUserIds: (json["blockedUserIds"] as List<dynamic>?)
+                  ?.map((obj) => obj.toString())
+                  .toList() ??
+              [],
           role: _parseRole(json["role"]),
           fcmToken: json["fcmToken"],
           languageCode: json["languageCode"] ?? 'en',
           profileImageUrl: json["profileImageUrl"],
           isAnonymous: json["isAnonymous"] ?? false,
+          is2faEnabled: json["is2faEnabled"] ?? false,
         );
 
   static UserRole _parseRole(dynamic roleValue) {
@@ -91,11 +102,13 @@ class UserModel {
         "name": name,
         "email": email,
         "favouriteProductIds": favouriteProductIds,
+        "blockedUserIds": blockedUserIds,
         "role": role.name,
         "fcmToken": fcmToken,
         "languageCode": languageCode,
         "profileImageUrl": profileImageUrl,
         "isAnonymous": isAnonymous,
+        "is2faEnabled": is2faEnabled,
       };
 
   UserModel copyWith({
@@ -103,22 +116,26 @@ class UserModel {
     String? name,
     String? email,
     List<String>? favouriteProductIds,
+    List<String>? blockedUserIds,
     UserRole? role,
     String? fcmToken,
     String? languageCode,
     String? profileImageUrl,
     bool? isAnonymous,
+    bool? is2faEnabled,
   }) {
     return UserModel(
       id: id ?? this.id,
       name: name ?? this.name,
       email: email ?? this.email,
       favouriteProductIds: favouriteProductIds ?? this.favouriteProductIds,
+      blockedUserIds: blockedUserIds ?? this.blockedUserIds,
       role: role ?? this.role,
       fcmToken: fcmToken ?? this.fcmToken,
       languageCode: languageCode ?? this.languageCode,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       isAnonymous: isAnonymous ?? this.isAnonymous,
+      is2faEnabled: is2faEnabled ?? this.is2faEnabled,
     );
   }
 

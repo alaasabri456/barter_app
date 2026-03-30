@@ -38,7 +38,7 @@ class ServiceCategoryDropdown extends StatelessWidget {
         SizedBox(height: 8.h),
         DropdownButtonFormField<String>(
           isExpanded: true,
-          initialValue: effectiveValue,
+          value: effectiveValue,
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint ?? 'Select service category',
@@ -104,7 +104,7 @@ class ProductCategoryDropdown extends StatelessWidget {
         SizedBox(height: 8.h),
         DropdownButtonFormField<String>(
           isExpanded: true,
-          initialValue: effectiveValue,
+          value: effectiveValue,
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint ?? 'Select category',
@@ -170,7 +170,7 @@ class ProductConditionDropdown extends StatelessWidget {
         SizedBox(height: 8.h),
         DropdownButtonFormField<String>(
           isExpanded: true,
-          initialValue: effectiveValue,
+          value: effectiveValue,
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint ?? 'Select condition',
@@ -236,7 +236,7 @@ class ProductStatusDropdown extends StatelessWidget {
         SizedBox(height: 8.h),
         DropdownButtonFormField<String>(
           isExpanded: true,
-          initialValue: effectiveValue,
+          value: effectiveValue,
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint ?? 'Select status',
@@ -302,7 +302,7 @@ class ProductAvailabilityDropdown extends StatelessWidget {
         ),
         SizedBox(height: 8.h),
         DropdownButtonFormField<String>(
-          initialValue: effectiveValue,
+          value: effectiveValue,
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint ?? 'Select availability',

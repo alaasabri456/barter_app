@@ -185,11 +185,13 @@ class FirebaseService {
     required String userId,
     String? name,
     String? profileImageUrl,
+    bool? is2faEnabled,
   }) async {
     try {
       final updates = <String, dynamic>{};
       if (name != null) updates['name'] = name;
       if (profileImageUrl != null) updates['profileImageUrl'] = profileImageUrl;
+      if (is2faEnabled != null) updates['is2faEnabled'] = is2faEnabled;
 
       if (updates.isEmpty) return;
 
@@ -201,9 +203,46 @@ class FirebaseService {
         if (profileImageUrl != null) {
           UserModel.currentUser!.profileImageUrl = profileImageUrl;
         }
+        if (is2faEnabled != null) {
+          UserModel.currentUser!.is2faEnabled = is2faEnabled;
+        }
       }
     } catch (e) {
       throw Exception('Failed to update profile: $e');
+    }
+  }
+
+  static Future<void> blockUser(String userId, String blockedUserId) async {
+    try {
+      final usersCollection = _getUsersCollection();
+      await usersCollection.doc(userId).update({
+        'blockedUserIds': FieldValue.arrayUnion([blockedUserId])
+      });
+
+      if (UserModel.currentUser?.id == userId) {
+        if (!UserModel.currentUser!.blockedUserIds.contains(blockedUserId)) {
+          UserModel.currentUser!.blockedUserIds.add(blockedUserId);
+        }
+      }
+    } catch (e) {
+      print('Failed to block user: $e');
+      throw Exception('Failed to block user: $e');
+    }
+  }
+
+  static Future<void> unblockUser(String userId, String unblockedUserId) async {
+    try {
+      final usersCollection = _getUsersCollection();
+      await usersCollection.doc(userId).update({
+        'blockedUserIds': FieldValue.arrayRemove([unblockedUserId])
+      });
+
+      if (UserModel.currentUser?.id == userId) {
+        UserModel.currentUser!.blockedUserIds.remove(unblockedUserId);
+      }
+    } catch (e) {
+      print('Failed to unblock user: $e');
+      throw Exception('Failed to unblock user: $e');
     }
   }
 
@@ -1583,6 +1622,25 @@ class FirebaseService {
     try {
       print('=== DEBUG: Sending message to conversation: $conversationId ===');
       final conversationsCollection = _getConversationsCollection();
+      
+      // Determine recipient ID
+      final userIds = conversationId.replaceFirst('conversation_', '').split('_');
+      final recipientId = userIds.firstWhere((id) => id != message.senderId, orElse: () => '');
+
+      // Check for blocking
+      if (recipientId.isNotEmpty) {
+        final sender = UserModel.currentUser;
+        if (sender != null && sender.blockedUserIds.contains(recipientId)) {
+          throw Exception('Cannot send message. You have blocked this user.');
+        }
+
+        final recipientSnapshot = await _getUsersCollection().doc(recipientId).get();
+        final recipient = recipientSnapshot.data();
+        if (recipient != null && recipient.blockedUserIds.contains(message.senderId)) {
+          throw Exception('Cannot send message. The recipient has blocked you.');
+        }
+      }
+
       final messagesCollection =
           conversationsCollection.doc(conversationId).collection('messages');
 
@@ -1597,11 +1655,8 @@ class FirebaseService {
       });
 
       // Send push notification to the recipient
-      final userIds =
-          conversationId.replaceFirst('conversation_', '').split('_');
-      final recipientId = userIds.firstWhere((id) => id != message.senderId);
-
-      final senderName = UserModel.currentUser?.name ?? 'Someone';
+      if (recipientId.isNotEmpty) {
+        final senderName = UserModel.currentUser?.name ?? 'Someone';
 
       await _sendLocalizedNotification(
         recipientId: recipientId,
@@ -1619,6 +1674,7 @@ class FirebaseService {
           'senderId': message.senderId,
         },
       );
+      }
 
       print('=== DEBUG: Conversation message sent successfully ===');
     } catch (e) {

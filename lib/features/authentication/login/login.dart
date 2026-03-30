@@ -11,6 +11,8 @@ import '../models/login_request.dart';
 import '../models/user_model.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
+import 'dart:math';
+import '../../../services/email_service.dart';
 import '../../../services/push_notification_service.dart';
 import 'package:barter/l10n/app_localizations.dart';
 
@@ -61,14 +63,43 @@ class _LoginState extends State<Login> {
           userCredential.user!.uid,
         );
 
-        // Update FCM token on login
-        await PushNotificationService.updateToken();
+        if (UserModel.currentUser != null && UserModel.currentUser!.is2faEnabled) {
+          final newOtp = (100000 + Random().nextInt(900000)).toString();
+          
+          final String? errorMsg = await EmailService.sendOtpEmail(
+            userEmail: UserModel.currentUser!.email,
+            otpCode: newOtp,
+          );
 
-        if (mounted) {
-          // Navigate to main layout
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil(RoutesManager.mainLayout, (route) => false);
+          if (mounted) {
+            if (errorMsg == null) {
+              Navigator.of(context).pushNamed(
+                RoutesManager.otpVerification,
+                arguments: {
+                  'email': UserModel.currentUser!.email,
+                  'generatedOtp': newOtp,
+                },
+              );
+            } else {
+              await showInfoDialog(
+                context: context,
+                title: 'Email Delivery Error',
+                message: 'Failed to send verification email. Details: $errorMsg',
+                icon: Icons.error_outline,
+                iconColor: Theme.of(context).colorScheme.error,
+              );
+            }
+          }
+        } else {
+          // Update FCM token on login
+          await PushNotificationService.updateToken();
+
+          if (mounted) {
+            // Navigate to main layout
+            Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil(RoutesManager.mainLayout, (route) => false);
+          }
         }
       }
     } on FirebaseAuthException catch (e) {
@@ -114,11 +145,41 @@ class _LoginState extends State<Login> {
         UserModel userModel =
             await FirebaseService.handleGoogleSignInUser(user);
         UserModel.currentUser = userModel;
+        
+        if (UserModel.currentUser!.is2faEnabled) {
+          final newOtp = (100000 + Random().nextInt(900000)).toString();
+          
+          final String? errorMsg = await EmailService.sendOtpEmail(
+            userEmail: UserModel.currentUser!.email,
+            otpCode: newOtp,
+          );
 
-        if (mounted) {
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil(RoutesManager.mainLayout, (route) => false);
+          if (mounted) {
+            if (errorMsg == null) {
+              Navigator.of(context).pushNamed(
+                RoutesManager.otpVerification,
+                arguments: {
+                  'email': UserModel.currentUser!.email,
+                  'generatedOtp': newOtp,
+                },
+              );
+            } else {
+              await showInfoDialog(
+                context: context,
+                title: 'Email Delivery Error',
+                message: 'Failed to send verification email. Details: $errorMsg',
+                icon: Icons.error_outline,
+                iconColor: Theme.of(context).colorScheme.error,
+              );
+            }
+          }
+        } else {
+          await PushNotificationService.updateToken();
+          if (mounted) {
+            Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil(RoutesManager.mainLayout, (route) => false);
+          }
         }
       }
     } catch (e) {

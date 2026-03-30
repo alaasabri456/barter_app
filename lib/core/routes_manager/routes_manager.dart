@@ -5,6 +5,7 @@ import 'package:barter/features/products/models/product_model.dart';
 import 'package:flutter/material.dart';
 
 import '../../features/authentication/login/login.dart';
+import '../../features/authentication/login/otp_screen.dart';
 import '../../features/authentication/register/register.dart';
 import '../../features/create_product/create_product.dart';
 import '../../features/main_layout/main_layout.dart';
@@ -26,6 +27,7 @@ import '../../features/payment/checkout_screen.dart';
 class RoutesManager {
   static const String register = "/register";
   static const String login = "/login";
+  static const String otpVerification = "/otpVerification";
   static const String mainLayout = "/mainLayout";
   static const String createProduct = "/createProduct";
   static const String productDetails = "/productDetails";
@@ -55,6 +57,16 @@ class RoutesManager {
       case login:
         {
           return MaterialPageRoute(builder: (context) => Login());
+        }
+      case otpVerification:
+        {
+          final args = setting.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (context) => OtpVerificationScreen(
+              email: args['email'],
+              generatedOtp: args['generatedOtp'],
+            ),
+          );
         }
 
       case mainLayout:
