@@ -70,7 +70,10 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: tabs[selectedIndex],
+      body: IndexedStack(
+        index: selectedIndex,
+        children: tabs,
+      ),
       bottomNavigationBar: _buildBottomAppBar(),
     );
   }

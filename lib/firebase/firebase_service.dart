@@ -450,6 +450,16 @@ class FirebaseService {
     return products;
   }
 
+  /// Real-time stream of all products, ordered by creation date (newest first).
+  static Stream<List<ProductModel>> getProductsStream() {
+    final productsCollection = _getProductsCollection(null);
+    return productsCollection
+        .orderBy("createdAt", descending: true)
+        .snapshots()
+        .map((querySnapshot) =>
+            querySnapshot.docs.map((doc) => doc.data()).toList());
+  }
+
   static Future<String> uploadProductImage(
     XFile imageFile,
     String fileName,

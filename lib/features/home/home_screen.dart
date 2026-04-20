@@ -28,10 +28,10 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _selectedCategory;
   String _selectedCondition = 'All';
   String _selectedType = 'All';
-  Future<List<ProductModel>>? _productsFuture;
-  bool _isRefreshing = false;
+  late final Stream<List<ProductModel>> _productsStream;
   List<String> _allCategories = []; // Combined default + custom categories
   double _maxDistance = 50.0; // Default 50km
+  bool _isDistanceFilterActive = false;
   Position? _currentPosition;
 
   // Track favorite states for each product
@@ -41,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _productsFuture = FirebaseService.getProductsFromFireStore(context);
+    _productsStream = FirebaseService.getProductsStream();
     _loadFavouriteStates();
     _loadCategories();
     _initLocation();
@@ -89,15 +89,14 @@ class _HomeScreenState extends State<HomeScreen> {
     if (userId == null) return;
 
     try {
-      final products = await _productsFuture;
-      if (products != null) {
-        for (var product in products) {
-          final isFav = await FirebaseService.isFavourite(userId, product.id);
-          if (mounted) {
-            setState(() {
-              _favouriteStates[product.id] = isFav;
-            });
-          }
+      // Load favourites from first snapshot
+      final products = await _productsStream.first;
+      for (var product in products) {
+        final isFav = await FirebaseService.isFavourite(userId, product.id);
+        if (mounted) {
+          setState(() {
+            _favouriteStates[product.id] = isFav;
+          });
         }
       }
     } catch (e) {
@@ -118,27 +117,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _refreshProducts() async {
-    setState(() {
-      _isRefreshing = true;
-      // reassign the future so the FutureBuilder re-runs
-      _productsFuture = FirebaseService.getProductsFromFireStore(context);
-    });
-
-    // Also reload categories in case new ones were approved
+    // Reload categories in case new ones were approved
     _loadCategories();
-
-    try {
-      // Await the current fetch so RefreshIndicator spinner shows until complete
-      await _productsFuture;
-    } catch (_) {
-      // ignore — error will be handled by FutureBuilder
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isRefreshing = false;
-        });
-      }
-    }
+    // Reload favourite states
+    _loadFavouriteStates();
+    // Products stream is real-time and auto-updates,
+    // so just wait briefly for RefreshIndicator spinner feedback
+    await Future.delayed(const Duration(milliseconds: 500));
   }
 
   List<ProductModel> _applySearchFilter(List<ProductModel> products) {
@@ -174,8 +159,8 @@ class _HomeScreenState extends State<HomeScreen> {
           .toList();
     }
 
-    // Apply distance filter
-    if (_currentPosition != null) {
+    // Apply distance filter (only when user explicitly activates it)
+    if (_isDistanceFilterActive && _currentPosition != null) {
       filtered = filtered.where((p) {
         if (p.latitude != null && p.longitude != null) {
           final distance = LocationService.calculateDistance(
@@ -415,6 +400,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     });
                     setState(() {
                       _maxDistance = value;
+                      _isDistanceFilterActive = true;
                     });
                   },
                 ),
@@ -436,6 +422,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           _selectedType = 'All';
                           _selectedCategory = null;
                           _maxDistance = 50.0;
+                          _isDistanceFilterActive = false;
                         });
                       },
                       child: const Text('Clear'),
@@ -620,12 +607,11 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: _refreshProducts,
-        child: FutureBuilder<List<ProductModel>>(
-          future: _productsFuture,
+        child: StreamBuilder<List<ProductModel>>(
+          stream: _productsStream,
           builder: (context, snapshot) {
             // Loading state
-            if (snapshot.connectionState == ConnectionState.waiting &&
-                !_isRefreshing) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return Center(child: CircularProgressIndicator());
             }
 
