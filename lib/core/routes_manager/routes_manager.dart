@@ -23,6 +23,7 @@ import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/reviews/leave_review_screen.dart';
 import '../../features/payment/checkout_screen.dart';
+import '../../features/premium/screens/premium_subscription_screen.dart';
 
 class RoutesManager {
   static const String register = "/register";
@@ -47,6 +48,7 @@ class RoutesManager {
   static const String editProfile = '/edit-profile';
   static const String myProducts = '/myProducts';
   static const String checkout = '/checkout';
+  static const String premiumSubscription = '/premium-subscription';
 
   static Route? router(RouteSettings setting) {
     switch (setting.name) {
@@ -192,6 +194,12 @@ class RoutesManager {
           final product = setting.arguments as ProductModel;
           return MaterialPageRoute(
             builder: (context) => CheckoutScreen(product: product),
+          );
+        }
+      case premiumSubscription:
+        {
+          return MaterialPageRoute(
+            builder: (context) => const PremiumSubscriptionScreen(),
           );
         }
     }

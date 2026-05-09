@@ -27,6 +27,8 @@ class TradeOffer {
   final DateTime? updatedAt;
   final List<TradeCounterOffer> counterOffers;
   final bool isCounterOffer;
+  final String? parentTradeId;
+  final bool isFromPremium;
 
   // Chat related fields
   final String? lastMessage;
@@ -50,10 +52,12 @@ class TradeOffer {
     this.updatedAt,
     this.counterOffers = const [],
     this.isCounterOffer = false,
+    this.parentTradeId,
     this.lastMessage,
     this.lastMessageTime,
     this.lastMessageSenderId,
     this.hasUnreadMessages = false,
+    this.isFromPremium = false,
   });
 
   factory TradeOffer.fromJson(Map<String, dynamic> json) {
@@ -84,12 +88,14 @@ class TradeOffer {
               .toList() ??
           [],
       isCounterOffer: json['isCounterOffer'] ?? false,
+      parentTradeId: json['parentTradeId'],
       lastMessage: json['lastMessage'],
       lastMessageTime: json['lastMessageTime'] != null
           ? (json['lastMessageTime'] as Timestamp).toDate()
           : null,
       lastMessageSenderId: json['lastMessageSenderId'],
       hasUnreadMessages: json['hasUnreadMessages'] ?? false,
+      isFromPremium: json['isFromPremium'] ?? false,
     );
   }
 
@@ -110,11 +116,13 @@ class TradeOffer {
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
       'counterOffers': counterOffers.map((e) => e.toJson()).toList(),
       'isCounterOffer': isCounterOffer,
+      'parentTradeId': parentTradeId,
       'lastMessage': lastMessage,
       'lastMessageTime':
           lastMessageTime != null ? Timestamp.fromDate(lastMessageTime!) : null,
       'lastMessageSenderId': lastMessageSenderId,
       'hasUnreadMessages': hasUnreadMessages,
+      'isFromPremium': isFromPremium,
     };
   }
 
@@ -134,10 +142,12 @@ class TradeOffer {
     DateTime? updatedAt,
     List<TradeCounterOffer>? counterOffers,
     bool? isCounterOffer,
+    String? parentTradeId,
     String? lastMessage,
     DateTime? lastMessageTime,
     String? lastMessageSenderId,
     bool? hasUnreadMessages,
+    bool? isFromPremium,
   }) {
     return TradeOffer(
       id: id ?? this.id,
@@ -155,10 +165,12 @@ class TradeOffer {
       updatedAt: updatedAt ?? this.updatedAt,
       counterOffers: counterOffers ?? this.counterOffers,
       isCounterOffer: isCounterOffer ?? this.isCounterOffer,
+      parentTradeId: parentTradeId ?? this.parentTradeId,
       lastMessage: lastMessage ?? this.lastMessage,
       lastMessageTime: lastMessageTime ?? this.lastMessageTime,
       lastMessageSenderId: lastMessageSenderId ?? this.lastMessageSenderId,
       hasUnreadMessages: hasUnreadMessages ?? this.hasUnreadMessages,
+      isFromPremium: isFromPremium ?? this.isFromPremium,
     );
   }
 }

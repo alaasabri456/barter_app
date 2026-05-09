@@ -36,6 +36,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   int _selectedImageIndex = 0;
   bool _isFavourite = false;
   bool _isFavouriteLoading = false;
+  int _pendingTradeCount = 0;
 
   @override
   void initState() {
@@ -68,6 +69,16 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
       // Load favorite status
       await _loadFavouriteStatus();
+
+      // Load pending trade count
+      final count = await FirebaseService.getPendingTradeCountForProduct(
+        widget.productId,
+      );
+      if (mounted) {
+        setState(() {
+          _pendingTradeCount = count;
+        });
+      }
     } catch (e) {
       setState(() {
         _errorLoading = true;
@@ -267,7 +278,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     if (_product != null) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => InitiateTradeScreen(targetProduct: _product!),
+          builder: (context) => InitiateTradeScreen(
+            targetProduct: _product!,
+            isCounterOffer: _pendingTradeCount > 0,
+          ),
         ),
       );
     }
@@ -671,6 +685,39 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           ),
                         ],
                       ),
+                      if (_pendingTradeCount > 0) ...[
+                        SizedBox(height: 12.h),
+                        Container(
+                          padding: EdgeInsets.all(12.w),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12.r),
+                            border: Border.all(
+                              color: Colors.orange.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.local_fire_department,
+                                color: Colors.orange,
+                                size: 20.w,
+                              ),
+                              SizedBox(width: 8.w),
+                              Expanded(
+                                child: Text(
+                                  '$_pendingTradeCount active offer${_pendingTradeCount > 1 ? 's' : ''} pending for this item. You can still send a counter offer!',
+                                  style: TextStyle(
+                                    fontSize: 12.sp,
+                                    color: Colors.orange[800],
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       SizedBox(height: 8.h),
                       Wrap(
                         spacing: 8.w,
@@ -1003,7 +1050,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 )
               : AuthButton(
                   text: isAvailable
-                      ? 'Initiate Trade'
+                      ? (_pendingTradeCount > 0
+                          ? 'Send Counter Offer'
+                          : 'Initiate Trade')
                       : 'Not Available for Trade',
                   onPressed: isAvailable ? _initiateTrade : null,
                   icon: Icon(

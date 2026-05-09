@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../premium/widgets/premium_badge_widget.dart';
+
 class ProductCard extends StatefulWidget {
   final String title;
   final String description;
@@ -25,6 +27,7 @@ class ProductCard extends StatefulWidget {
   final double? distance; // In kilometers
   final String? transactionType; // 'sell' or 'barter'
   final double? price;
+  final bool isOwnerPremium;
 
   const ProductCard({
     super.key,
@@ -49,6 +52,7 @@ class ProductCard extends StatefulWidget {
     this.distance,
     this.transactionType,
     this.price,
+    this.isOwnerPremium = false,
   });
 
   @override
@@ -171,6 +175,13 @@ class _ProductCardState extends State<ProductCard> {
                 )
               : null,
         ),
+        // Premium badge (top-left)
+        if (widget.isOwnerPremium)
+          Positioned(
+            top: 12.h,
+            left: 12.w,
+            child: const PremiumBadgeWidget.compact(),
+          ),
         // Heart Icon
         if (widget.onFavoriteToggle != null)
           Positioned(

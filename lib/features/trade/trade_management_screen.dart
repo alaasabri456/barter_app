@@ -14,6 +14,7 @@ import '../../features/products/models/product_model.dart';
 import '../authentication/widgets/auth_button.dart';
 import '../../core/routes_manager/routes_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../premium/widgets/premium_badge_widget.dart';
 
 class TradeManagementScreen extends StatefulWidget {
   const TradeManagementScreen({super.key});
@@ -347,13 +348,38 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
       );
     }
 
+    // Filter out counter offers from the received list to show them grouped
+    final filteredTrades = isReceived
+        ? trades.where((t) => !t.isCounterOffer).toList()
+        : trades;
+
+    if (filteredTrades.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.info_outline,
+              size: 48.w,
+              color: Theme.of(context).disabledColor,
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              'No items found here.',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ],
+        ),
+      );
+    }
+
     return RefreshIndicator(
       onRefresh: _loadTrades,
       child: ListView.builder(
         padding: EdgeInsets.all(16.w),
-        itemCount: trades.length,
+        itemCount: filteredTrades.length,
         itemBuilder: (context, index) {
-          final trade = trades[index];
+          final trade = filteredTrades[index];
           return _buildTradeCard(trade, isReceived: isReceived);
         },
       ),
@@ -400,6 +426,95 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                       ),
                     ),
                   ),
+                  if (trade.isFromPremium) ...[
+                    SizedBox(width: 8.w),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 8.w,
+                        vertical: 4.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(color: Colors.amber[700]!, width: 1),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const PremiumBadgeWidget.compact(),
+                          SizedBox(width: 4.w),
+                          Text(
+                            'PREMIUM OFFER',
+                            style: TextStyle(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.amber[800],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (trade.isCounterOffer) ...[
+                    SizedBox(width: 8.w),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 8.w,
+                        vertical: 4.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(color: Colors.orange, width: 1),
+                      ),
+                      child: Text(
+                        'COUNTER OFFER',
+                        style: TextStyle(
+                          fontSize: 10.sp,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.orange[700],
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (!trade.isCounterOffer && isReceived && isPending) ...[
+                    SizedBox(width: 8.w),
+                    FutureBuilder<int>(
+                      future: FirebaseService.getPendingTradeCountForProduct(
+                        trade.requestedProductIds.first,
+                      ),
+                      builder: (context, snapshot) {
+                        final count = (snapshot.data ?? 1) - 1;
+                        if (count <= 0) return const SizedBox.shrink();
+                        return Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8.w,
+                            vertical: 4.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.local_fire_department,
+                                  size: 12.w, color: Colors.red),
+                              SizedBox(width: 4.w),
+                              Text(
+                                '$count COMPETING OFFER${count > 1 ? 'S' : ''}',
+                                style: TextStyle(
+                                  fontSize: 10.sp,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                   Row(
                     children: [
                       // Chat Button with Notification Badge
@@ -779,8 +894,148 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                   isOutlined: true,
                 ),
               ],
+              if (!trade.isCounterOffer && isReceived && isPending)
+                _buildCounterOffersSection(trade),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCounterOffersSection(TradeOffer parentTrade) {
+    return FutureBuilder<List<TradeOffer>>(
+      future: FirebaseService.getCounterOffersForTrade(parentTrade.id),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final counterOffers = snapshot.data!;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Divider(),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.h),
+              child: Row(
+                children: [
+                  Icon(Icons.swap_calls, size: 16.w, color: Colors.orange),
+                  SizedBox(width: 8.w),
+                  Text(
+                    'Competing Counter Offers (${counterOffers.length})',
+                    style: TextStyle(
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange[800],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ...counterOffers.map((counter) => Container(
+                  margin: EdgeInsets.only(bottom: 8.h),
+                  padding: EdgeInsets.all(12.w),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(8.r),
+                    border: Border.all(
+                      color: Colors.grey.withOpacity(0.2),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            counter.fromUserName,
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            _getTimeAgo(counter.createdAt),
+                            style: TextStyle(
+                              fontSize: 10.sp,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 8.h),
+                      Row(
+                        children: [
+                          Icon(Icons.shopping_bag_outlined,
+                              size: 14.w, color: Colors.grey),
+                          SizedBox(width: 4.w),
+                          Expanded(
+                            child: Text(
+                              'Offered: ${counter.offeredProductIds.length} items',
+                              style: TextStyle(fontSize: 11.sp),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 12.h),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: AuthButton(
+                              text: 'View & Accept',
+                              height: 30,
+                              onPressed: () {
+                                // For now, maybe just show details or similar
+                                // But simpler is to open a dialog or similar
+                                // For MVP, let's just make it show the card details
+                                _showCounterOfferDetails(counter);
+                              },
+                              backgroundColor: Theme.of(context).primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                )),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showCounterOfferDetails(TradeOffer counterOffer) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.8,
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              margin: EdgeInsets.all(12.w),
+              width: 40.w,
+              height: 4.h,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2.r),
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(20.w),
+                child: _buildTradeCard(counterOffer, isReceived: true),
+              ),
+            ),
+          ],
         ),
       ),
     );

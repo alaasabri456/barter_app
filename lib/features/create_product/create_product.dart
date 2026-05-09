@@ -17,6 +17,7 @@ import 'widgets/service_details_section.dart';
 import 'widgets/transaction_details_section.dart';
 import 'product_image_picker.dart';
 import 'services/imgbb_service.dart';
+import '../premium/services/premium_service.dart';
 
 class CreateProduct extends StatefulWidget {
   final ProductModel? product;
@@ -81,16 +82,27 @@ class _CreateProductState extends State<CreateProduct> {
     final user = UserModel.currentUser;
     if (user != null) {
       setState(() => _isLoading = true);
+
+      final isPremium = user.isPremium;
+      final limit = PremiumService.getProductLimit(isPremium);
+
+      // Premium users have no limit (null)
+      if (limit == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
       final count =
           await FirebaseService.getUntradedProductsCount(user.id, context);
       setState(() => _isLoading = false);
 
-      if (count >= 5 && mounted) {
+      if (count >= limit && mounted) {
         await showInfoDialog(
           context: context,
           title: 'Product Limit Reached',
           message:
-              'You can have at most 5 untraded items. Please trade an existing item before adding a new one.',
+              'You can have at most $limit untraded items. '
+              'Upgrade to Premium for unlimited listings, or trade an existing item.',
           icon: Icons.warning_outlined,
           iconColor: Theme.of(context).colorScheme.error,
         );

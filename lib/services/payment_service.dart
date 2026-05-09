@@ -1,7 +1,8 @@
 // ignore_for_file: avoid_print
-import 'package:barter/config/payment_config.example.dart';
+import 'package:barter/config/payment_config.dart';
 import 'package:flutter/material.dart';
 import 'package:paymob_payment/paymob_payment.dart';
+import '../features/authentication/models/user_model.dart';
 
 
 /// Handles Paymob payment operations.
@@ -20,6 +21,7 @@ class PaymentService {
   static Future<PaymobResponse?> pay({
     required double amount,
     required BuildContext context,
+    UserModel? user,
     void Function(PaymobResponse)? onPayment,
   }) async {
     try {
@@ -31,6 +33,23 @@ class PaymentService {
         currency: 'EGP',
         amountInCents: amountInCents,
         onPayment: onPayment,
+        billingData: PaymobBillingData(
+          firstName: user?.name.split(' ').first ?? "Guest",
+          lastName: (user?.name.split(' ').length ?? 0) > 1
+              ? user!.name.split(' ').last
+              : "User",
+          email: user?.email ?? "guest@example.com",
+          phoneNumber: "+20123456789", // Paymob requires a phone number
+          apartment: "NA",
+          building: "NA",
+          city: "NA",
+          country: "EG",
+          floor: "NA",
+          postalCode: "NA",
+          shippingMethod: "NA",
+          state: "NA",
+          street: "NA",
+        ),
       );
 
       return response;

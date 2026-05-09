@@ -20,6 +20,7 @@ import '../../features/trade/models/trade_offer.dart';
 import '../reviews/reviews_screen.dart';
 import 'package:barter/l10n/app_localizations.dart';
 import '../../core/i18n/language_provider.dart';
+import '../premium/widgets/premium_badge_widget.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -346,12 +347,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   SizedBox(height: 16.h),
 
                   // User name
-                  Text(
-                    user?.name ?? 'User Name',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        user?.name ?? 'User Name',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      if (user?.isPremium == true) ...[
+                        SizedBox(width: 8.w),
+                        const PremiumBadgeWidget.compact(),
+                      ],
+                    ],
                   ),
 
                   SizedBox(height: 4.h),
@@ -428,6 +439,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ).pushNamed(RoutesManager.adminDashboard);
                       },
                     ),
+
+                  // Premium subscription
+                  _buildSettingItem(
+                    icon: Icons.workspace_premium,
+                    title: 'Premium',
+                    subtitle: user?.isPremium == true
+                        ? 'Your premium is active ✨'
+                        : 'Upgrade for unlimited listings',
+                    onTap: () {
+                      Navigator.of(
+                        context,
+                      ).pushNamed(RoutesManager.premiumSubscription);
+                    },
+                  ),
 
                   if (!isGuest) ...[
                     _buildSettingItem(

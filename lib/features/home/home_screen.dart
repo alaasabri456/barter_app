@@ -188,6 +188,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }).toList();
   }
 
+  /// Sorts products so premium users' listings appear first (boosted).
+  List<ProductModel> _applyPremiumBoost(List<ProductModel> products) {
+    final premium = products.where((p) => p.isOwnerPremium).toList();
+    final regular = products.where((p) => !p.isOwnerPremium).toList();
+    return [...premium, ...regular];
+  }
+
   Future<void> _toggleFavourite(ProductModel product) async {
     final userId = UserModel.currentUser?.id;
     if (userId == null) {
@@ -636,8 +643,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
             final products = snapshot.data ?? [];
 
-            // Apply local search filtering
-            final filtered = _applySearchFilter(products);
+            // Apply local search filtering then premium boost
+            final filtered = _applyPremiumBoost(_applySearchFilter(products));
 
             return CustomScrollView(
               slivers: [
@@ -837,6 +844,7 @@ class _HomeScreenState extends State<HomeScreen> {
       transactionType: product.transactionType.name,
       price: product.price,
       availability: product.availability,
+      isOwnerPremium: product.isOwnerPremium,
       distance: (_currentPosition != null &&
               product.latitude != null &&
               product.longitude != null)

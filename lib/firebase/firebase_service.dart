@@ -277,6 +277,7 @@ class FirebaseService {
       ownerName: UserModel.currentUser!.name,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
+      isOwnerPremium: UserModel.currentUser!.isPremium,
     );
 
     return productDocument.set(updatedProduct);
@@ -534,31 +535,60 @@ class FirebaseService {
       final tradesCollection = _getTradesCollection();
       final tradeDoc = tradesCollection.doc();
 
-      final tradeWithId = trade.copyWith(id: tradeDoc.id);
+      // Auto-detect counter offer: check if any pending trade already
+      // targets the same requested product(s)
+      String? parentTradeId;
+      bool isCounterOffer = trade.isCounterOffer;
+
+      if (!isCounterOffer) {
+        final existingTrades = await getPendingTradesForProduct(
+          trade.requestedProductIds.first,
+        );
+        // Filter out trades from the same user
+        final competingTrades = existingTrades
+            .where((t) => t.fromUserId != trade.fromUserId)
+            .toList();
+
+        if (competingTrades.isNotEmpty) {
+          isCounterOffer = true;
+          parentTradeId = competingTrades.first.id;
+        }
+      }
+
+      final tradeWithId = trade.copyWith(
+        id: tradeDoc.id,
+        isCounterOffer: isCounterOffer,
+        parentTradeId: parentTradeId ?? trade.parentTradeId,
+        isFromPremium: UserModel.currentUser?.isPremium ?? false,
+      );
 
       await tradeDoc.set(tradeWithId);
 
       // Add to trade history
+      final action = isCounterOffer ? 'COUNTER_OFFER_CREATED' : 'TRADE_CREATED';
       await _addTradeHistory(
         tradeId: tradeDoc.id,
-        action: 'TRADE_CREATED',
+        action: action,
         performedByUserId: trade.fromUserId,
         performedByUserName: trade.fromUserName,
         details: {
           'type': trade.type.name,
           'offeredProducts': trade.offeredProductIds,
           'requestedProducts': trade.requestedProductIds,
+          if (parentTradeId != null) 'parentTradeId': parentTradeId,
         },
       );
 
       // Send Push Notification
+      final titleKey = isCounterOffer ? 'counterOfferTitle' : 'newOfferTitle';
+      final bodyKey = isCounterOffer ? 'counterOfferBody' : 'newOfferBody';
       _sendLocalizedNotification(
         recipientId: trade.toUserId,
-        titleKey: 'newOfferTitle',
-        bodyKey: 'newOfferBody',
+        titleKey: titleKey,
+        bodyKey: bodyKey,
         bodyArgs: {'sender': trade.fromUserName},
         data: {
-          'type': 'trade_offer',
+          'type': isCounterOffer ? 'counter_offer' : 'trade_offer',
           'tradeId': tradeDoc.id,
         },
       );
@@ -566,6 +596,53 @@ class FirebaseService {
       return tradeDoc.id;
     } catch (e) {
       throw Exception('Failed to create trade offer: $e');
+    }
+  }
+
+  /// Returns all pending trades that request a specific product.
+  static Future<List<TradeOffer>> getPendingTradesForProduct(
+    String productId,
+  ) async {
+    try {
+      final tradesCollection = _getTradesCollection();
+      final querySnapshot = await tradesCollection
+          .where('requestedProductIds', arrayContains: productId)
+          .where('status', isEqualTo: TradeStatus.pending.name)
+          .get();
+
+      return querySnapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      print('Error getting pending trades for product: $e');
+      return [];
+    }
+  }
+
+  /// Returns all counter offers linked to a specific parent trade.
+  static Future<List<TradeOffer>> getCounterOffersForTrade(
+    String parentTradeId,
+  ) async {
+    try {
+      final tradesCollection = _getTradesCollection();
+      final querySnapshot = await tradesCollection
+          .where('parentTradeId', isEqualTo: parentTradeId)
+          .where('status', isEqualTo: TradeStatus.pending.name)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return querySnapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      print('Error getting counter offers: $e');
+      return [];
+    }
+  }
+
+  /// Returns the count of pending trades for a product (used for badge display).
+  static Future<int> getPendingTradeCountForProduct(String productId) async {
+    try {
+      final trades = await getPendingTradesForProduct(productId);
+      return trades.length;
+    } catch (e) {
+      return 0;
     }
   }
 
@@ -663,7 +740,17 @@ class FirebaseService {
           .orderBy('createdAt', descending: true)
           .get();
 
-      return querySnapshot.docs.map((doc) => doc.data()).toList();
+      final trades = querySnapshot.docs.map((doc) => doc.data()).toList();
+
+      // Sort: Premium users' trades first, then by date
+      trades.sort((a, b) {
+        if (a.isFromPremium != b.isFromPremium) {
+          return a.isFromPremium ? -1 : 1;
+        }
+        return b.createdAt.compareTo(a.createdAt);
+      });
+
+      return trades;
     } catch (e) {
       throw Exception('Failed to get received trades: $e');
     }
@@ -677,7 +764,17 @@ class FirebaseService {
           .orderBy('createdAt', descending: true)
           .get();
 
-      return querySnapshot.docs.map((doc) => doc.data()).toList();
+      final trades = querySnapshot.docs.map((doc) => doc.data()).toList();
+
+      // Sort: Premium users' trades first, then by date
+      trades.sort((a, b) {
+        if (a.isFromPremium != b.isFromPremium) {
+          return a.isFromPremium ? -1 : 1;
+        }
+        return b.createdAt.compareTo(a.createdAt);
+      });
+
+      return trades;
     } catch (e) {
       throw Exception('Failed to get sent trades: $e');
     }

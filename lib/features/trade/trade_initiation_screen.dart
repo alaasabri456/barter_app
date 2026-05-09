@@ -17,8 +17,15 @@ import '../authentication/widgets/auth_text_field.dart';
 
 class InitiateTradeScreen extends StatefulWidget {
   final ProductModel targetProduct;
+  final bool isCounterOffer;
+  final String? parentTradeId;
 
-  const InitiateTradeScreen({super.key, required this.targetProduct});
+  const InitiateTradeScreen({
+    super.key,
+    required this.targetProduct,
+    this.isCounterOffer = false,
+    this.parentTradeId,
+  });
 
   @override
   State<InitiateTradeScreen> createState() => _InitiateTradeScreenState();
@@ -234,7 +241,46 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
       return _buildErrorState();
     }
 
-    return _buildMainContent();
+    return LoadingOverlay(
+      isLoading: _isLoading,
+      loadingMessage: 'Sending trade offer...',
+      child: Column(
+        children: [
+          if (widget.isCounterOffer)
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                border: Border(
+                  bottom: BorderSide(
+                    color: Colors.orange.withOpacity(0.3),
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.swap_calls, color: Colors.orange, size: 20.w),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Text(
+                      'Sending a competing offer for this item.',
+                      style: TextStyle(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.orange[800],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: _buildMainContent(),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildErrorState() {

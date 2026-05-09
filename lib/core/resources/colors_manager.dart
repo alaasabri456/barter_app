@@ -74,6 +74,11 @@ class ColorsManager {
   static const Color secondaryGradientStart = Color(0xFFA855F7); // Purple
   static const Color secondaryGradientEnd = Color(0xFFEC4899); // Pink
 
+  // Premium Colors
+  static const Color premiumGold = Color(0xFFFFB800);
+  static const Color premiumOrange = Color(0xFFFF8C00);
+  static const Color premiumDeep = Color(0xFFE65100);
+
   // Glassmorphism
   static const Color glassLight = Color(0xCCFFFFFF); // 80% white
   static const Color glassDark = Color(0xCC1E293B); // 80% dark slate

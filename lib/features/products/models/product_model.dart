@@ -81,6 +81,7 @@ class ProductModel {
   final TransactionType transactionType;
   final double? price;
   final String? desiredSwapCategory;
+  final bool isOwnerPremium;
 
   ProductModel({
     required this.id,
@@ -116,6 +117,7 @@ class ProductModel {
     this.transactionType = TransactionType.barter,
     this.price,
     this.desiredSwapCategory,
+    this.isOwnerPremium = false,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -179,6 +181,7 @@ class ProductModel {
       ),
       price: json["price"]?.toDouble(),
       desiredSwapCategory: json["desiredSwapCategory"],
+      isOwnerPremium: json["isOwnerPremium"] ?? false,
     );
   }
 
@@ -232,6 +235,7 @@ class ProductModel {
         "transactionType": transactionType.name,
         "price": price,
         "desiredSwapCategory": desiredSwapCategory,
+        "isOwnerPremium": isOwnerPremium,
       };
 
   ProductModel copyWith({
@@ -268,6 +272,7 @@ class ProductModel {
     TransactionType? transactionType,
     double? price,
     String? desiredSwapCategory,
+    bool? isOwnerPremium,
   }) {
     return ProductModel(
       id: id ?? this.id,
@@ -304,6 +309,7 @@ class ProductModel {
       transactionType: transactionType ?? this.transactionType,
       price: price ?? this.price,
       desiredSwapCategory: desiredSwapCategory ?? this.desiredSwapCategory,
+      isOwnerPremium: isOwnerPremium ?? this.isOwnerPremium,
     );
   }
 

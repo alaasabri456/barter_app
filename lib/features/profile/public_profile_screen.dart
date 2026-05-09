@@ -6,6 +6,8 @@ import '../../core/widgets/custom_app_bar.dart';
 import '../../features/trade/models/trade_offer.dart';
 import '../../firebase/firebase_service.dart';
 import '../reviews/reviews_screen.dart';
+import '../premium/widgets/premium_badge_widget.dart';
+import '../premium/services/premium_service.dart';
 
 class PublicProfileScreen extends StatefulWidget {
   final String userId;
@@ -25,11 +27,22 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   int _createdProductsCount = 0;
   int _completedTradesCount = 0;
   int _reviewsCount = 0;
+  bool _isUserPremium = false;
 
   @override
   void initState() {
     super.initState();
     _loadProfileStats();
+    _loadPremiumStatus();
+  }
+
+  Future<void> _loadPremiumStatus() async {
+    try {
+      final isPremium = await PremiumService.isUserPremium(widget.userId);
+      if (mounted) {
+        setState(() => _isUserPremium = isPremium);
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadProfileStats() async {
@@ -107,12 +120,22 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                   SizedBox(height: 16.h),
 
                   // User name
-                  Text(
-                    widget.userName,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        widget.userName,
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (_isUserPremium) ...[
+                        SizedBox(width: 8.w),
+                        const PremiumBadgeWidget.compact(),
+                      ],
+                    ],
                   ),
 
                   SizedBox(height: 16.h),

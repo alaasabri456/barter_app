@@ -9,6 +9,7 @@ import '../../firebase/firebase_service.dart';
 import '../../services/payment_service.dart';
 import '../authentication/widgets/auth_button.dart';
 import 'payment_success_screen.dart';
+import '../premium/services/premium_service.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final ProductModel product;
@@ -23,7 +24,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _isProcessing = false;
 
   double get _price => widget.product.price ?? 0.0;
-  double get _serviceFee => _price * 0.05; // 5% service fee
+  double get _serviceFeePercent =>
+      PremiumService.getServiceFeePercent(UserModel.currentUser?.isPremium ?? false);
+  double get _serviceFee => _price * _serviceFeePercent;
   double get _total => _price + _serviceFee;
 
   Future<void> _handlePayment() async {
@@ -37,6 +40,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final response = await PaymentService.pay(
         amount: _total,
         context: context,
+        user: user,
       );
 
       // User dismissed the WebView without completing payment
@@ -255,8 +259,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         children: [
                           _buildPriceRow('Item Price', _price, theme),
                           SizedBox(height: 12.h),
-                          _buildPriceRow('Service Fee (5%)', _serviceFee, theme,
+                          _buildPriceRow(
+                              'Service Fee (${(_serviceFeePercent * 100).toInt()}%)',
+                              _serviceFee,
+                              theme,
                               isSmall: true),
+                          if (UserModel.currentUser?.isPremium ?? false) ...[
+                            SizedBox(height: 4.h),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Icon(Icons.workspace_premium,
+                                    size: 14.w, color: Colors.orange[800]),
+                                SizedBox(width: 4.w),
+                                Text(
+                                  'Premium discount applied!',
+                                  style: TextStyle(
+                                    fontSize: 11.sp,
+                                    color: Colors.orange[800],
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                           Divider(height: 24.h, color: theme.dividerColor),
                           _buildPriceRow('Total', _total, theme, isBold: true),
                         ],

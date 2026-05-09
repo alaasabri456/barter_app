@@ -33,6 +33,8 @@ class UserModel {
   String? profileImageUrl;
   bool isAnonymous;
   bool is2faEnabled;
+  bool isPremiumActive;
+  DateTime? premiumExpiresAt;
 
   UserModel({
     required this.id,
@@ -46,6 +48,8 @@ class UserModel {
     this.profileImageUrl,
     this.isAnonymous = false,
     this.is2faEnabled = false,
+    this.isPremiumActive = false,
+    this.premiumExpiresAt,
   });
 
   factory UserModel.guest(String uid) {
@@ -58,6 +62,7 @@ class UserModel {
       languageCode: 'en',
       isAnonymous: true,
       is2faEnabled: false,
+      isPremiumActive: false,
     );
   }
 
@@ -80,6 +85,8 @@ class UserModel {
           profileImageUrl: json["profileImageUrl"],
           isAnonymous: json["isAnonymous"] ?? false,
           is2faEnabled: json["is2faEnabled"] ?? false,
+          isPremiumActive: json["isPremiumActive"] ?? false,
+          premiumExpiresAt: _parsePremiumExpiry(json["premiumExpiresAt"]),
         );
 
   static UserRole _parseRole(dynamic roleValue) {
@@ -97,6 +104,17 @@ class UserModel {
     return UserRole.user;
   }
 
+  static DateTime? _parsePremiumExpiry(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    try {
+      return (value as dynamic).toDate();
+    } catch (_) {
+      return null;
+    }
+  }
+
   Map<String, dynamic> toJson() => {
         "id": id,
         "name": name,
@@ -109,6 +127,8 @@ class UserModel {
         "profileImageUrl": profileImageUrl,
         "isAnonymous": isAnonymous,
         "is2faEnabled": is2faEnabled,
+        "isPremiumActive": isPremiumActive,
+        "premiumExpiresAt": premiumExpiresAt?.toIso8601String(),
       };
 
   UserModel copyWith({
@@ -123,6 +143,8 @@ class UserModel {
     String? profileImageUrl,
     bool? isAnonymous,
     bool? is2faEnabled,
+    bool? isPremiumActive,
+    DateTime? premiumExpiresAt,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -136,13 +158,21 @@ class UserModel {
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       isAnonymous: isAnonymous ?? this.isAnonymous,
       is2faEnabled: is2faEnabled ?? this.is2faEnabled,
+      isPremiumActive: isPremiumActive ?? this.isPremiumActive,
+      premiumExpiresAt: premiumExpiresAt ?? this.premiumExpiresAt,
     );
   }
 
   // Permission helper methods
   bool get isAdmin => role == UserRole.admin;
   bool get isModerator => role == UserRole.moderator;
-  bool get isPremium => role == UserRole.premium;
+  /// Returns `true` if the user has an active premium subscription
+  /// (either via role or via time-based subscription).
+  bool get isPremium =>
+      role == UserRole.premium ||
+      (isPremiumActive &&
+          premiumExpiresAt != null &&
+          DateTime.now().isBefore(premiumExpiresAt!));
   bool get canModerateContent => isAdmin || isModerator;
   bool get canAccessAdminPanel => isAdmin;
 }
