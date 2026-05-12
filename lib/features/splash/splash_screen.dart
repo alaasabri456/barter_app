@@ -53,6 +53,7 @@ class _SplashScreenState extends State<SplashScreen>
         UserModel.currentUser = await FirebaseService.getUserFromFireStore(
           currentUser.uid,
         );
+        FirebaseService.initUserListener();
 
         if (UserModel.currentUser == null && currentUser.isAnonymous) {
           UserModel.currentUser = UserModel.guest(currentUser.uid);

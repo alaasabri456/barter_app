@@ -428,7 +428,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   SizedBox(height: 12.h),
 
                   // Admin Panel (only for admins)
-                  if (user?.isAdmin == true)
+                  if (user?.isAdmin == true) ...[
                     _buildSettingItem(
                       icon: Icons.admin_panel_settings,
                       title: locale.adminPanel,
@@ -439,6 +439,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ).pushNamed(RoutesManager.adminDashboard);
                       },
                     ),
+                    _buildSettingItem(
+                      icon: Icons.account_balance_wallet,
+                      title: 'Manage Withdrawals',
+                      subtitle: 'Review seller withdrawal requests',
+                      onTap: () {
+                        Navigator.of(
+                          context,
+                        ).pushNamed(RoutesManager.adminWithdrawals);
+                      },
+                    ),
+                  ],
 
                   // Premium subscription
                   _buildSettingItem(
@@ -455,6 +466,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
 
                   if (!isGuest) ...[
+                    _buildSettingItem(
+                      icon: Icons.account_balance_wallet_outlined,
+                      title: 'My Wallet',
+                      subtitle: 'Manage your balance and withdrawals',
+                      onTap: () {
+                        Navigator.of(
+                          context,
+                        ).pushNamed(RoutesManager.wallet);
+                      },
+                    ),
                     _buildSettingItem(
                       icon: Icons.inventory_2_outlined,
                       title: locale.items,

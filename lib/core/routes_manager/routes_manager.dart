@@ -24,6 +24,8 @@ import '../../features/notifications/notifications_screen.dart';
 import '../../features/reviews/leave_review_screen.dart';
 import '../../features/payment/checkout_screen.dart';
 import '../../features/premium/screens/premium_subscription_screen.dart';
+import '../../features/wallet/screens/wallet_screen.dart';
+import '../../features/admin/screens/admin_withdrawals_screen.dart';
 
 class RoutesManager {
   static const String register = "/register";
@@ -49,6 +51,8 @@ class RoutesManager {
   static const String myProducts = '/myProducts';
   static const String checkout = '/checkout';
   static const String premiumSubscription = '/premium-subscription';
+  static const String wallet = '/wallet';
+  static const String adminWithdrawals = '/admin-withdrawals';
 
   static Route? router(RouteSettings setting) {
     switch (setting.name) {
@@ -200,6 +204,18 @@ class RoutesManager {
         {
           return MaterialPageRoute(
             builder: (context) => const PremiumSubscriptionScreen(),
+          );
+        }
+      case wallet:
+        {
+          return MaterialPageRoute(
+            builder: (context) => const WalletScreen(),
+          );
+        }
+      case adminWithdrawals:
+        {
+          return MaterialPageRoute(
+            builder: (context) => const AdminWithdrawalsScreen(),
           );
         }
     }

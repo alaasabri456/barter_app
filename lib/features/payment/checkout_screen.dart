@@ -72,7 +72,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
 
       // Save payment record to Firestore
-      final transactionId = response.transactionID?.toString() ?? '';
+      final transactionId = response.transactionID?.toString().trim() ?? '';
       final payment = PaymentModel(
         id: '',
         buyerId: user.id,
