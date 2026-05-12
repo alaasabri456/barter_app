@@ -35,6 +35,7 @@ class UserModel {
   bool is2faEnabled;
   bool isPremiumActive;
   DateTime? premiumExpiresAt;
+  double walletBalance;
 
   UserModel({
     required this.id,
@@ -50,6 +51,7 @@ class UserModel {
     this.is2faEnabled = false,
     this.isPremiumActive = false,
     this.premiumExpiresAt,
+    this.walletBalance = 0.0,
   });
 
   factory UserModel.guest(String uid) {
@@ -63,6 +65,7 @@ class UserModel {
       isAnonymous: true,
       is2faEnabled: false,
       isPremiumActive: false,
+      walletBalance: 0.0,
     );
   }
 
@@ -87,6 +90,7 @@ class UserModel {
           is2faEnabled: json["is2faEnabled"] ?? false,
           isPremiumActive: json["isPremiumActive"] ?? false,
           premiumExpiresAt: _parsePremiumExpiry(json["premiumExpiresAt"]),
+          walletBalance: (json["walletBalance"] as num?)?.toDouble() ?? 0.0,
         );
 
   static UserRole _parseRole(dynamic roleValue) {
@@ -129,6 +133,7 @@ class UserModel {
         "is2faEnabled": is2faEnabled,
         "isPremiumActive": isPremiumActive,
         "premiumExpiresAt": premiumExpiresAt?.toIso8601String(),
+        "walletBalance": walletBalance,
       };
 
   UserModel copyWith({
@@ -145,6 +150,7 @@ class UserModel {
     bool? is2faEnabled,
     bool? isPremiumActive,
     DateTime? premiumExpiresAt,
+    double? walletBalance,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -160,6 +166,7 @@ class UserModel {
       is2faEnabled: is2faEnabled ?? this.is2faEnabled,
       isPremiumActive: isPremiumActive ?? this.isPremiumActive,
       premiumExpiresAt: premiumExpiresAt ?? this.premiumExpiresAt,
+      walletBalance: walletBalance ?? this.walletBalance,
     );
   }
 

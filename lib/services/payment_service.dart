@@ -8,8 +8,8 @@ import '../features/authentication/models/user_model.dart';
 /// Handles Paymob payment operations.
 class PaymentService {
   /// Initialize Paymob — call this once in main.dart
-  static void initialize() {
-    PaymobPayment.instance.initialize(
+  static Future<void> initialize() async {
+    await PaymobPayment.instance.initialize(
       apiKey: PaymentConfig.apiKey,
       integrationID: PaymentConfig.integrationId,
       iFrameID: PaymentConfig.iFrameId,
@@ -32,14 +32,16 @@ class PaymentService {
         context: context,
         currency: 'EGP',
         amountInCents: amountInCents,
-        onPayment: onPayment,
+        onPayment: (resp) {
+          if (onPayment != null) onPayment(resp);
+        },
         billingData: PaymobBillingData(
           firstName: user?.name.split(' ').first ?? "Guest",
           lastName: (user?.name.split(' ').length ?? 0) > 1
               ? user!.name.split(' ').last
               : "User",
           email: user?.email ?? "guest@example.com",
-          phoneNumber: "+20123456789", // Paymob requires a phone number
+          phoneNumber: "0123456789", // Paymob requires phone without + prefix
           apartment: "NA",
           building: "NA",
           city: "NA",

@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
+import 'dart:async';
 
 import '../features/authentication/models/login_request.dart';
 import '../features/products/models/product_model.dart';
@@ -23,6 +24,8 @@ import '../features/admin/models/admin_stats_model.dart';
 import '../features/admin/models/category_suggestion_model.dart';
 import '../features/admin/models/report_model.dart';
 import '../features/payment/models/payment_model.dart';
+import '../features/wallet/models/wallet_transaction_model.dart';
+import '../features/wallet/models/withdrawal_request_model.dart';
 import '../services/fcm_v1_service.dart';
 
 const Map<String, Map<String, String>> _localizedNotificationStrings = {
@@ -2627,5 +2630,106 @@ class FirebaseService {
     } catch (e) {
       return false;
     }
+  }
+
+  // ─── Wallet & Withdrawals ──────────────────────────────────────────────────
+
+  static Future<void> requestWithdrawal(WithdrawalRequestModel request) async {
+    try {
+      final ref = FirebaseFirestore.instance.collection('WithdrawalRequests').doc();
+      final withId = WithdrawalRequestModel(
+        id: ref.id,
+        sellerId: request.sellerId,
+        sellerName: request.sellerName,
+        amount: request.amount,
+        bankDetails: request.bankDetails,
+        status: WithdrawalStatus.pending,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      await ref.set(withId.toJson());
+    } catch (e) {
+      throw Exception('Failed to request withdrawal: \$e');
+    }
+  }
+
+  static Stream<List<WalletTransactionModel>> getWalletTransactions(String userId) {
+    return FirebaseFirestore.instance
+        .collection('WalletTransactions')
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => WalletTransactionModel.fromJson(doc.data()))
+            .toList());
+  }
+
+  static Stream<List<WithdrawalRequestModel>> getSellerWithdrawalRequests(String sellerId) {
+    return FirebaseFirestore.instance
+        .collection('WithdrawalRequests')
+        .where('sellerId', isEqualTo: sellerId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => WithdrawalRequestModel.fromJson(doc.data()))
+            .toList());
+  }
+
+  static Stream<List<WithdrawalRequestModel>> getAllWithdrawalRequests() {
+    return FirebaseFirestore.instance
+        .collection('WithdrawalRequests')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => WithdrawalRequestModel.fromJson(doc.data()))
+            .toList());
+  }
+
+  static Future<void> updateWithdrawalStatus(String requestId, WithdrawalStatus newStatus) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('WithdrawalRequests')
+          .doc(requestId)
+          .update({
+        'status': newStatus.name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update withdrawal status: \$e');
+    }
+  }
+
+  /// Stream the current user document for real-time wallet balance updates.
+  static Stream<UserModel?> currentUserStream() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return Stream.value(null);
+
+    return FirebaseFirestore.instance
+        .collection('Users')
+        .doc(user.uid)
+        .snapshots()
+        .map((doc) => doc.exists ? UserModel.fromJson(doc.data()!) : null);
+  }
+
+  static StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userSubscription;
+
+  /// Starts a persistent Firestore listener that keeps [UserModel.currentUser]
+  /// in sync so the wallet balance updates without a restart.
+  static void initUserListener() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    _userSubscription?.cancel();
+
+    _userSubscription = FirebaseFirestore.instance
+        .collection('Users')
+        .doc(user.uid)
+        .snapshots()
+        .listen((doc) {
+      if (doc.exists) {
+        UserModel.currentUser = UserModel.fromJson(doc.data()!);
+        print('UserModel.currentUser synced. Balance: \${UserModel.currentUser?.walletBalance}');
+      }
+    });
   }
 }

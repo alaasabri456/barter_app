@@ -46,3 +46,7 @@ app.*.map.json
 
 # Secret keys — never commit
 lib/config/payment_config.dart
+
+# Firebase Functions
+functions/node_modules/
+functions/lib/
