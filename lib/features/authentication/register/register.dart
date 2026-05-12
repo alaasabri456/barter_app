@@ -151,6 +151,7 @@ class _RegisterState extends State<Register> {
 
         // Set current user
         UserModel.currentUser = newUser;
+        FirebaseService.initUserListener();
 
         // Update FCM token on register
         await PushNotificationService.updateToken();

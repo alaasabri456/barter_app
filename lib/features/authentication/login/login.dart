@@ -63,6 +63,7 @@ class _LoginState extends State<Login> {
         UserModel.currentUser = await FirebaseService.getUserFromFireStore(
           userCredential.user!.uid,
         );
+        FirebaseService.initUserListener();
 
         if (UserModel.currentUser != null && UserModel.currentUser!.is2faEnabled) {
           final newOtp = (100000 + Random().nextInt(900000)).toString();
@@ -165,6 +166,7 @@ class _LoginState extends State<Login> {
         UserModel userModel =
             await FirebaseService.handleGoogleSignInUser(user);
         UserModel.currentUser = userModel;
+        FirebaseService.initUserListener();
         
         if (UserModel.currentUser!.is2faEnabled) {
           final newOtp = (100000 + Random().nextInt(900000)).toString();
