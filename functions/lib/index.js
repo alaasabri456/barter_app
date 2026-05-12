@@ -23,7 +23,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onWithdrawalStatusChange = exports.paymobWebhook = void 0;
+exports.onWithdrawalStatusChange = exports.onPaymentCreated = exports.paymobWebhook = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const logger = __importStar(require("firebase-functions/logger"));
@@ -31,86 +31,68 @@ const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
 const db = admin.firestore();
 /**
- * Paymob Webhook to handle successful payments
- * Version: 1.0.2 - Robust Retry Logic
+ * Paymob Webhook — simple acknowledger.
+ * The actual wallet crediting is now handled by onPaymentCreated below.
+ * This endpoint exists only so Paymob gets a 200 and stops retrying.
  */
 exports.paymobWebhook = (0, https_1.onRequest)(async (req, res) => {
-    var _a, _b, _c;
-    // Paymob sends POST requests
+    var _a;
     if (req.method !== "POST") {
         res.status(405).send("Method Not Allowed");
         return;
     }
-    // Verify HMAC (Optional but highly recommended for production)
-    // Paymob sends specific fields concatenated to generate HMAC.
-    // For this example, we proceed with the core logic assuming verification passes
-    // or implementing a basic check if hmac is provided in query
     const receivedHmac = req.query.hmac;
     if (receivedHmac) {
-        // In a real implementation, you would calculate HMAC from req.body and compare
-        // For now, we just log it.
         logger.info("Received HMAC:", receivedHmac);
     }
     const transaction = ((_a = req.body) === null || _a === void 0 ? void 0 : _a.obj) || req.body;
     if (!transaction) {
-        logger.error("Invalid Paymob webhook payload", req.body);
         res.status(400).send("Invalid payload");
         return;
     }
-    // We only care about successful transactions
-    const isSuccess = transaction.success === true ||
-        transaction.success === "true" ||
-        transaction.success === 1 ||
-        transaction.success === "1";
-    if (!isSuccess) {
-        logger.info("Transaction not successful, ignoring.", { id: transaction.id, success: transaction.success });
-        res.status(200).send("Ignored");
+    logger.info("Paymob webhook received", {
+        transactionId: transaction.id,
+        success: transaction.success,
+    });
+    // Always return 200 — wallet crediting is handled by onPaymentCreated trigger
+    res.status(200).send("OK");
+});
+/**
+ * ✅ NEW: Firestore trigger — fires whenever a Payment document is created.
+ * This completely eliminates the race condition because:
+ *   1. The Flutter app saves the Payment doc to Firestore.
+ *   2. This trigger fires immediately with all the data already in the document.
+ *   3. No need to query or match transactionIds.
+ */
+exports.onPaymentCreated = (0, firestore_1.onDocumentCreated)("Payments/{paymentId}", async (event) => {
+    var _a;
+    const snap = event.data;
+    if (!snap) {
+        logger.error("onPaymentCreated: No data in event");
         return;
     }
-    const rawId = transaction.id || ((_b = transaction.obj) === null || _b === void 0 ? void 0 : _b.id);
-    if (!rawId) {
-        logger.error("No transaction ID found in payload", transaction);
-        res.status(400).send("No ID found");
+    const paymentData = snap.data();
+    const paymentId = event.params.paymentId;
+    logger.info(`onPaymentCreated triggered for payment: ${paymentId}`);
+    // Only process completed payments
+    if (paymentData.status !== "completed") {
+        logger.info(`Payment ${paymentId} status is '${paymentData.status}', skipping.`);
         return;
     }
-    const transactionId = rawId.toString().trim();
-    logger.info(`Processing Paymob webhook for transaction ID: ${transactionId}`);
+    // Check idempotency (prevent double crediting)
+    if (paymentData.isCredited === true) {
+        logger.info(`Payment ${paymentId} was already credited. Skipping.`);
+        return;
+    }
+    const sellerId = paymentData.sellerId;
+    const amount = paymentData.amount;
+    const productTitle = paymentData.productTitle || "a product";
+    if (!sellerId || !amount) {
+        logger.error(`Payment ${paymentId} is missing sellerId or amount.`, paymentData);
+        return;
+    }
     try {
-        // 1. Find the corresponding Payment document by transactionId
-        const paymentsRef = db.collection("Payments");
-        const countSnapshot = await paymentsRef.count().get();
-        logger.info(`Searching in Payments collection (Total docs: ${countSnapshot.data().count}) for transactionId: ${transactionId}`);
-        // Search as string
-        let paymentQuery = await paymentsRef.where("transactionId", "==", transactionId).limit(1).get();
-        // If not found, try searching as number (just in case)
-        if (paymentQuery.empty && !isNaN(Number(transactionId))) {
-            paymentQuery = await paymentsRef.where("transactionId", "==", Number(transactionId)).limit(1).get();
-        }
-        if (paymentQuery.empty) {
-            logger.warn(`Payment with transaction ID '${transactionId}' not found in Firestore.`);
-            // DIAGNOSTIC: Log all transactionIds in the database to see what they actually look like
-            const allDocs = await paymentsRef.get();
-            const allIds = allDocs.docs.map(d => ({
-                docId: d.id,
-                transactionId: d.data().transactionId,
-                type: typeof d.data().transactionId
-            }));
-            logger.info(`Existing transaction IDs in DB: ${JSON.stringify(allIds)}`);
-            // Return 404 so Paymob retries the webhook later. 
-            res.status(404).send("Payment record not found yet. Retrying...");
-            return;
-        }
-        const paymentDoc = paymentQuery.docs[0];
-        const paymentData = paymentDoc.data();
-        // Check idempotency (prevent double crediting)
-        if (paymentData.isCredited === true) {
-            logger.info(`Transaction ${transactionId} was already credited.`);
-            res.status(200).send("Already credited");
-            return;
-        }
-        const sellerId = paymentData.sellerId;
-        const amount = paymentData.amount; // Ensure this is the correct amount to credit
-        // Use a Firestore Transaction for atomicity
+        // Atomic transaction: credit seller + create wallet record + mark as credited
         await db.runTransaction(async (t) => {
             var _a;
             const sellerRef = db.collection("Users").doc(sellerId);
@@ -120,7 +102,7 @@ exports.paymobWebhook = (0, https_1.onRequest)(async (req, res) => {
             }
             const currentBalance = ((_a = sellerSnap.data()) === null || _a === void 0 ? void 0 : _a.walletBalance) || 0;
             const newBalance = currentBalance + amount;
-            // Update seller's balance
+            // Update seller's wallet balance
             t.update(sellerRef, { walletBalance: newBalance });
             // Create a WalletTransaction record
             const walletTxRef = db.collection("WalletTransactions").doc();
@@ -129,34 +111,33 @@ exports.paymobWebhook = (0, https_1.onRequest)(async (req, res) => {
                 userId: sellerId,
                 amount: amount,
                 type: "credit",
-                referenceId: paymentDoc.id,
-                description: `Payment received for ${paymentData.productTitle}`,
+                referenceId: paymentId,
+                description: `Payment received for ${productTitle}`,
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
             });
-            // Mark payment as credited
-            t.update(paymentDoc.ref, { isCredited: true });
+            // Mark payment as credited (idempotency flag)
+            t.update(snap.ref, { isCredited: true });
         });
-        logger.info(`Successfully credited ${amount} to seller ${sellerId}`);
-        // Send Notification to Seller
+        logger.info(`Successfully credited ${amount} EGP to seller ${sellerId} for payment ${paymentId}`);
+        // Send push notification to seller
         const sellerDoc = await db.collection("Users").doc(sellerId).get();
-        const fcmToken = (_c = sellerDoc.data()) === null || _c === void 0 ? void 0 : _c.fcmToken;
+        const fcmToken = (_a = sellerDoc.data()) === null || _a === void 0 ? void 0 : _a.fcmToken;
         if (fcmToken) {
             await admin.messaging().send({
                 token: fcmToken,
                 notification: {
                     title: "Payment Received!",
-                    body: `You received ${amount} EGP for your product.`,
+                    body: `You received ${amount} EGP for your product "${productTitle}".`,
                 },
                 data: {
                     type: "wallet_update",
-                }
+                },
             });
+            logger.info(`Push notification sent to seller ${sellerId}`);
         }
-        res.status(200).send("Success");
     }
     catch (error) {
-        logger.error("Error processing webhook:", error);
-        res.status(500).send("Internal Server Error");
+        logger.error(`Error crediting seller for payment ${paymentId}:`, error);
     }
 });
 /**
@@ -219,7 +200,6 @@ exports.onWithdrawalStatusChange = (0, firestore_1.onDocumentUpdated)("Withdrawa
         }
         catch (error) {
             logger.error("Error processing withdrawal completion:", error);
-            // Ideally, revert status or alert admin
         }
     }
     // If status changed to 'rejected'
