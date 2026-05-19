@@ -2,7 +2,8 @@ enum UserRole {
   user,
   admin,
   moderator,
-  premium;
+  premium,
+  agent;
 
   String get displayName {
     switch (this) {
@@ -14,6 +15,8 @@ enum UserRole {
         return 'Moderator';
       case UserRole.premium:
         return 'Premium';
+      case UserRole.agent:
+        return 'Agent';
     }
   }
 }
@@ -173,6 +176,7 @@ class UserModel {
   // Permission helper methods
   bool get isAdmin => role == UserRole.admin;
   bool get isModerator => role == UserRole.moderator;
+  bool get isAgent => role == UserRole.agent;
   /// Returns `true` if the user has an active premium subscription
   /// (either via role or via time-based subscription).
   bool get isPremium =>

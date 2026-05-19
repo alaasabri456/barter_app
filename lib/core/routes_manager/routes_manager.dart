@@ -26,6 +26,8 @@ import '../../features/payment/checkout_screen.dart';
 import '../../features/premium/screens/premium_subscription_screen.dart';
 import '../../features/wallet/screens/wallet_screen.dart';
 import '../../features/admin/screens/admin_withdrawals_screen.dart';
+import '../../features/delivery/screens/agent_dashboard_screen.dart';
+import '../../features/delivery/screens/delivery_status_screen.dart';
 
 class RoutesManager {
   static const String register = "/register";
@@ -53,6 +55,8 @@ class RoutesManager {
   static const String premiumSubscription = '/premium-subscription';
   static const String wallet = '/wallet';
   static const String adminWithdrawals = '/admin-withdrawals';
+  static const String agentDashboard = '/agent-dashboard';
+  static const String deliveryStatus = '/delivery-status';
 
   static Route? router(RouteSettings setting) {
     switch (setting.name) {
@@ -216,6 +220,19 @@ class RoutesManager {
         {
           return MaterialPageRoute(
             builder: (context) => const AdminWithdrawalsScreen(),
+          );
+        }
+      case agentDashboard:
+        {
+          return MaterialPageRoute(
+            builder: (context) => const AgentDashboardScreen(),
+          );
+        }
+      case deliveryStatus:
+        {
+          final orderId = setting.arguments as String;
+          return MaterialPageRoute(
+            builder: (context) => DeliveryStatusScreen(orderId: orderId),
           );
         }
     }

@@ -886,6 +886,21 @@ class FirebaseService {
     }
   }
 
+  static Future<void> addDeliveryProvidedByUser({
+    required String tradeId,
+    required String userId,
+  }) async {
+    try {
+      final tradesCollection = _getTradesCollection();
+      await tradesCollection.doc(tradeId).update({
+        'deliveryProvidedBy': FieldValue.arrayUnion([userId]),
+        'updatedAt': Timestamp.now(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update delivery provided status: $e');
+    }
+  }
+
   /// Automatically reject trades that involve products from a newly accepted trade
   static Future<void> _rejectConflictingTrades({
     required TradeOffer acceptedTrade,

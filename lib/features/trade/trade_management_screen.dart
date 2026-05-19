@@ -15,6 +15,7 @@ import '../authentication/widgets/auth_button.dart';
 import '../../core/routes_manager/routes_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../premium/widgets/premium_badge_widget.dart';
+import '../../services/delivery_service.dart';
 
 class TradeManagementScreen extends StatefulWidget {
   const TradeManagementScreen({super.key});
@@ -227,17 +228,98 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
     }
   }
 
-  Future<void> _completeTrade(TradeOffer trade) async {
-    final confirmed = await showConfirmationDialog(
-      context: context,
-      title: 'Complete Trade',
-      message: 'Has the exchange been successfully completed?',
-      confirmText: 'Yes, Complete',
-      cancelText: 'Not yet',
-      icon: Icons.check_circle_outline,
-    );
+  Future<Map<String, String>?> _showDeliveryDetailsForm(BuildContext context) async {
+    final formKey = GlobalKey<FormState>();
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+    final addressController = TextEditingController();
 
-    if (confirmed != true) return;
+    return showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 24.w,
+            right: 24.w,
+            top: 24.h,
+          ),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Delivery Details',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8.h),
+                Text(
+                  'Please provide your details for the delivery agent.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 24.h),
+                TextFormField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    labelText: 'Full Name',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
+                  ),
+                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                ),
+                SizedBox(height: 16.h),
+                TextFormField(
+                  controller: phoneController,
+                  decoration: InputDecoration(
+                    labelText: 'Phone Number',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
+                  ),
+                  keyboardType: TextInputType.phone,
+                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                ),
+                SizedBox(height: 16.h),
+                TextFormField(
+                  controller: addressController,
+                  decoration: InputDecoration(
+                    labelText: 'Full Address (Street, City, Governorate)',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
+                  ),
+                  maxLines: 2,
+                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                ),
+                SizedBox(height: 32.h),
+                ElevatedButton(
+                  onPressed: () {
+                    if (formKey.currentState!.validate()) {
+                      Navigator.pop(context, {
+                        'fullName': nameController.text.trim(),
+                        'phoneNumber': phoneController.text.trim(),
+                        'address': addressController.text.trim(),
+                      });
+                    }
+                  },
+                  child: const Text('Confirm & Complete Trade'),
+                ),
+                SizedBox(height: 24.h),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _completeTrade(TradeOffer trade) async {
+    final deliveryDetails = await _showDeliveryDetailsForm(context);
+
+    if (deliveryDetails == null) return;
 
     try {
       setState(() {
@@ -251,6 +333,26 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         userName: UserModel.currentUser!.name,
       );
 
+      // Create a new delivery order for this completed trade
+      try {
+        await DeliveryService.createDelivery(
+          userId: UserModel.currentUser!.id,
+          itemName: 'Trade Items (${trade.id.substring(0, 5)})',
+          fullName: deliveryDetails['fullName']!,
+          phoneNumber: deliveryDetails['phoneNumber']!,
+          address: deliveryDetails['address']!,
+          tradeId: trade.id,
+        );
+
+        // Add user to trade's deliveryProvidedBy list
+        await FirebaseService.addDeliveryProvidedByUser(
+          tradeId: trade.id,
+          userId: UserModel.currentUser!.id,
+        );
+      } catch (e) {
+        print('Error creating delivery: $e');
+      }
+
       // Reload trades
       await _loadTrades();
 
@@ -258,7 +360,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         await showInfoDialog(
           context: context,
           title: 'Trade Completed',
-          message: 'Trade marked as complete! You can now leave a review.',
+          message: 'Trade marked as complete! Your delivery order has been created. You can now leave a review.',
           icon: Icons.celebration,
           iconColor: Colors.purple,
         );
@@ -269,6 +371,62 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
           context: context,
           title: 'Error',
           message: 'Failed to complete trade: $e',
+          icon: Icons.error_outline,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _provideDeliveryDetailsOnly(TradeOffer trade) async {
+    final deliveryDetails = await _showDeliveryDetailsForm(context);
+
+    if (deliveryDetails == null) return;
+
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      // Create a new delivery order for this user
+      await DeliveryService.createDelivery(
+        userId: UserModel.currentUser!.id,
+        itemName: 'Trade Items (${trade.id.substring(0, 5)})',
+        fullName: deliveryDetails['fullName']!,
+        phoneNumber: deliveryDetails['phoneNumber']!,
+        address: deliveryDetails['address']!,
+        tradeId: trade.id,
+      );
+
+      // Add user to trade's deliveryProvidedBy list
+      await FirebaseService.addDeliveryProvidedByUser(
+        tradeId: trade.id,
+        userId: UserModel.currentUser!.id,
+      );
+
+      // Reload trades
+      await _loadTrades();
+
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Delivery Requested',
+          message: 'Your delivery has been successfully scheduled!',
+          icon: Icons.check_circle,
+          iconColor: Colors.green,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Error',
+          message: 'Failed to schedule delivery: $e',
           icon: Icons.error_outline,
         );
       }
@@ -871,27 +1029,95 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                   ),
                 ],
               ] else if (trade.status == TradeStatus.completed) ...[
-                AuthButton(
-                  text: 'Leave a Review',
-                  onPressed: () async {
-                    final result = await Navigator.pushNamed(
-                      context,
-                      RoutesManager.leaveReview,
-                      arguments: {
-                        'trade': trade,
-                        'targetUserId':
-                            isReceived ? trade.fromUserId : trade.toUserId,
-                        'targetUserName':
-                            isReceived ? trade.fromUserName : trade.toUserName,
-                      },
-                    );
+                Builder(
+                  builder: (context) {
+                    final currentUserId = UserModel.currentUser?.id ?? '';
+                    final hasProvided = trade.deliveryProvidedBy.contains(currentUserId);
+                    return Row(
+                      children: [
+                        if (!hasProvided)
+                          Expanded(
+                            child: AuthButton(
+                              text: 'Provide Delivery Details',
+                              onPressed: () => _provideDeliveryDetailsOnly(trade),
+                              backgroundColor: Colors.green,
+                            ),
+                          )
+                        else
+                          Expanded(
+                            child: AuthButton(
+                              text: 'Track Delivery',
+                              onPressed: () async {
+                                setState(() {
+                                  _isLoading = true;
+                                });
+                                try {
+                                  final deliveryId = await DeliveryService.getDeliveryIdByTradeAndUser(
+                                    trade.id,
+                                    currentUserId,
+                                  );
+                                  if (deliveryId != null && context.mounted) {
+                                    Navigator.pushNamed(
+                                      context,
+                                      RoutesManager.deliveryStatus,
+                                      arguments: deliveryId,
+                                    );
+                                  } else {
+                                    if (context.mounted) {
+                                      showInfoDialog(
+                                        context: context,
+                                        title: 'Not Found',
+                                        message: 'Could not find a delivery order for you.',
+                                      );
+                                    }
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    showInfoDialog(
+                                      context: context,
+                                      title: 'Error',
+                                      message: 'Failed to retrieve delivery: $e',
+                                    );
+                                  }
+                                } finally {
+                                  if (context.mounted) {
+                                    setState(() {
+                                      _isLoading = false;
+                                    });
+                                  }
+                                }
+                              },
+                              backgroundColor: Colors.blue,
+                            ),
+                          ),
+                        SizedBox(width: 8.w),
+                        Expanded(
+                          child: AuthButton(
+                            text: 'Leave a Review',
+                            onPressed: () async {
+                              final result = await Navigator.pushNamed(
+                                context,
+                                RoutesManager.leaveReview,
+                                arguments: {
+                                  'trade': trade,
+                                  'targetUserId':
+                                      isReceived ? trade.fromUserId : trade.toUserId,
+                                  'targetUserName':
+                                      isReceived ? trade.fromUserName : trade.toUserName,
+                                },
+                              );
 
-                    if (result == true) {
-                      // Maybe disable button or show "Reviewed" text.
-                      // For now, simpler is better.
-                    }
-                  },
-                  isOutlined: true,
+                              if (result == true) {
+                                // Maybe disable button or show "Reviewed" text.
+                                // For now, simpler is better.
+                              }
+                            },
+                            isOutlined: true,
+                          ),
+                        ),
+                      ],
+                    );
+                  }
                 ),
               ],
               if (!trade.isCounterOffer && isReceived && isPending)

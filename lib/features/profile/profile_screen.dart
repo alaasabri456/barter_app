@@ -451,6 +451,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
 
+                  // Agent Dashboard (only for agents)
+                  if (user?.isAgent == true) ...[
+                    _buildSettingItem(
+                      icon: Icons.local_shipping_outlined,
+                      title: 'Agent Dashboard',
+                      subtitle: 'Manage active deliveries',
+                      onTap: () {
+                        Navigator.of(
+                          context,
+                        ).pushNamed(RoutesManager.agentDashboard);
+                      },
+                    ),
+                  ],
+
                   // Premium subscription
                   _buildSettingItem(
                     icon: Icons.workspace_premium,

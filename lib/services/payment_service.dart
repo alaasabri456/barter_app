@@ -1,5 +1,5 @@
 // ignore_for_file: avoid_print
-import 'package:barter/config/payment_config.dart';
+import 'package:barter/config/payment_config.example.dart';
 import 'package:flutter/material.dart';
 import 'package:paymob_payment/paymob_payment.dart';
 import '../features/authentication/models/user_model.dart';

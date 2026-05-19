@@ -480,6 +480,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         return Colors.orange;
       case UserRole.premium:
         return Colors.purple;
+      case UserRole.agent:
+        return Colors.teal;
       case UserRole.user:
         return Colors.blue;
     }

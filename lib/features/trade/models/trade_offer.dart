@@ -29,6 +29,7 @@ class TradeOffer {
   final bool isCounterOffer;
   final String? parentTradeId;
   final bool isFromPremium;
+  final List<String> deliveryProvidedBy;
 
   // Chat related fields
   final String? lastMessage;
@@ -58,6 +59,7 @@ class TradeOffer {
     this.lastMessageSenderId,
     this.hasUnreadMessages = false,
     this.isFromPremium = false,
+    this.deliveryProvidedBy = const [],
   });
 
   factory TradeOffer.fromJson(Map<String, dynamic> json) {
@@ -96,6 +98,7 @@ class TradeOffer {
       lastMessageSenderId: json['lastMessageSenderId'],
       hasUnreadMessages: json['hasUnreadMessages'] ?? false,
       isFromPremium: json['isFromPremium'] ?? false,
+      deliveryProvidedBy: List<String>.from(json['deliveryProvidedBy'] ?? []),
     );
   }
 
@@ -123,6 +126,7 @@ class TradeOffer {
       'lastMessageSenderId': lastMessageSenderId,
       'hasUnreadMessages': hasUnreadMessages,
       'isFromPremium': isFromPremium,
+      'deliveryProvidedBy': deliveryProvidedBy,
     };
   }
 
@@ -148,6 +152,7 @@ class TradeOffer {
     String? lastMessageSenderId,
     bool? hasUnreadMessages,
     bool? isFromPremium,
+    List<String>? deliveryProvidedBy,
   }) {
     return TradeOffer(
       id: id ?? this.id,
@@ -171,6 +176,7 @@ class TradeOffer {
       lastMessageSenderId: lastMessageSenderId ?? this.lastMessageSenderId,
       hasUnreadMessages: hasUnreadMessages ?? this.hasUnreadMessages,
       isFromPremium: isFromPremium ?? this.isFromPremium,
+      deliveryProvidedBy: deliveryProvidedBy ?? this.deliveryProvidedBy,
     );
   }
 }
