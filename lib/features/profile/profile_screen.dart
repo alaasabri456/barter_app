@@ -288,6 +288,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final user = UserModel.currentUser;
     final isGuest = UserModel.isGuest;
+    final isRegularUser = user != null && !user.isAdmin && !user.isAgent;
     final themeProvider = Provider.of<ThemeProvider>(context);
     final languageProvider = Provider.of<LanguageProvider>(context);
     final locale = AppLocalizations.of(context)!;
@@ -377,7 +378,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                   ),
 
-                  if (!isGuest) ...[
+                  if (!isGuest && isRegularUser) ...[
                     SizedBox(height: 16.h),
                     // Stats row
                     Row(
@@ -465,67 +466,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
 
-                  // Premium subscription
-                  _buildSettingItem(
-                    icon: Icons.workspace_premium,
-                    title: 'Premium',
-                    subtitle: user?.isPremium == true
-                        ? 'Your premium is active ✨'
-                        : 'Upgrade for unlimited listings',
-                    onTap: () {
-                      Navigator.of(
-                        context,
-                      ).pushNamed(RoutesManager.premiumSubscription);
-                    },
-                  ),
+                  if (isRegularUser) ...[
+                    // Premium subscription
+                    _buildSettingItem(
+                      icon: Icons.workspace_premium,
+                      title: 'Premium',
+                      subtitle: user?.isPremium == true
+                          ? 'Your premium is active ✨'
+                          : 'Upgrade for unlimited listings',
+                      onTap: () {
+                        Navigator.of(
+                          context,
+                        ).pushNamed(RoutesManager.premiumSubscription);
+                      },
+                    ),
+                  ],
 
                   if (!isGuest) ...[
-                    _buildSettingItem(
-                      icon: Icons.account_balance_wallet_outlined,
-                      title: 'My Wallet',
-                      subtitle: 'Manage your balance and withdrawals',
-                      onTap: () {
-                        Navigator.of(
-                          context,
-                        ).pushNamed(RoutesManager.wallet);
-                      },
-                    ),
-                    _buildSettingItem(
-                      icon: Icons.inventory_2_outlined,
-                      title: locale.items,
-                      subtitle: 'Manage and edit your listed items',
-                      onTap: () {
-                        Navigator.of(
-                          context,
-                        ).pushNamed(RoutesManager.myProducts);
-                      },
-                    ),
+                    if (isRegularUser) ...[
+                      _buildSettingItem(
+                        icon: Icons.account_balance_wallet_outlined,
+                        title: 'My Wallet',
+                        subtitle: 'Manage your balance and withdrawals',
+                        onTap: () {
+                          Navigator.of(
+                            context,
+                          ).pushNamed(RoutesManager.wallet);
+                        },
+                      ),
+                      _buildSettingItem(
+                        icon: Icons.inventory_2_outlined,
+                        title: locale.items,
+                        subtitle: 'Manage and edit your listed items',
+                        onTap: () {
+                          Navigator.of(
+                            context,
+                          ).pushNamed(RoutesManager.myProducts);
+                        },
+                      ),
+                    ],
                     _buildSettingItem(
                       icon: Icons.person_outline,
                       title: locale.editProfile,
                       subtitle: 'Update your personal information',
                       onTap: _editProfile,
                     ),
-                    _buildSettingItem(
-                      icon: Icons.favorite_outline,
-                      title: locale.favorites,
-                      subtitle: 'View your favorite products',
-                      onTap: () {
-                        Navigator.of(
-                          context,
-                        ).pushNamed(RoutesManager.favourites);
-                      },
-                    ),
-                    _buildSettingItem(
-                      icon: Icons.history,
-                      title: locale.tradeHistory,
-                      subtitle: 'View your trading history',
-                      onTap: () {
-                        Navigator.of(
-                          context,
-                        ).pushNamed(RoutesManager.tradeHistory);
-                      },
-                    ),
+                    if (isRegularUser) ...[
+                      _buildSettingItem(
+                        icon: Icons.favorite_outline,
+                        title: locale.favorites,
+                        subtitle: 'View your favorite products',
+                        onTap: () {
+                          Navigator.of(
+                            context,
+                          ).pushNamed(RoutesManager.favourites);
+                        },
+                      ),
+                      _buildSettingItem(
+                        icon: Icons.history,
+                        title: locale.tradeHistory,
+                        subtitle: 'View your trading history',
+                        onTap: () {
+                          Navigator.of(
+                            context,
+                          ).pushNamed(RoutesManager.tradeHistory);
+                        },
+                      ),
+                    ],
                   ],
 
                   SizedBox(height: 24.h),

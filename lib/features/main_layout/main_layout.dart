@@ -4,6 +4,8 @@ import 'package:barter/features/home/home_screen.dart';
 import 'package:barter/features/chat/chat_list_screen.dart';
 import 'package:barter/features/profile/profile_screen.dart';
 import 'package:barter/features/trade/trade_management_screen.dart';
+import 'package:barter/features/admin/screens/admin_dashboard_screen.dart';
+import 'package:barter/features/delivery/screens/agent_dashboard_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/routes_manager/routes_manager.dart';
@@ -21,13 +23,44 @@ class MainLayout extends StatefulWidget {
 }
 
 class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
-  List<Widget> tabs = [
-    HomeScreen(),
-    ChatListScreen(),
-    TradeManagementScreen(),
-    ProfileScreen(),
-  ];
+  late List<Widget> tabs;
   int selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _initTabs();
+  }
+
+  void _initTabs() {
+    final user = UserModel.currentUser;
+    if (user != null && user.isAdmin) {
+      tabs = [
+        AdminDashboardScreen(),
+        ChatListScreen(),
+        ProfileScreen(),
+      ];
+    } else if (user != null && user.isAgent) {
+      tabs = [
+        AgentDashboardScreen(),
+        ChatListScreen(),
+        ProfileScreen(),
+      ];
+    } else {
+      tabs = [
+        HomeScreen(),
+        ChatListScreen(),
+        TradeManagementScreen(),
+        ProfileScreen(),
+      ];
+    }
+  }
+
+  bool get _isRegularUser {
+    final user = UserModel.currentUser;
+    if (user == null) return true; // Guest
+    return !user.isAdmin && !user.isAgent;
+  }
 
   void _onFabPressed() {
     if (UserModel.isGuest) {
@@ -85,38 +118,69 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       elevation: 8,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavItem(
-            icon: selectedIndex == 0 ? Icons.home : Icons.home_outlined,
-            label: AppLocalizations.of(context)!.home,
-            isSelected: selectedIndex == 0,
-            onTap: () => _onTap(0),
-          ),
-          _buildNavItem(
-            icon: selectedIndex == 1 ? Icons.chat : Icons.chat_outlined,
-            label: AppLocalizations.of(context)!.chats,
-            isSelected: selectedIndex == 1,
-            onTap: () => _onTap(1),
-          ),
-          // Integrated FAB
-          _buildFloatingActionButton(),
-          _buildNavItem(
-            icon: selectedIndex == 2
-                ? Icons.swap_horiz
-                : Icons.swap_horiz_outlined,
-            label: AppLocalizations.of(context)!.trades,
-            isSelected: selectedIndex == 2,
-            onTap: () => _onTap(2),
-          ),
-          _buildNavItem(
-            icon: selectedIndex == 3 ? Icons.person : Icons.person_outline,
-            label: AppLocalizations.of(context)!.profile,
-            isSelected: selectedIndex == 3,
-            onTap: () => _onTap(3),
-          ),
-        ],
+        children: _isRegularUser 
+            ? _buildRegularUserNavItems() 
+            : _buildRoleNavItems(),
       ),
     );
+  }
+
+  List<Widget> _buildRegularUserNavItems() {
+    return [
+      _buildNavItem(
+        icon: selectedIndex == 0 ? Icons.home : Icons.home_outlined,
+        label: AppLocalizations.of(context)!.home,
+        isSelected: selectedIndex == 0,
+        onTap: () => _onTap(0),
+      ),
+      _buildNavItem(
+        icon: selectedIndex == 1 ? Icons.chat : Icons.chat_outlined,
+        label: AppLocalizations.of(context)!.chats,
+        isSelected: selectedIndex == 1,
+        onTap: () => _onTap(1),
+      ),
+      // Integrated FAB
+      _buildFloatingActionButton(),
+      _buildNavItem(
+        icon: selectedIndex == 2
+            ? Icons.swap_horiz
+            : Icons.swap_horiz_outlined,
+        label: AppLocalizations.of(context)!.trades,
+        isSelected: selectedIndex == 2,
+        onTap: () => _onTap(2),
+      ),
+      _buildNavItem(
+        icon: selectedIndex == 3 ? Icons.person : Icons.person_outline,
+        label: AppLocalizations.of(context)!.profile,
+        isSelected: selectedIndex == 3,
+        onTap: () => _onTap(3),
+      ),
+    ];
+  }
+
+  List<Widget> _buildRoleNavItems() {
+    final isAgent = UserModel.currentUser?.isAgent ?? false;
+    
+    return [
+      _buildNavItem(
+        icon: selectedIndex == 0 ? Icons.dashboard : Icons.dashboard_outlined,
+        label: isAgent ? 'Agent' : 'Admin',
+        isSelected: selectedIndex == 0,
+        onTap: () => _onTap(0),
+      ),
+      _buildNavItem(
+        icon: selectedIndex == 1 ? Icons.chat : Icons.chat_outlined,
+        label: AppLocalizations.of(context)!.chats,
+        isSelected: selectedIndex == 1,
+        onTap: () => _onTap(1),
+      ),
+      _buildNavItem(
+        icon: selectedIndex == 2 ? Icons.person : Icons.person_outline,
+        label: AppLocalizations.of(context)!.profile,
+        isSelected: selectedIndex == 2,
+        onTap: () => _onTap(2),
+      ),
+    ];
   }
 
   Widget _buildNavItem({
@@ -182,9 +246,13 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   void _onTap(int newIndex) {
-    if (UserModel.isGuest && (newIndex == 1 || newIndex == 2)) {
-      _showGuestLoginPrompt();
-      return;
+    if (_isRegularUser) {
+      if (UserModel.isGuest && (newIndex == 1 || newIndex == 2)) {
+        _showGuestLoginPrompt();
+        return;
+      }
+    } else {
+      // For Admins and Agents, newIndex == 1 is Chats (no login prompt needed as they are logged in)
     }
     setState(() {
       selectedIndex = newIndex;
