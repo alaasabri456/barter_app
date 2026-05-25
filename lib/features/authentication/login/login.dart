@@ -31,7 +31,7 @@ class _LoginState extends State<Login> {
   bool _isLoading = false;
   // ignore: unused_field, prefer_final_fields
   bool _obscurePassword = true;
-  UserRole _selectedRole = UserRole.user;
+
 
   @override
   void dispose() {
@@ -92,36 +92,24 @@ class _LoginState extends State<Login> {
               );
             }
           }
-        } else if (UserModel.currentUser != null) {
-          // Verify role if Admin is selected
-          if (_selectedRole == UserRole.admin && !UserModel.currentUser!.isAdmin) {
-            setState(() {
-              _isLoading = false;
-            });
-            await FirebaseAuth.instance.signOut();
-            UserModel.currentUser = null;
+          } else if (UserModel.currentUser != null) {
+            // Update FCM token on login
+            await PushNotificationService.updateToken();
+
             if (mounted) {
-              await showInfoDialog(
-                context: context,
-                title: 'Access Denied',
-                message: 'This account does not have admin privileges. Please login as a regular user.',
-                icon: Icons.lock_outline,
-                iconColor: Colors.red,
-              );
+              // Navigate based on user role
+              switch (UserModel.currentUser!.role) {
+                case UserRole.admin:
+                  Navigator.of(context).pushNamedAndRemoveUntil(RoutesManager.adminDashboard, (route) => false);
+                  break;
+                case UserRole.agent:
+                  Navigator.of(context).pushNamedAndRemoveUntil(RoutesManager.agentDashboard, (route) => false);
+                  break;
+                default:
+                  Navigator.of(context).pushNamedAndRemoveUntil(RoutesManager.mainLayout, (route) => false);
+              }
             }
-            return;
           }
-
-          // Update FCM token on login
-          await PushNotificationService.updateToken();
-
-          if (mounted) {
-            // Navigate to main layout
-            Navigator.of(
-              context,
-            ).pushNamedAndRemoveUntil(RoutesManager.mainLayout, (route) => false);
-          }
-        }
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
@@ -324,17 +312,7 @@ class _LoginState extends State<Login> {
 
                 SizedBox(height: 48.h),
 
-                // Role Selection
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildRoleChip(UserRole.user, Icons.person_outline),
-                    SizedBox(width: 16.w),
-                    _buildRoleChip(UserRole.admin, Icons.admin_panel_settings_outlined),
-                  ],
-                ),
 
-                SizedBox(height: 32.h),
 
                 // Email field
                 AuthTextFieldWithIcon(
@@ -499,53 +477,5 @@ class _LoginState extends State<Login> {
     );
   }
 
-  Widget _buildRoleChip(UserRole role, IconData icon) {
-    final isSelected = _selectedRole == role;
-    final primaryColor = Theme.of(context).primaryColor;
 
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedRole = role;
-        });
-      },
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
-        decoration: BoxDecoration(
-          color: isSelected ? primaryColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(30.r),
-          border: Border.all(
-            color: isSelected ? primaryColor : Colors.grey.withOpacity(0.3),
-            width: 1,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: primaryColor.withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  )
-                ]
-              : null,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 20.w,
-              color: isSelected ? Colors.white : Colors.grey,
-            ),
-            SizedBox(width: 8.w),
-            Text(
-              role.displayName,
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.grey,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

@@ -12,7 +12,8 @@ class AuthTextField extends StatefulWidget {
   final Widget? prefixIcon;
   final Widget? suffixIcon;
   final bool enabled;
-  final int maxLines;
+  final int? maxLines; // nullable to allow auto expansion
+  final int minLines; // minimum lines, default 1
   final TextInputAction textInputAction;
   final void Function()? onEditingComplete;
   final bool autofocus;
@@ -29,7 +30,8 @@ class AuthTextField extends StatefulWidget {
     this.prefixIcon,
     this.suffixIcon,
     this.enabled = true,
-    this.maxLines = 1,
+    this.maxLines,
+    this.minLines = 1,
     this.textInputAction = TextInputAction.next,
     this.onEditingComplete,
     this.autofocus = false,
@@ -78,14 +80,15 @@ class _AuthTextFieldState extends State<AuthTextField> {
         TextFormField(
           controller: widget.controller,
           focusNode: _focusNode,
-          keyboardType: widget.maxLines > 1
+          keyboardType: (widget.maxLines == null || (widget.maxLines! > 1))
               ? TextInputType.multiline
               : widget.keyboardType,
           obscureText: widget.isPassword ? _obscureText : false,
           validator: widget.validator,
           onChanged: widget.onChanged,
           enabled: widget.enabled,
-          maxLines: widget.maxLines,
+          maxLines: widget.isPassword ? 1 : widget.maxLines,
+          minLines: widget.minLines,
           textInputAction: widget.textInputAction,
           onEditingComplete: widget.onEditingComplete,
           autofocus: widget.autofocus,

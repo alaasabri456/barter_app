@@ -39,7 +39,7 @@ class LocationService {
       double latitude, double longitude) async {
     try {
       final url = Uri.parse(
-          'https://nominatim.openstreetmap.org/reverse?format=json&lat=$latitude&lon=$longitude&zoom=10&addressdetails=1');
+          'https://nominatim.openstreetmap.org/reverse?format=json&lat=$latitude&lon=$longitude&zoom=18&addressdetails=1');
 
       final response = await http.get(url, headers: {
         'User-Agent': 'BarterApp/1.0', // Required by Nominatim policy
@@ -48,17 +48,42 @@ class LocationService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final address = data['address'];
+        if (address == null) return null;
 
-        // Try to construct a concise address (City, Country)
-        String city = address['city'] ??
-            address['town'] ??
-            address['village'] ??
-            address['suburb'] ??
-            address['county'] ??
-            'Unknown Location';
-        String country = address['country'] ?? '';
-
-        return country.isNotEmpty ? '$city, $country' : city;
+        // Build a detailed address using available components
+        List<String> parts = [];
+        // Street name (road) and house number if available
+        if (address['road'] != null) {
+          String street = address['road'];
+          if (address['house_number'] != null) {
+            street = '${address['house_number']} $street';
+          }
+          parts.add(street);
+        }
+        // Neighborhood / district
+        if (address['neighbourhood'] != null) {
+          parts.add(address['neighbourhood']);
+        } else if (address['suburb'] != null) {
+          parts.add(address['suburb']);
+        }
+        // City / town / village
+        if (address['city'] != null) {
+          parts.add(address['city']);
+        } else if (address['town'] != null) {
+          parts.add(address['town']);
+        } else if (address['village'] != null) {
+          parts.add(address['village']);
+        }
+        // State / region
+        if (address['state'] != null) {
+          parts.add(address['state']);
+        }
+        // Country
+        if (address['country'] != null) {
+          parts.add(address['country']);
+        }
+        // Join parts with commas for a readable address
+        return parts.join(', ');
       }
     } catch (e) {
       print('Error in reverse geocoding: $e');

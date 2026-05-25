@@ -280,47 +280,7 @@ class _ProductsScreenState extends State<ProductsScreen>
 
               SizedBox(height: 24.h),
 
-              // Distance filter
-              if (_currentPosition != null) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Distance',
-                      style: Theme.of(
-                        context,
-                      )
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                    Text(
-                      '${_maxDistance.toInt()} km',
-                      style: TextStyle(
-                        color: Theme.of(context).primaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                Slider(
-                  value: _maxDistance,
-                  min: 1,
-                  max: 200,
-                  divisions: 199,
-                  label: '${_maxDistance.toInt()} km',
-                  activeColor: Theme.of(context).primaryColor,
-                  onChanged: (value) {
-                    setModalState(() {
-                      _maxDistance = value;
-                    });
-                    setState(() {
-                      _maxDistance = value;
-                    });
-                  },
-                ),
-                SizedBox(height: 12.h),
-              ],
+              // Removed distance filter UI for user's own products
 
               SizedBox(height: 32.h),
 
@@ -514,18 +474,7 @@ class _ProductsScreenState extends State<ProductsScreen>
             product.type.name.toLowerCase() == _selectedType.toLowerCase();
       }
 
-      // Distance filter
-      if (_currentPosition != null &&
-          product.latitude != null &&
-          product.longitude != null) {
-        final distance = LocationService.calculateDistance(
-          _currentPosition!.latitude,
-          _currentPosition!.longitude,
-          product.latitude!,
-          product.longitude!,
-        );
-        matchesFilter = matchesFilter && distance <= _maxDistance;
-      }
+      // Removed distance filter for user's own products
 
       return matchesFilter;
     }).toList();

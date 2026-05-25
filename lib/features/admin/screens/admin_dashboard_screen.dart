@@ -16,33 +16,10 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   AdminStats? _stats;
-  bool _isLoading = true;
-  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _loadStats();
-  }
-
-  Future<void> _loadStats() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final stats = await FirebaseService.getSystemStats();
-      setState(() {
-        _stats = stats;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
-    }
   }
 
   @override
@@ -51,94 +28,112 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline, size: 64.sp, color: Colors.red),
-                      SizedBox(height: 16.h),
-                      Text('Error: $_error'),
-                      SizedBox(height: 16.h),
-                      ElevatedButton(
-                        onPressed: _loadStats,
-                        child: const Text('Retry'),
-                      ),
-                    ],
+      body: StreamBuilder<AdminStats>(
+        stream: FirebaseService.streamSystemStats(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 64.sp, color: Colors.red),
+                  SizedBox(height: 16.h),
+                  Text('Error: ${snapshot.error}'),
+                  SizedBox(height: 16.h),
+                  ElevatedButton(
+                    onPressed: () => setState(() {}),
+                    child: const Text('Retry'),
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadStats,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.all(16.w),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Statistics Cards
-                        Text(
-                          'System Overview',
-                          style: TextStyle(
-                            fontSize: 24.sp,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 16.h),
-                        _buildStatsGrid(),
-                        SizedBox(height: 32.h),
+                ],
+              ),
+            );
+          }
 
-                        // Quick Actions
-                        Text(
-                          'Quick Actions',
-                          style: TextStyle(
-                            fontSize: 24.sp,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 16.h),
-                        _buildQuickActions(),
-                        SizedBox(height: 32.h),
+          _stats = snapshot.data;
 
-                        // User Role Distribution
-                        Text(
-                          'User Distribution',
-                          style: TextStyle(
-                            fontSize: 24.sp,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 16.h),
-                        _buildUserRoleDistribution(),
-                      ],
-                    ),
+          if (_stats == null) {
+            return const Center(child: Text('No stats available'));
+          }
+
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.all(16.w),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Statistics Cards
+                Text(
+                  'System Overview',
+                  style: TextStyle(
+                    fontSize: 24.sp,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
+                SizedBox(height: 16.h),
+                _buildStatsGrid(),
+                SizedBox(height: 32.h),
+
+                // Quick Actions
+                Text(
+                  'Quick Actions',
+                  style: TextStyle(
+                    fontSize: 24.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                _buildQuickActions(),
+                SizedBox(height: 32.h),
+
+                // User Role Distribution
+                Text(
+                  'User Distribution',
+                  style: TextStyle(
+                    fontSize: 24.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                _buildUserRoleDistribution(),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
   Widget _buildStatsGrid() {
-    return GridView.count(
-      crossAxisCount: 3,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12.h,
-      crossAxisSpacing: 12.w,
-      childAspectRatio: 0.9,
-      children: [
-        _buildStatCard(
-          'Total Users',
-          _stats!.totalUsers.toString(),
-          Icons.people,
-          Colors.blue,
-        ),
-        _buildStatCard(
-          'Total Products',
-          _stats!.totalProducts.toString(),
-          Icons.inventory,
-          Colors.green,
-        ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmallScreen = constraints.maxWidth < 360;
+        final count = isSmallScreen ? 2 : 3;
+        final ratio = isSmallScreen ? 1.2 : 0.9;
+        
+        return GridView.count(
+          crossAxisCount: count,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12.h,
+          crossAxisSpacing: 12.w,
+          childAspectRatio: ratio,
+          children: [
+            _buildStatCard(
+              'Total Users',
+              _stats!.totalUsers.toString(),
+              Icons.people,
+              Colors.blue,
+            ),
+            _buildStatCard(
+              'Total Products',
+              _stats!.totalProducts.toString(),
+              Icons.inventory,
+              Colors.green,
+            ),
         _buildStatCard(
           'Total Trades',
           _stats!.totalTrades.toString(),
@@ -164,6 +159,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Colors.deepOrange,
         ),
       ],
+        );
+      },
     );
   }
 
@@ -194,21 +191,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         children: [
           Icon(icon, size: 28.sp, color: color),
           SizedBox(height: 6.h),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 24.sp,
-              fontWeight: FontWeight.bold,
-              color: color,
+          Expanded(
+            child: Center(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      value,
+                      style: TextStyle(
+                        fontSize: 22.sp,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      title,
+                      style: TextStyle(fontSize: 11.sp, color: Colors.grey),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          SizedBox(height: 2.h),
-          Text(
-            title,
-            style: TextStyle(fontSize: 11.sp, color: Colors.grey),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

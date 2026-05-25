@@ -458,10 +458,12 @@ class FirebaseService {
   static Stream<List<ProductModel>> getProductsStream() {
     final productsCollection = _getProductsCollection(null);
     return productsCollection
-        .orderBy("createdAt", descending: true)
+        .where('status', isEqualTo: ProductStatus.available.name)
+        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((querySnapshot) =>
-            querySnapshot.docs.map((doc) => doc.data()).toList());
+        .map((querySnapshot) {
+          return querySnapshot.docs.map((doc) => doc.data()).toList();
+        });
   }
 
   static Future<String> uploadProductImage(
@@ -759,6 +761,27 @@ class FirebaseService {
     }
   }
 
+  static Stream<List<TradeOffer>> streamReceivedTrades(String userId) {
+    final tradesCollection = _getTradesCollection();
+    return tradesCollection
+        .where('toUserId', isEqualTo: userId)
+        .where('status', whereIn: ['pending', 'accepted'])
+        .snapshots()
+        .map((snapshot) {
+      final trades = snapshot.docs.map((doc) => doc.data()).toList();
+
+      // Sort locally: Premium users' trades first, then by date
+      trades.sort((a, b) {
+        if (a.isFromPremium != b.isFromPremium) {
+          return a.isFromPremium ? -1 : 1;
+        }
+        return b.createdAt.compareTo(a.createdAt);
+      });
+
+      return trades;
+    });
+  }
+
   static Future<List<TradeOffer>> getSentTrades(String userId) async {
     try {
       final tradesCollection = _getTradesCollection();
@@ -781,6 +804,26 @@ class FirebaseService {
     } catch (e) {
       throw Exception('Failed to get sent trades: $e');
     }
+  }
+
+  static Stream<List<TradeOffer>> streamSentTrades(String userId) {
+    final tradesCollection = _getTradesCollection();
+    return tradesCollection
+        .where('fromUserId', isEqualTo: userId)
+        .snapshots()
+        .map((snapshot) {
+      final trades = snapshot.docs.map((doc) => doc.data()).toList();
+
+      // Sort locally: Premium users' trades first, then by date
+      trades.sort((a, b) {
+        if (a.isFromPremium != b.isFromPremium) {
+          return a.isFromPremium ? -1 : 1;
+        }
+        return b.createdAt.compareTo(a.createdAt);
+      });
+
+      return trades;
+    });
   }
 
   static Future<void> updateTradeStatus({
@@ -1220,17 +1263,22 @@ class FirebaseService {
       return products;
     } catch (e) {
       print('=== DEBUG: ERROR in getUserProducts: $e ===');
-      print('=== DEBUG: Error type: ${e.runtimeType} ===');
-
-      if (e is FirebaseException) {
-        print('=== DEBUG: Firebase error code: ${e.code} ===');
-        print('=== DEBUG: Firebase error message: ${e.message} ===');
-      }
 
       throw Exception(
         'Failed to load your products. Please check your connection and try again.',
       );
     }
+  }
+
+  static Stream<List<ProductModel>> streamUserProducts(String userId) {
+    final productsCollection = _getProductsCollection(null);
+    return productsCollection
+        .where('ownerId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) => doc.data()).toList();
+    });
   }
 
   // If you need to get products by IDs (for trade details)
@@ -1776,13 +1824,19 @@ class FirebaseService {
 
       await messagesCollection.doc(message.id).set(message.toJson());
 
-      // Update conversation with last message info
-      await conversationsCollection.doc(conversationId).update({
+      // Update conversation with last message info and increment unread count for recipient
+      final updateData = <String, dynamic>{
         'lastMessage': message.imageUrl != null ? '📷 Photo' : message.text,
         'lastMessageTime': Timestamp.fromDate(message.timestamp),
         'lastMessageSenderId': message.senderId,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+      
+      if (recipientId.isNotEmpty) {
+        updateData['unreadCount_$recipientId'] = FieldValue.increment(1);
+      }
+
+      await conversationsCollection.doc(conversationId).update(updateData);
 
       // Send push notification to the recipient
       if (recipientId.isNotEmpty) {
@@ -1856,6 +1910,11 @@ class FirebaseService {
       for (final doc in unreadMessages.docs) {
         batch.update(doc.reference, {'isRead': true});
       }
+
+      // Also reset the conversation's unread count for this user
+      batch.update(conversationsCollection.doc(conversationId), {
+        'unreadCount_$userId': 0,
+      });
 
       await batch.commit();
     } catch (e) {
@@ -2092,6 +2151,13 @@ class FirebaseService {
     }
   }
 
+  /// Stream all users (admin only)
+  static Stream<List<UserModel>> streamAllUsers() {
+    return _getUsersCollection().snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) => doc.data()).toList();
+    });
+  }
+
   /// Update user role (admin only)
   static Future<void> updateUserRole({
     required String userId,
@@ -2151,9 +2217,42 @@ class FirebaseService {
         });
       }
 
+      // Mark user as suspended in UserModel
+      final usersCollection = _getUsersCollection();
+      batch.update(usersCollection.doc(userId), {'isSuspended': true});
+
       await batch.commit();
     } catch (e) {
       throw Exception('Failed to suspend user: $e');
+    }
+  }
+
+  /// Unsuspend user (admin only)
+  static Future<void> unsuspendUser(String userId) async {
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+
+      // Unsuspend user in UserModel
+      final usersCollection = _getUsersCollection();
+      batch.update(usersCollection.doc(userId), {'isSuspended': false});
+
+      // Mark all user's unavailable products as available
+      final productsCollection = _getProductsCollection(null);
+      final userProducts = await productsCollection
+          .where('ownerId', isEqualTo: userId)
+          .where('status', isEqualTo: ProductStatus.unavailable.name)
+          .get();
+
+      for (final doc in userProducts.docs) {
+        batch.update(doc.reference, {
+          'isAvailable': true,
+          'status': ProductStatus.available.name,
+        });
+      }
+
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to unsuspend user: $e');
     }
   }
 
@@ -2176,10 +2275,10 @@ class FirebaseService {
       final sentTrades =
           await tradesCollection.where('fromUserId', isEqualTo: userId).get();
 
-      final receivedTrades =
+      final receivedQuery =
           await tradesCollection.where('toUserId', isEqualTo: userId).get();
 
-      for (final doc in [...sentTrades.docs, ...receivedTrades.docs]) {
+      for (final doc in [...sentTrades.docs, ...receivedQuery.docs]) {
         batch.delete(doc.reference);
       }
 
@@ -2291,6 +2390,181 @@ class FirebaseService {
       throw Exception('Failed to get system stats: $e');
     }
   }
+
+  /// Stream system statistics (admin only)
+  static Stream<AdminStats> streamSystemStats() {
+    final controller = StreamController<AdminStats>();
+
+    QuerySnapshot<UserModel>? latestUsers;
+    QuerySnapshot<ProductModel>? latestProducts;
+    QuerySnapshot<TradeOffer>? latestTrades;
+    QuerySnapshot? latestReports;
+
+    void emitUpdate() {
+      if (latestUsers == null ||
+          latestProducts == null ||
+          latestTrades == null ||
+          latestReports == null) {
+        return;
+      }
+
+      final users = latestUsers!.docs.map((doc) => doc.data()).toList();
+
+      final usersByRole = <String, int>{};
+      for (final role in UserRole.values) {
+        usersByRole[role.name] = users.where((u) => u.role == role).length;
+      }
+
+      final trades = latestTrades!.docs.map((doc) => doc.data()).toList();
+
+      final activeTrades =
+          trades.where((t) => t.status == TradeStatus.accepted).length;
+      final completedTrades =
+          trades.where((t) => t.status == TradeStatus.completed).length;
+      final pendingTrades =
+          trades.where((t) => t.status == TradeStatus.pending).length;
+
+      final totalReports = latestReports!.docs.length;
+      final pendingReports = latestReports!.docs.where((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return (data['status'] ?? 'pending') == 'pending';
+      }).length;
+
+      final stats = AdminStats(
+        totalUsers: users.length,
+        totalProducts: latestProducts!.docs.length,
+        totalTrades: trades.length,
+        activeTrades: activeTrades,
+        completedTrades: completedTrades,
+        pendingTrades: pendingTrades,
+        usersByRole: usersByRole,
+        totalReports: totalReports,
+        pendingReports: pendingReports,
+        lastUpdated: DateTime.now(),
+      );
+      controller.add(stats);
+    }
+
+    final subs = [
+      _getUsersCollection().snapshots().listen((snap) {
+        latestUsers = snap;
+        emitUpdate();
+      }),
+      _getProductsCollection(null).snapshots().listen((snap) {
+        latestProducts = snap;
+        emitUpdate();
+      }),
+      _getTradesCollection().snapshots().listen((snap) {
+        latestTrades = snap;
+        emitUpdate();
+      }),
+      FirebaseFirestore.instance.collection('Reports').snapshots().listen((snap) {
+        latestReports = snap;
+        emitUpdate();
+      }),
+    ];
+
+    controller.onCancel = () {
+      for (final sub in subs) {
+        sub.cancel();
+      }
+    };
+
+    return controller.stream;
+  }
+
+  static Stream<Map<String, int>> streamProfileStats(String userId) {
+    final controller = StreamController<Map<String, int>>();
+
+    QuerySnapshot<ProductModel>? latestProducts;
+    QuerySnapshot<TradeOffer>? latestReceivedTrades;
+    QuerySnapshot<TradeOffer>? latestSentTrades;
+    QuerySnapshot? latestReviews;
+
+    void emitUpdate() {
+      if (latestProducts == null ||
+          latestReceivedTrades == null ||
+          latestSentTrades == null ||
+          latestReviews == null) {
+        return;
+      }
+
+      final sent = latestSentTrades!.docs.map((d) => d.data());
+      final received = latestReceivedTrades!.docs.map((d) => d.data());
+
+      final completedTradesCount = [...sent, ...received]
+          .where((t) =>
+              t.status == TradeStatus.accepted ||
+              t.status == TradeStatus.completed)
+          .length;
+
+      controller.add({
+        'productsCount': latestProducts!.docs.length,
+        'completedTradesCount': completedTradesCount,
+        'reviewsCount': latestReviews!.docs.length,
+      });
+    }
+
+    final subs = [
+      _getProductsCollection(null)
+          .where('ownerId', isEqualTo: userId)
+          .snapshots()
+          .listen((snap) {
+        latestProducts = snap;
+        emitUpdate();
+      }),
+      _getTradesCollection()
+          .where('toUserId', isEqualTo: userId)
+          .snapshots()
+          .listen((snap) {
+        latestReceivedTrades = snap;
+        emitUpdate();
+      }),
+      _getTradesCollection()
+          .where('fromUserId', isEqualTo: userId)
+          .snapshots()
+          .listen((snap) {
+        latestSentTrades = snap;
+        emitUpdate();
+      }),
+      FirebaseFirestore.instance
+          .collection('Users')
+          .doc(userId)
+          .collection('Reviews')
+          .snapshots()
+          .listen((snap) {
+        latestReviews = snap;
+        emitUpdate();
+      }),
+    ];
+
+    controller.onCancel = () {
+      for (final sub in subs) {
+        sub.cancel();
+      }
+    };
+
+    return controller.stream;
+  }
+
+  static Stream<List<ReportModel>> streamAllReports() {
+    return FirebaseFirestore.instance
+        .collection('Reports')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) {
+              try {
+                return ReportModel.fromJson(doc.data());
+              } catch (e) {
+                print('Error parsing report: $e');
+                return null;
+              }
+            })
+            .whereType<ReportModel>()
+            .toList());
+  }
+
 
   /// Search users by name or email (admin only)
   static Future<List<UserModel>> searchUsers(String query) async {

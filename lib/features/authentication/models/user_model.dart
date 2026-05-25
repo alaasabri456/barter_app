@@ -37,6 +37,7 @@ class UserModel {
   bool isAnonymous;
   bool is2faEnabled;
   bool isPremiumActive;
+  bool isSuspended;
   DateTime? premiumExpiresAt;
   double walletBalance;
 
@@ -53,6 +54,7 @@ class UserModel {
     this.isAnonymous = false,
     this.is2faEnabled = false,
     this.isPremiumActive = false,
+    this.isSuspended = false,
     this.premiumExpiresAt,
     this.walletBalance = 0.0,
   });
@@ -68,6 +70,7 @@ class UserModel {
       isAnonymous: true,
       is2faEnabled: false,
       isPremiumActive: false,
+      isSuspended: false,
       walletBalance: 0.0,
     );
   }
@@ -92,6 +95,7 @@ class UserModel {
           isAnonymous: json["isAnonymous"] ?? false,
           is2faEnabled: json["is2faEnabled"] ?? false,
           isPremiumActive: json["isPremiumActive"] ?? false,
+          isSuspended: json["isSuspended"] ?? false,
           premiumExpiresAt: _parsePremiumExpiry(json["premiumExpiresAt"]),
           walletBalance: (json["walletBalance"] as num?)?.toDouble() ?? 0.0,
         );
@@ -135,6 +139,7 @@ class UserModel {
         "isAnonymous": isAnonymous,
         "is2faEnabled": is2faEnabled,
         "isPremiumActive": isPremiumActive,
+        "isSuspended": isSuspended,
         "premiumExpiresAt": premiumExpiresAt?.toIso8601String(),
         "walletBalance": walletBalance,
       };
@@ -152,6 +157,7 @@ class UserModel {
     bool? isAnonymous,
     bool? is2faEnabled,
     bool? isPremiumActive,
+    bool? isSuspended,
     DateTime? premiumExpiresAt,
     double? walletBalance,
   }) {
@@ -168,6 +174,7 @@ class UserModel {
       isAnonymous: isAnonymous ?? this.isAnonymous,
       is2faEnabled: is2faEnabled ?? this.is2faEnabled,
       isPremiumActive: isPremiumActive ?? this.isPremiumActive,
+      isSuspended: isSuspended ?? this.isSuspended,
       premiumExpiresAt: premiumExpiresAt ?? this.premiumExpiresAt,
       walletBalance: walletBalance ?? this.walletBalance,
     );

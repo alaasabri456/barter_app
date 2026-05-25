@@ -333,6 +333,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       return;
     }
     if (_product == null) return;
+    if (_product!.ownerId == UserModel.currentUser!.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You cannot report your own item.')),
+      );
+      return;
+    }
 
     ReportReason? selectedReason;
     final descriptionController = TextEditingController();
@@ -528,11 +534,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             icon: Icon(Icons.share_outlined),
             tooltip: 'Share Item',
           ),
-          IconButton(
-            onPressed: _reportProduct,
-            icon: Icon(Icons.flag_outlined),
-            tooltip: 'Report Item',
-          ),
+          if (!isOwnProduct)
+            IconButton(
+              onPressed: _reportProduct,
+              icon: Icon(Icons.flag_outlined),
+              tooltip: 'Report Item',
+            ),
         ],
       ),
       body: LoadingOverlay(
@@ -778,15 +785,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             color: Theme.of(context).primaryColor,
                           ),
                           SizedBox(width: 8.w),
-                          Text(
-                            product.transactionType == TransactionType.sell
-                                ? 'Price: \$${product.price?.toStringAsFixed(2) ?? "0.00"}'
-                                : 'For Barter (Swap with: ${product.desiredSwapCategory ?? "Any"})',
-                            style: TextStyle(
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.w600,
-                              color:
-                                  Theme.of(context).textTheme.bodyLarge?.color,
+                          Expanded(
+                            child: Text(
+                              product.transactionType == TransactionType.sell
+                                  ? 'Price: \$${product.price?.toStringAsFixed(2) ?? "0.00"}'
+                                  : 'For Barter (Swap with: ${product.desiredSwapCategory ?? "Any"})',
+                              style: TextStyle(
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w600,
+                                color:
+                                    Theme.of(context).textTheme.bodyLarge?.color,
+                              ),
                             ),
                           ),
                         ],

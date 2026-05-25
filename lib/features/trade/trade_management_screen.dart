@@ -27,15 +27,12 @@ class TradeManagementScreen extends StatefulWidget {
 class _TradeManagementScreenState extends State<TradeManagementScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  List<TradeOffer> _receivedTrades = [];
-  List<TradeOffer> _sentTrades = [];
-  bool _isLoading = true;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadTrades();
 
     // Debug: Check received trades
     _debugCheckTrades();
@@ -57,26 +54,6 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
     super.dispose();
   }
 
-  Future<void> _loadTrades() async {
-    try {
-      final user = UserModel.currentUser!;
-      final [received, sent] = await Future.wait([
-        FirebaseService.getReceivedTrades(user.id),
-        FirebaseService.getSentTrades(user.id),
-      ]);
-
-      setState(() {
-        _receivedTrades = received;
-        _sentTrades = sent;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
   Future<void> _acceptTrade(TradeOffer trade) async {
     try {
       setState(() {
@@ -89,9 +66,6 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         userId: UserModel.currentUser!.id,
         userName: UserModel.currentUser!.name,
       );
-
-      // Reload trades
-      await _loadTrades();
 
       if (mounted) {
         await showInfoDialog(
@@ -144,9 +118,6 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         userName: UserModel.currentUser!.name,
       );
 
-      // Reload trades
-      await _loadTrades();
-
       if (mounted) {
         await showInfoDialog(
           context: context,
@@ -198,9 +169,6 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         userName: UserModel.currentUser!.name,
       );
 
-      // Reload trades
-      await _loadTrades();
-
       if (mounted) {
         await showInfoDialog(
           context: context,
@@ -250,22 +218,23 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
           ),
           child: Form(
             key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Delivery Details',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 8.h),
-                Text(
-                  'Please provide your details for the delivery agent.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 24.h),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Delivery Details',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 8.h),
+                  Text(
+                    'Please provide your details for the delivery agent.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 24.h),
                 TextFormField(
                   controller: nameController,
                   decoration: InputDecoration(
@@ -310,6 +279,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                 SizedBox(height: 24.h),
               ],
             ),
+            ),
           ),
         );
       },
@@ -352,9 +322,6 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
       } catch (e) {
         print('Error creating delivery: $e');
       }
-
-      // Reload trades
-      await _loadTrades();
 
       if (mounted) {
         await showInfoDialog(
@@ -408,9 +375,6 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         tradeId: trade.id,
         userId: UserModel.currentUser!.id,
       );
-
-      // Reload trades
-      await _loadTrades();
 
       if (mounted) {
         await showInfoDialog(
@@ -466,8 +430,36 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildTradesList(_receivedTrades, isReceived: true),
-                  _buildTradesList(_sentTrades, isReceived: false),
+                  StreamBuilder<List<TradeOffer>>(
+                    stream: FirebaseService.streamReceivedTrades(
+                      UserModel.currentUser!.id,
+                    ),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Error: ${snapshot.error}'));
+                      }
+                      final trades = snapshot.data ?? [];
+                      return _buildTradesList(trades, isReceived: true);
+                    },
+                  ),
+                  StreamBuilder<List<TradeOffer>>(
+                    stream: FirebaseService.streamSentTrades(
+                      UserModel.currentUser!.id,
+                    ),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Error: ${snapshot.error}'));
+                      }
+                      final trades = snapshot.data ?? [];
+                      return _buildTradesList(trades, isReceived: false);
+                    },
+                  ),
                 ],
               ),
             ),
@@ -531,16 +523,13 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: _loadTrades,
-      child: ListView.builder(
-        padding: EdgeInsets.all(16.w),
-        itemCount: filteredTrades.length,
-        itemBuilder: (context, index) {
-          final trade = filteredTrades[index];
-          return _buildTradeCard(trade, isReceived: isReceived);
-        },
-      ),
+    return ListView.builder(
+      padding: EdgeInsets.all(16.w),
+      itemCount: filteredTrades.length,
+      itemBuilder: (context, index) {
+        final trade = filteredTrades[index];
+        return _buildTradeCard(trade, isReceived: isReceived);
+      },
     );
   }
 
@@ -698,7 +687,6 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                                       : trade.toUserName,
                                 },
                               );
-                              _loadTrades(); // Reload to clear badge
                             },
                             padding: EdgeInsets.zero,
                             constraints: BoxConstraints(),
@@ -778,7 +766,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return SizedBox(
-                          height: 80.h,
+                          height: 100.h,
                           child: Center(
                             child: SizedBox(
                               width: 20.w,
@@ -796,7 +784,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                         );
                       }
                       return SizedBox(
-                        height: 80.h,
+                        height: 100.h,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: products.length,
@@ -847,7 +835,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return SizedBox(
-                          height: 80.h,
+                          height: 100.h,
                           child: Center(
                             child: SizedBox(
                               width: 20.w,
@@ -865,7 +853,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                         );
                       }
                       return SizedBox(
-                        height: 80.h,
+                        height: 100.h,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: products.length,
@@ -1292,7 +1280,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         );
       },
       child: Container(
-        width: 140.w,
+        width: 150.w,
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(10.r),
@@ -1310,7 +1298,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
             // Product Image
             Container(
               width: 60.w,
-              height: 78.h,
+              height: 98.h,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(9.r),

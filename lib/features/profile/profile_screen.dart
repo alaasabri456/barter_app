@@ -16,7 +16,7 @@ import '../authentication/widgets/auth_button.dart';
 import '../../services/push_notification_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-import '../../features/trade/models/trade_offer.dart';
+
 import '../reviews/reviews_screen.dart';
 import 'package:barter/l10n/app_localizations.dart';
 import '../../core/i18n/language_provider.dart';
@@ -31,50 +31,10 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = false;
-  int _createdProductsCount = 0;
-  int _completedTradesCount = 0;
-  int _reviewsCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadProfileStats();
-  }
-
-  Future<void> _loadProfileStats() async {
-    final userId = UserModel.currentUser?.id;
-    if (userId == null || UserModel.isGuest) return;
-
-    try {
-      // Load products count
-      final products = await FirebaseService.getUserProducts(userId, context);
-
-      // Load trades count
-      final sentTrades = await FirebaseService.getSentTrades(userId);
-      final receivedTrades = await FirebaseService.getReceivedTrades(userId);
-
-      final completedTrades = [...sentTrades, ...receivedTrades]
-          .where(
-            (t) =>
-                t.status == TradeStatus.accepted ||
-                t.status == TradeStatus.completed,
-          )
-          .length;
-
-      // Load reviews count
-      final reviews = await FirebaseService.getUserReviews(userId);
-
-      if (mounted) {
-        setState(() {
-          _createdProductsCount = products.length;
-          _completedTradesCount = completedTrades;
-          _reviewsCount = reviews.length;
-        });
-      }
-    } catch (e) {
-      // Silently fail or log error
-      print('Error loading profile stats: $e');
-    }
   }
 
   Future<void> _signOut() async {
@@ -352,12 +312,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        user?.name ?? 'User Name',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
+                      Flexible(
+                        child: Text(
+                          user?.name ?? 'User Name',
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       ),
                       if (user?.isPremium == true) ...[
                         SizedBox(width: 8.w),
@@ -369,48 +333,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   SizedBox(height: 4.h),
 
                   // User email
-                  Text(
-                    isGuest
-                        ? 'Browse and trade items easily'
-                        : (user?.email ?? 'user@example.com'),
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white.withOpacity(0.9),
-                        ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.w),
+                    child: Text(
+                      isGuest
+                          ? 'Browse and trade items easily'
+                          : (user?.email ?? 'user@example.com'),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
 
                   if (!isGuest && isRegularUser) ...[
                     SizedBox(height: 16.h),
                     // Stats row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildStatItem(locale.items, '$_createdProductsCount'),
-                        Container(
-                          height: 40.h,
-                          width: 1,
-                          color: Colors.white.withOpacity(0.3),
-                        ),
-                        _buildStatItem(locale.trades, '$_completedTradesCount'),
-                        Container(
-                          height: 40.h,
-                          width: 1,
-                          color: Colors.white.withOpacity(0.3),
-                        ),
-                        _buildStatItem(
-                          'Reviews',
-                          '$_reviewsCount',
-                          onTap: () {
-                            if (user != null) {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      ReviewsScreen(userId: user.id),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                      ],
+                    StreamBuilder<Map<String, int>>(
+                      stream: FirebaseService.streamProfileStats(user.id),
+                      builder: (context, snapshot) {
+                        final productsCount = snapshot.data?['productsCount'] ?? 0;
+                        final tradesCount = snapshot.data?['completedTradesCount'] ?? 0;
+                        final reviewsCount = snapshot.data?['reviewsCount'] ?? 0;
+
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildStatItem(locale.items, '$productsCount'),
+                            Container(
+                              height: 40.h,
+                              width: 1,
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                            _buildStatItem(locale.trades, '$tradesCount'),
+                            Container(
+                              height: 40.h,
+                              width: 1,
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                            _buildStatItem(
+                              'Reviews',
+                              '$reviewsCount',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ReviewsScreen(
+                                      userId: user.id,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ],
@@ -471,7 +450,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildSettingItem(
                       icon: Icons.workspace_premium,
                       title: 'Premium',
-                      subtitle: user?.isPremium == true
+                      subtitle: user.isPremium == true
                           ? 'Your premium is active ✨'
                           : 'Upgrade for unlimited listings',
                       onTap: () {

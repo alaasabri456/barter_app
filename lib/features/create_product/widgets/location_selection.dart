@@ -102,14 +102,13 @@ class _LocationSelectionState extends State<LocationSelection> {
   }
 
   Future<void> _pickOnMap() async {
-    double lat = widget.latitude ?? 30.0444;
-    double long = widget.longitude ?? 31.2357;
-
     final result = await Navigator.push<ll.LatLng>(
       context,
       MaterialPageRoute(
         builder: (context) => MapPicker(
-          initialLocation: ll.LatLng(lat, long),
+          initialLocation: (widget.latitude != null && widget.longitude != null) 
+              ? ll.LatLng(widget.latitude!, widget.longitude!) 
+              : null,
         ),
       ),
     );
@@ -140,7 +139,7 @@ class _LocationSelectionState extends State<LocationSelection> {
                 label: 'Location',
                 hint: 'Enter your location',
                 controller: widget.controller,
-                textInputAction: TextInputAction.next,
+                textInputAction: TextInputAction.done,
                 onChanged: _onLocationSearch,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -148,6 +147,10 @@ class _LocationSelectionState extends State<LocationSelection> {
                   }
                   return null;
                 },
+                maxLines: null,
+                minLines: 1,
+                // Allow the field to expand with its content
+                // Setting expands to true ensures the text field grows as needed
               ),
             ),
             SizedBox(width: 8.w),

@@ -14,52 +14,19 @@ class ReportsManagementScreen extends StatefulWidget {
 }
 
 class _ReportsManagementScreenState extends State<ReportsManagementScreen> {
-  List<ReportModel> _reports = [];
-  List<ReportModel> _filteredReports = [];
-  bool _isLoading = true;
-  String? _error;
   ReportStatus? _selectedStatus;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadReports();
-  }
-
-  Future<void> _loadReports() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final reports = await FirebaseService.getAllReports();
-      setState(() {
-        _reports = reports;
-        _applyFilter();
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _applyFilter() {
+  List<ReportModel> _filterReportsList(List<ReportModel> reports) {
     if (_selectedStatus == null) {
-      _filteredReports = _reports;
+      return reports;
     } else {
-      _filteredReports =
-          _reports.where((r) => r.status == _selectedStatus).toList();
+      return reports.where((r) => r.status == _selectedStatus).toList();
     }
   }
 
   void _setFilter(ReportStatus? status) {
     setState(() {
       _selectedStatus = status;
-      _applyFilter();
     });
   }
 
@@ -111,7 +78,6 @@ class _ReportsManagementScreenState extends State<ReportsManagementScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Report dismissed')),
       );
-      _loadReports();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
@@ -149,12 +115,13 @@ class _ReportsManagementScreenState extends State<ReportsManagementScreen> {
       await FirebaseService.updateReportStatus(
         reportId: report.id,
         newStatus: ReportStatus.actioned,
-        adminNote: 'Product removed by admin',
+        adminNote: 'Action taken: Product deleted',
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Product removed and report resolved')),
-      );
-      _loadReports();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Product removed successfully')),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
@@ -197,7 +164,6 @@ class _ReportsManagementScreenState extends State<ReportsManagementScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('User suspended and report resolved')),
       );
-      _loadReports();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
@@ -215,7 +181,6 @@ class _ReportsManagementScreenState extends State<ReportsManagementScreen> {
       ),
       body: Column(
         children: [
-          // Filter Chips
           Padding(
             padding: EdgeInsets.all(16.w),
             child: SingleChildScrollView(
@@ -234,55 +199,58 @@ class _ReportsManagementScreenState extends State<ReportsManagementScreen> {
               ),
             ),
           ),
-
-          // Reports List
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.error_outline,
-                                size: 64.sp, color: Colors.red),
-                            SizedBox(height: 16.h),
-                            Text('Error: $_error'),
-                            SizedBox(height: 16.h),
-                            ElevatedButton(
-                              onPressed: _loadReports,
-                              child: const Text('Retry'),
-                            ),
-                          ],
+            child: StreamBuilder<List<ReportModel>>(
+              stream: FirebaseService.streamAllReports(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 64.sp,
+                          color: Colors.red,
                         ),
-                      )
-                    : _filteredReports.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.check_circle_outline,
-                                    size: 64.sp, color: Colors.green),
-                                SizedBox(height: 16.h),
-                                Text(
-                                  'No reports found',
-                                  style: TextStyle(
-                                      fontSize: 16.sp, color: Colors.grey),
-                                ),
-                              ],
-                            ),
-                          )
-                        : RefreshIndicator(
-                            onRefresh: _loadReports,
-                            child: ListView.builder(
-                              padding: EdgeInsets.symmetric(horizontal: 16.w),
-                              itemCount: _filteredReports.length,
-                              itemBuilder: (context, index) {
-                                return _buildReportCard(
-                                    _filteredReports[index], isDark);
-                              },
-                            ),
-                          ),
+                        SizedBox(height: 16.h),
+                        Text('Error: ${snapshot.error}'),
+                        SizedBox(height: 16.h),
+                        ElevatedButton(
+                          onPressed: () => setState(() {}),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final reports = snapshot.data ?? [];
+                final filteredReports = _filterReportsList(reports);
+
+                if (filteredReports.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No reports found',
+                      style: TextStyle(fontSize: 16.sp, color: Colors.grey),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: EdgeInsets.symmetric(horizontal: 16.w),
+                  itemCount: filteredReports.length,
+                  itemBuilder: (context, index) {
+                    final report = filteredReports[index];
+                    return _buildReportCard(report, isDark);
+                  },
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -443,12 +411,14 @@ class _ReportsManagementScreenState extends State<ReportsManagementScreen> {
                           size: 20.sp,
                         ),
                         SizedBox(width: 8.w),
-                        Text(
-                          'This report has been ${report.status.displayName.toLowerCase()}.',
-                          style: TextStyle(
-                            color: _getStatusColor(report.status),
-                            fontWeight: FontWeight.w500,
-                            fontSize: 13.sp,
+                        Expanded(
+                          child: Text(
+                            'This report has been ${report.status.displayName.toLowerCase()}.',
+                            style: TextStyle(
+                              color: _getStatusColor(report.status),
+                              fontWeight: FontWeight.w500,
+                              fontSize: 13.sp,
+                            ),
                           ),
                         ),
                       ],

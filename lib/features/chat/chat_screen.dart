@@ -257,7 +257,11 @@ class _ChatScreenState extends State<ChatScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.otherUserName),
+            Text(
+              widget.otherUserName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             // Show trade badge if opened from trade
             if (widget.tradeId != null)
               Container(
@@ -463,6 +467,9 @@ class _ChatScreenState extends State<ChatScreen> {
           bottom: 8.h,
           left: isMe ? 64.w : 0,
           right: isMe ? 0 : 64.w,
+        ),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
         decoration: BoxDecoration(

@@ -13,17 +13,7 @@ class UserManagementScreen extends StatefulWidget {
 }
 
 class _UserManagementScreenState extends State<UserManagementScreen> {
-  List<UserModel> _users = [];
-  List<UserModel> _filteredUsers = [];
-  bool _isLoading = true;
-  String? _error;
   final TextEditingController _searchController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUsers();
-  }
 
   @override
   void dispose() {
@@ -31,39 +21,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     super.dispose();
   }
 
-  Future<void> _loadUsers() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final users = await FirebaseService.getAllUsers();
-      setState(() {
-        _users = users;
-        _filteredUsers = users;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+  List<UserModel> _filterUsersList(List<UserModel> users, String query) {
+    if (query.isEmpty) {
+      return users;
+    } else {
+      final lowerQuery = query.toLowerCase();
+      return users.where((user) {
+        return user.name.toLowerCase().contains(lowerQuery) ||
+            user.email.toLowerCase().contains(lowerQuery);
+      }).toList();
     }
-  }
-
-  void _filterUsers(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        _filteredUsers = _users;
-      } else {
-        final lowerQuery = query.toLowerCase();
-        _filteredUsers = _users.where((user) {
-          return user.name.toLowerCase().contains(lowerQuery) ||
-              user.email.toLowerCase().contains(lowerQuery);
-        }).toList();
-      }
-    });
   }
 
   Future<void> _changeUserRole(UserModel user) async {
@@ -95,7 +62,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             content: Text('User role updated to ${newRole.displayName}'),
           ),
         );
-        _loadUsers();
       } catch (e) {
         ScaffoldMessenger.of(
           context,
@@ -135,7 +101,42 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User suspended successfully')),
         );
-        _loadUsers();
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _unsuspendUser(UserModel user) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsuspend User'),
+        content: Text(
+          'Are you sure you want to unsuspend ${user.name}? This will restore their products to available status.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Unsuspend'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await FirebaseService.unsuspendUser(user.id);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User unsuspended successfully')),
+        );
       } catch (e) {
         ScaffoldMessenger.of(
           context,
@@ -177,7 +178,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User deleted successfully')),
         );
-        _loadUsers();
       } catch (e) {
         ScaffoldMessenger.of(
           context,
@@ -288,53 +288,63 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 filled: true,
                 fillColor: isDark ? Colors.grey[850] : Colors.grey[100],
               ),
-              onChanged: _filterUsers,
+              onChanged: (value) => setState(() {}),
             ),
           ),
 
           // User List
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: 64.sp,
-                              color: Colors.red,
-                            ),
-                            SizedBox(height: 16.h),
-                            Text('Error: $_error'),
-                            SizedBox(height: 16.h),
-                            ElevatedButton(
-                              onPressed: _loadUsers,
-                              child: const Text('Retry'),
-                            ),
-                          ],
+            child: StreamBuilder<List<UserModel>>(
+              stream: FirebaseService.streamAllUsers(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 64.sp,
+                          color: Colors.red,
                         ),
-                      )
-                    : _filteredUsers.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No users found',
-                              style: TextStyle(
-                                  fontSize: 16.sp, color: Colors.grey),
-                            ),
-                          )
-                        : RefreshIndicator(
-                            onRefresh: _loadUsers,
-                            child: ListView.builder(
-                              padding: EdgeInsets.symmetric(horizontal: 16.w),
-                              itemCount: _filteredUsers.length,
-                              itemBuilder: (context, index) {
-                                final user = _filteredUsers[index];
-                                return _buildUserCard(user);
-                              },
-                            ),
-                          ),
+                        SizedBox(height: 16.h),
+                        Text('Error: ${snapshot.error}'),
+                        SizedBox(height: 16.h),
+                        ElevatedButton(
+                          onPressed: () => setState(() {}),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final users = snapshot.data ?? [];
+                final filteredUsers = _filterUsersList(users, _searchController.text);
+
+                if (filteredUsers.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No users found',
+                      style: TextStyle(fontSize: 16.sp, color: Colors.grey),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: EdgeInsets.symmetric(horizontal: 16.w),
+                  itemCount: filteredUsers.length,
+                  itemBuilder: (context, index) {
+                    final user = filteredUsers[index];
+                    return _buildUserCard(user);
+                  },
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -443,15 +453,26 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       ),
                     ),
                     if (!isCurrentUser) ...[
-                      ElevatedButton.icon(
-                        onPressed: () => _suspendUser(user),
-                        icon: const Icon(Icons.block, size: 18),
-                        label: const Text('Suspend'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
-                          foregroundColor: Colors.white,
+                      if (user.isSuspended)
+                        ElevatedButton.icon(
+                          onPressed: () => _unsuspendUser(user),
+                          icon: const Icon(Icons.check_circle_outline, size: 18),
+                          label: const Text('Unsuspend'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                          ),
+                        )
+                      else
+                        ElevatedButton.icon(
+                          onPressed: () => _suspendUser(user),
+                          icon: const Icon(Icons.block, size: 18),
+                          label: const Text('Suspend'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                          ),
                         ),
-                      ),
                       ElevatedButton.icon(
                         onPressed: () => _deleteUser(user),
                         icon: const Icon(Icons.delete, size: 18),

@@ -6,11 +6,11 @@ import 'dart:async';
 import '../services/location_service.dart';
 
 class MapPicker extends StatefulWidget {
-  final LatLng initialLocation;
+  final LatLng? initialLocation;
 
   const MapPicker({
     super.key,
-    required this.initialLocation,
+    this.initialLocation,
   });
 
   @override
@@ -25,11 +25,58 @@ class _MapPickerState extends State<MapPicker> {
   Timer? _debounce;
   List<Map<String, dynamic>> _suggestions = [];
   bool _isSearching = false;
+  bool _isLoadingLocation = false;
 
   @override
   void initState() {
     super.initState();
-    _selectedLocation = widget.initialLocation;
+    // Default to Cairo if no initial location is provided
+    _selectedLocation = widget.initialLocation ?? const LatLng(30.0444, 31.2357);
+    
+    // If no initial location, fetch user's current location
+    if (widget.initialLocation == null) {
+      _getCurrentLocation();
+    }
+  }
+
+  Future<void> _getCurrentLocation() async {
+    setState(() {
+      _isLoadingLocation = true;
+    });
+    try {
+      final position = await LocationService.getCurrentPosition();
+      final point = LatLng(position.latitude, position.longitude);
+      
+      if (mounted) {
+        setState(() {
+          _selectedLocation = point;
+        });
+        // 15.0 is a reasonable default zoom level
+        _mapController.move(point, 15.0);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not get current location: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingLocation = false;
+        });
+      }
+    }
+  }
+
+  void _zoomIn() {
+    final currentZoom = _mapController.camera.zoom;
+    _mapController.move(_mapController.camera.center, currentZoom + 1);
+  }
+
+  void _zoomOut() {
+    final currentZoom = _mapController.camera.zoom;
+    _mapController.move(_mapController.camera.center, currentZoom - 1);
   }
 
   @override
@@ -94,8 +141,8 @@ class _MapPickerState extends State<MapPicker> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: widget.initialLocation,
-              initialZoom: 13.0,
+              initialCenter: _selectedLocation,
+              initialZoom: 15.0,
               onTap: (tapPosition, point) {
                 setState(() {
                   _selectedLocation = point;
@@ -210,6 +257,64 @@ class _MapPickerState extends State<MapPicker> {
             ),
           ),
 
+          // Map Controls (Zoom and My Location)
+          Positioned(
+            right: 15.w,
+            bottom: 160.h, // Adjusted to not overlap with the bottom card
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton(
+                  heroTag: 'myLocationBtn',
+                  mini: true,
+                  backgroundColor: Theme.of(context).cardColor,
+                  onPressed: _getCurrentLocation,
+                  child: _isLoadingLocation 
+                      ? SizedBox(width: 16.w, height: 16.w, child: const CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(Icons.my_location, color: Theme.of(context).primaryColor),
+                ),
+                SizedBox(height: 12.h),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(8.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.add),
+                        onPressed: _zoomIn,
+                        tooltip: 'Zoom In',
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(minWidth: 40.w, minHeight: 40.h),
+                      ),
+                      Container(
+                        height: 1,
+                        width: 30.w,
+                        color: Colors.grey.withOpacity(0.3),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.remove),
+                        onPressed: _zoomOut,
+                        tooltip: 'Zoom Out',
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(minWidth: 40.w, minHeight: 40.h),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Bottom Confirmation Card
           Positioned(
             bottom: 20.h,
             left: 20.w,

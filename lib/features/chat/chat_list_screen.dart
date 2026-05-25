@@ -96,11 +96,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
                           'MMM d, h:mm a',
                         ).format(lastMessageTime.toDate())
                       : '';
-
-                  // Simple check for unread messages could be added here if we had detailed unread counts
-                  // For now, we just rely on bold text if the last message wasn't from us?
-                  // But the schema doesn't seem to store "unread count" on conversation document easily unless we aggregate.
-                  // We'll stick to a simple list.
+                  
+                  final unreadCount = conversation['unreadCount_${currentUser.id}'] as int? ?? 0;
+                  final hasUnread = unreadCount > 0;
 
                   return ListTile(
                     contentPadding: EdgeInsets.symmetric(
@@ -130,7 +128,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                           child: Text(
                             otherUser.name,
                             style: TextStyle(
-                              fontWeight: FontWeight.bold,
+                              fontWeight: hasUnread ? FontWeight.bold : FontWeight.w600,
                               fontSize: 16.sp,
                             ),
                             maxLines: 1,
@@ -139,7 +137,11 @@ class _ChatListScreenState extends State<ChatListScreen> {
                         ),
                         Text(
                           formattedTime,
-                          style: TextStyle(fontSize: 12.sp, color: Colors.grey),
+                          style: TextStyle(
+                            fontSize: 12.sp, 
+                            color: hasUnread ? Theme.of(context).primaryColor : Colors.grey,
+                            fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
+                          ),
                         ),
                       ],
                     ),
@@ -157,12 +159,30 @@ class _ChatListScreenState extends State<ChatListScreen> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: isBlocked ? Colors.red[300] : Colors.grey[600],
+                                color: isBlocked ? Colors.red[300] : (hasUnread ? Colors.black87 : Colors.grey[600]),
                                 fontSize: 14.sp,
                                 fontStyle: isBlocked ? FontStyle.italic : FontStyle.normal,
+                                fontWeight: hasUnread ? FontWeight.w600 : FontWeight.normal,
                               ),
                             ),
                           ),
+                          if (hasUnread)
+                            Container(
+                              margin: EdgeInsets.only(left: 8.w),
+                              padding: EdgeInsets.all(6.w),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
+                                unreadCount.toString(),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10.sp,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),

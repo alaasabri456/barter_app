@@ -7,6 +7,8 @@ import 'package:barter/features/trade/trade_management_screen.dart';
 import 'package:barter/features/admin/screens/admin_dashboard_screen.dart';
 import 'package:barter/features/delivery/screens/agent_dashboard_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../firebase/firebase_service.dart';
 
 import '../../core/routes_manager/routes_manager.dart';
 import '../authentication/models/user_model.dart';
@@ -111,7 +113,29 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     );
   }
 
-  BottomAppBar _buildBottomAppBar() {
+  Widget _buildBottomAppBar() {
+    final user = UserModel.currentUser;
+    if (user == null || user.isAnonymous) {
+      return _buildBottomAppBarContent(0);
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseService.getUserConversations(user.id),
+      builder: (context, snapshot) {
+        int unreadCount = 0;
+        if (snapshot.hasData) {
+          for (var doc in snapshot.data!.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            final count = data['unreadCount_${user.id}'] as int? ?? 0;
+            unreadCount += count;
+          }
+        }
+        return _buildBottomAppBarContent(unreadCount);
+      },
+    );
+  }
+
+  BottomAppBar _buildBottomAppBarContent(int unreadCount) {
     return BottomAppBar(
       height: 70,
       color: Theme.of(context).bottomNavigationBarTheme.backgroundColor,
@@ -119,13 +143,13 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: _isRegularUser 
-            ? _buildRegularUserNavItems() 
-            : _buildRoleNavItems(),
+            ? _buildRegularUserNavItems(unreadCount) 
+            : _buildRoleNavItems(unreadCount),
       ),
     );
   }
 
-  List<Widget> _buildRegularUserNavItems() {
+  List<Widget> _buildRegularUserNavItems(int unreadCount) {
     return [
       _buildNavItem(
         icon: selectedIndex == 0 ? Icons.home : Icons.home_outlined,
@@ -137,6 +161,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
         icon: selectedIndex == 1 ? Icons.chat : Icons.chat_outlined,
         label: AppLocalizations.of(context)!.chats,
         isSelected: selectedIndex == 1,
+        badgeCount: unreadCount,
         onTap: () => _onTap(1),
       ),
       // Integrated FAB
@@ -158,7 +183,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     ];
   }
 
-  List<Widget> _buildRoleNavItems() {
+  List<Widget> _buildRoleNavItems(int unreadCount) {
     final isAgent = UserModel.currentUser?.isAgent ?? false;
     
     return [
@@ -172,6 +197,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
         icon: selectedIndex == 1 ? Icons.chat : Icons.chat_outlined,
         label: AppLocalizations.of(context)!.chats,
         isSelected: selectedIndex == 1,
+        badgeCount: unreadCount,
         onTap: () => _onTap(1),
       ),
       _buildNavItem(
@@ -188,9 +214,23 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     required String label,
     required bool isSelected,
     required VoidCallback onTap,
+    int badgeCount = 0,
   }) {
     final selectedColor = Theme.of(context).primaryColor;
     final unselectedColor = ColorsManager.grey500;
+
+    Widget iconWidget = Icon(
+      icon,
+      color: isSelected ? selectedColor : unselectedColor,
+      size: 24,
+    );
+
+    if (badgeCount > 0) {
+      iconWidget = Badge(
+        label: Text(badgeCount > 99 ? '99+' : badgeCount.toString()),
+        child: iconWidget,
+      );
+    }
 
     return GestureDetector(
       onTap: onTap,
@@ -201,11 +241,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: isSelected ? selectedColor : unselectedColor,
-              size: 24,
-            ),
+            iconWidget,
             SizedBox(height: 4),
             Text(
               label,
