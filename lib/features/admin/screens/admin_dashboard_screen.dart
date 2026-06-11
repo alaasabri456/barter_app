@@ -1,11 +1,16 @@
 import 'package:barter/features/admin/models/admin_stats_model.dart';
+import 'package:barter/features/admin/screens/admin_withdrawals_screen.dart';
 import 'package:barter/features/admin/screens/product_moderation_screen.dart';
 import 'package:barter/features/admin/screens/user_management_screen.dart';
 import 'package:barter/features/admin/screens/category_management_screen.dart';
 import 'package:barter/features/admin/screens/reports_management_screen.dart';
 import 'package:barter/firebase/firebase_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import '../../authentication/models/user_model.dart';
+import '../../../core/routes_manager/routes_manager.dart';
+import '../../../core/widgets/custom_dialog.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -16,10 +21,55 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   AdminStats? _stats;
+  bool _isLoggingOut = false;
 
   @override
   void initState() {
     super.initState();
+  }
+
+  Future<void> _signOut() async {
+    final confirmed = await showConfirmationDialog(
+      context: context,
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out?',
+      confirmText: 'Sign Out',
+      cancelText: 'Cancel',
+      icon: Icons.logout,
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isLoggingOut = true;
+    });
+
+    try {
+      await FirebaseAuth.instance.signOut();
+      UserModel.currentUser = null;
+
+      if (mounted) {
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(RoutesManager.login, (route) => false);
+      }
+    } catch (e) {
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Error',
+          message: 'Failed to sign out. Please try again.',
+          icon: Icons.error_outline,
+          iconColor: Theme.of(context).colorScheme.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoggingOut = false;
+        });
+      }
+    }
   }
 
   @override
@@ -27,6 +77,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
+        actions: [
+          _isLoggingOut
+              ? Padding(
+                  padding: EdgeInsets.all(12.w),
+                  child: SizedBox(
+                    width: 24.w,
+                    height: 24.w,
+                    child: const CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.logout),
+                  tooltip: 'Sign Out',
+                  onPressed: _signOut,
+                ),
+        ],
       ),
       body: StreamBuilder<AdminStats>(
         stream: FirebaseService.streamSystemStats(),
@@ -277,6 +343,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               context,
               MaterialPageRoute(
                 builder: (context) => const ReportsManagementScreen(),
+              ),
+            );
+          },
+        ),
+        SizedBox(height: 12.h),
+        _buildActionButton(
+          'Manage Withdrawals',
+          Icons.account_balance_wallet_outlined,
+          Colors.teal,
+          () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AdminWithdrawalsScreen(),
               ),
             );
           },

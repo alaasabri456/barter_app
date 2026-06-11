@@ -30,96 +30,93 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double get _total => _price + _serviceFee;
 
   Future<void> _handlePayment() async {
-    setState(() => _isProcessing = true);
-
-    try {
-      final user = UserModel.currentUser;
-      if (user == null) throw Exception('Please log in to continue.');
-
-      // Launch Paymob WebView checkout
-      final response = await PaymentService.pay(
-        amount: _total,
-        context: context,
-        user: user,
-      );
-
-      // User dismissed the WebView without completing payment
-      if (response == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Payment was cancelled.'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-        return;
-      }
-
-      // Payment was declined or failed
-      if (!response.success) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Payment was declined. Please try again.'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-        return;
-      }
-
-      // Save payment record to Firestore
-      final transactionId = response.transactionID?.toString() ?? '';
-      final payment = PaymentModel(
-        id: '',
-        buyerId: user.id,
-        buyerName: user.name,
-        sellerId: widget.product.ownerId,
-        productId: widget.product.id,
-        productTitle: widget.product.title,
-        amount: _total,
-        currency: 'EGP',
-        transactionId: transactionId,
-        status: PaymentStatus.completed,
-        createdAt: DateTime.now(),
-      );
-
-      await FirebaseService.savePayment(payment);
-
-      // Mark product as traded/sold
-      await FirebaseService.updateProductAvailability(
-        productId: widget.product.id,
-        isAvailable: false,
-        newStatus: ProductStatus.traded,
-      );
-
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => PaymentSuccessScreen(
-              product: widget.product,
-              totalPaid: _total,
-              transactionId: transactionId,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
+    final user = UserModel.currentUser;
+    if (user == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Payment failed: $e'),
+            content: const Text('Please log in to continue.'),
             backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
           ),
         );
       }
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
+      return;
     }
+
+    setState(() => _isProcessing = true);
+
+    // Navigate to the Paymob payment view (card + mobile wallet selector)
+    PaymentService.pay(
+      amount: _total,
+      context: context,
+      user: user,
+      onSuccess: () async {
+        // Payment was completed successfully
+        final transactionId =
+            DateTime.now().millisecondsSinceEpoch.toString();
+        try {
+          final payment = PaymentModel(
+            id: '',
+            buyerId: user.id,
+            buyerName: user.name,
+            sellerId: widget.product.ownerId,
+            productId: widget.product.id,
+            productTitle: widget.product.title,
+            amount: _total,
+            currency: 'EGP',
+            transactionId: transactionId,
+            status: PaymentStatus.completed,
+            createdAt: DateTime.now(),
+          );
+
+          await FirebaseService.savePayment(payment);
+
+          // Mark product as traded/sold
+          await FirebaseService.updateProductAvailability(
+            productId: widget.product.id,
+            isAvailable: false,
+            newStatus: ProductStatus.traded,
+          );
+
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => PaymentSuccessScreen(
+                  product: widget.product,
+                  totalPaid: _total,
+                  transactionId: transactionId,
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Payment succeeded but order save failed: $e'),
+                backgroundColor: Theme.of(context).colorScheme.error,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        } finally {
+          if (mounted) setState(() => _isProcessing = false);
+        }
+      },
+      onError: () {
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Payment failed or was cancelled. Please try again.'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      },
+    );
   }
 
   @override
@@ -302,7 +299,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                         SizedBox(width: 6.w),
                         Text(
-                          'Secured by Paymob · Your card is not stored',
+                          'Secured by Paymob · Card or Mobile Wallet',
                           style: TextStyle(
                             fontSize: 11.sp,
                             color: theme.textTheme.bodySmall?.color
