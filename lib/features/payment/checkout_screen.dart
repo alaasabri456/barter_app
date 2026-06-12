@@ -32,24 +32,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double get _total => _price + _serviceFee;
 
   Future<void> _handlePayment() async {
-    setState(() => _isProcessing = true);
-
     final user = UserModel.currentUser;
     if (user == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please log in to continue.')),
+          SnackBar(
+            content: const Text('Please log in to continue.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
-      setState(() => _isProcessing = false);
       return;
     }
+
+    setState(() => _isProcessing = true);
 
     // ─────────────────────────────────────────────────────────────────────────
     // PHASE 1: Write a pending Payment doc to Firestore BEFORE opening Paymob.
     // This guarantees a transaction record exists even if the app crashes later.
     // ─────────────────────────────────────────────────────────────────────────
-    String? pendingDocId;
+    String pendingDocId;
     try {
       pendingDocId = await context.read<PaymentViewModel>().createPendingPayment(
         PaymentModel(
@@ -61,13 +64,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           productTitle: widget.product.title,
           amount: _total,
           currency: 'EGP',
-          transactionId: '',        // filled in Phase 3
+          transactionId: '',      // filled in Phase 3
           status: PaymentStatus.pending,
           createdAt: DateTime.now(),
         ),
       );
     } catch (e) {
       if (mounted) {
+        setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Could not start payment: $e'),
@@ -75,101 +79,88 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        setState(() => _isProcessing = false);
       }
       return;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PHASE 2: Open Paymob WebView.
-    // ─────────────────────────────────────────────────────────────────────────
-    try {
-      final response = await PaymentService.pay(
-        amount: _total,
-        context: context,
-        user: user,
-      );
+    if (!mounted) return;
 
-      // User dismissed the WebView without completing payment → mark cancelled.
-      if (response == null) {
-        context.read<PaymentViewModel>().updatePaymentStatus(
+    // ─────────────────────────────────────────────────────────────────────────
+    // PHASE 2: Open Paymob payment view (card + mobile wallet selector).
+    // The new pay_with_paymob package uses callbacks instead of a Future.
+    // ─────────────────────────────────────────────────────────────────────────
+    
+    // Capture ViewModels before the async gap
+    final paymentVM = context.read<PaymentViewModel>();
+    final productVM = context.read<ProductViewModel>();
+    
+    PaymentService.pay(
+      amount: _total,
+      context: context,
+      user: user,
+      onSuccess: () async {
+        // ─────────────────────────────────────────────────────────────────────
+        // PHASE 3: Payment confirmed — update the pending doc to completed.
+        // The Cloud Function listens for this pending → completed transition
+        // and credits the seller's wallet atomically.
+        // ─────────────────────────────────────────────────────────────────────
+        final transactionId = DateTime.now().millisecondsSinceEpoch.toString();
+        try {
+          await paymentVM.updatePaymentToCompleted(
+            docId: pendingDocId,
+            transactionId: transactionId,
+          );
+
+          // Mark product as sold.
+          await productVM.updateProductAvailability(
+            productId: widget.product.id,
+            isAvailable: false,
+            newStatus: ProductStatus.traded,
+          );
+
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => PaymentSuccessScreen(
+                  product: widget.product,
+                  totalPaid: _total,
+                  transactionId: transactionId,
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Payment succeeded but order save failed: $e'),
+                backgroundColor: Theme.of(context).colorScheme.error,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        } finally {
+          if (mounted) setState(() => _isProcessing = false);
+        }
+      },
+      onError: () {
+        // Mark the pending doc as cancelled/failed.
+        paymentVM.updatePaymentStatus(
           docId: pendingDocId,
           status: PaymentStatus.cancelled,
         );
         if (mounted) {
+          setState(() => _isProcessing = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Payment was cancelled.'),
+              content: const Text('Payment failed or was cancelled. Please try again.'),
               backgroundColor: Theme.of(context).colorScheme.error,
               behavior: SnackBarBehavior.floating,
             ),
           );
         }
-        return;
-      }
-
-      // Paymob declined the payment → mark failed.
-      if (!response.success) {
-        context.read<PaymentViewModel>().updatePaymentStatus(
-          docId: pendingDocId,
-          status: PaymentStatus.failed,
-        );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Payment was declined. Please try again.'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-        return;
-      }
-
-      // ───────────────────────────────────────────────────────────────────────
-      // PHASE 3: Payment confirmed — update the pending doc to completed.
-      // The Cloud Function listens for this status transition and credits the
-      // seller's wallet. Even if the app crashes here, the pending doc persists
-      // and can be reconciled manually.
-      // ───────────────────────────────────────────────────────────────────────
-      final transactionId = response.transactionID?.toString() ?? '';
-
-      await context.read<PaymentViewModel>().updatePaymentToCompleted(
-        docId: pendingDocId,
-        transactionId: transactionId,
-      );
-
-      // Mark product as sold.
-      await context.read<ProductViewModel>().updateProductAvailability(
-        productId: widget.product.id,
-        isAvailable: false,
-        newStatus: ProductStatus.traded,
-      );
-
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => PaymentSuccessScreen(
-              product: widget.product,
-              totalPaid: _total,
-              transactionId: transactionId,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Payment failed: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
+      },
+    );
   }
 
   @override
@@ -352,7 +343,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                         SizedBox(width: 6.w),
                         Text(
-                          'Secured by Paymob · Your card is not stored',
+                          'Secured by Paymob · Card or Mobile Wallet',
                           style: TextStyle(
                             fontSize: 11.sp,
                             color: theme.textTheme.bodySmall?.color

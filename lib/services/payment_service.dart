@@ -1,63 +1,72 @@
 // ignore_for_file: avoid_print
 import 'package:barter/config/payment_config.example.dart';
 import 'package:flutter/material.dart';
-import 'package:paymob_payment/paymob_payment.dart';
+import 'package:pay_with_paymob/pay_with_paymob.dart';
 import '../features/authentication/models/user_model.dart';
 
-
 /// Handles Paymob payment operations.
+/// Supports both card (Visa/Mastercard) and mobile wallet (Vodafone Cash).
 class PaymentService {
   /// Initialize Paymob — call this once in main.dart
-  static Future<void> initialize() async {
-    await PaymobPayment.instance.initialize(
+  static void initialize() {
+    PaymentData.initialize(
       apiKey: PaymentConfig.apiKey,
-      integrationID: PaymentConfig.integrationId,
-      iFrameID: PaymentConfig.iFrameId,
+      iframeId: PaymentConfig.iFrameId.toString(),
+      integrationCardId: PaymentConfig.integrationId.toString(),
+      integrationMobileWalletId: PaymentConfig.walletIntegrationId.toString(),
     );
   }
 
-  /// Launches the Paymob WebView checkout.
-  /// Returns a [PaymobResponse] on completion (success or failure), or null if dismissed.
-  static Future<PaymobResponse?> pay({
+  /// Updates user billing data in PaymentData.
+  /// Call this when user context is available (e.g., before navigating to checkout).
+  static void updateUserData(UserModel? user) {
+    if (user == null) return;
+    final nameParts = user.name.trim().split(' ');
+    PaymentData.initialize(
+      apiKey: PaymentConfig.apiKey,
+      iframeId: PaymentConfig.iFrameId.toString(),
+      integrationCardId: PaymentConfig.integrationId.toString(),
+      integrationMobileWalletId: PaymentConfig.walletIntegrationId.toString(),
+      userData: UserData(
+        name: nameParts.first,
+        lastName: nameParts.length > 1 ? nameParts.last : 'User',
+        email: user.email,
+        phone: '01000000000', // Paymob requires a valid Egyptian phone number
+      ),
+    );
+  }
+
+  /// Navigates to the Paymob payment view (card + mobile wallet selector).
+  ///
+  /// [amount]      — total amount in EGP (e.g. 99.5 for 99.50 EGP)
+  /// [context]     — current BuildContext for navigation
+  /// [user]        — logged-in user (used to pre-fill billing data)
+  /// [onSuccess]   — called when payment completes successfully
+  /// [onError]     — called when payment fails or is cancelled
+  static void pay({
     required double amount,
     required BuildContext context,
     UserModel? user,
-    void Function(PaymobResponse)? onPayment,
-  }) async {
+    required VoidCallback onSuccess,
+    required VoidCallback onError,
+  }) {
     try {
-      // Paymob expects amount in cents (piasters): 100 EGP = 10000
-      final amountInCents = (amount * 100).round().toString();
+      // Update billing data with current user info before opening payment view
+      updateUserData(user);
 
-      final response = await PaymobPayment.instance.pay(
-        context: context,
-        currency: 'EGP',
-        amountInCents: amountInCents,
-        onPayment: (resp) {
-          if (onPayment != null) onPayment(resp);
-        },
-        billingData: PaymobBillingData(
-          firstName: user?.name.split(' ').first ?? "Guest",
-          lastName: (user?.name.split(' ').length ?? 0) > 1
-              ? user!.name.split(' ').last
-              : "User",
-          email: user?.email ?? "guest@example.com",
-          phoneNumber: "0123456789", // Paymob requires phone without + prefix
-          apartment: "NA",
-          building: "NA",
-          city: "NA",
-          country: "EG",
-          floor: "NA",
-          postalCode: "NA",
-          shippingMethod: "NA",
-          state: "NA",
-          street: "NA",
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PaymentView(
+            price: amount,
+            onPaymentSuccess: onSuccess,
+            onPaymentError: onError,
+          ),
         ),
       );
-
-      return response;
     } catch (e) {
       print('Paymob payment error: $e');
-      rethrow;
+      onError();
     }
   }
 }

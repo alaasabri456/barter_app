@@ -49,7 +49,7 @@ void main() async {
   await PrefsManager.init();
 
   // Initialize Paymob
-  await PaymentService.initialize();
+  PaymentService.initialize();
 
   // Initialize push notifications
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);

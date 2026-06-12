@@ -59,90 +59,95 @@ class _PremiumSubscriptionScreenState extends State<PremiumSubscriptionScreen> {
     if (user == null) return;
 
     setState(() => _isProcessing = true);
+    
+    // Capture PaymentViewModel before async gap
+    final paymentVM = context.read<PaymentViewModel>();
+
     try {
-      // Launch Paymob payment
-      final response = await PaymentService.pay(
+      // Launch Paymob payment view (card + mobile wallet)
+      PaymentService.pay(
         amount: PremiumService.premiumPrice,
         context: context,
         user: user,
+        onSuccess: () async {
+          final transactionId = DateTime.now().millisecondsSinceEpoch.toString();
+
+          try {
+            // Activate premium
+            await PremiumService.activatePremium(
+              userId: user.id,
+              transactionId: transactionId,
+              amountPaid: PremiumService.premiumPrice,
+            );
+
+            // Save payment record
+            final payment = PaymentModel(
+              id: '',
+              buyerId: user.id,
+              buyerName: user.name,
+              sellerId: 'barter_premium',
+              productId: 'premium_subscription',
+              productTitle: 'Premium Subscription',
+              amount: PremiumService.premiumPrice,
+              currency: 'EGP',
+              transactionId: transactionId,
+              status: PaymentStatus.completed,
+              createdAt: DateTime.now(),
+            );
+            
+            await paymentVM.savePayment(payment);
+
+            // Reload subscription state
+            await _loadSubscription();
+
+            if (mounted) {
+              await showInfoDialog(
+                context: context,
+                title: 'Welcome to Premium! 🎉',
+                message:
+                    'Your premium subscription is now active. Enjoy all the exclusive benefits!',
+                icon: Icons.workspace_premium,
+                iconColor: const Color(0xFFFFB800),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Payment succeeded but activation failed: $e'),
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          } finally {
+            if (mounted) setState(() => _isProcessing = false);
+          }
+        },
+        onError: () {
+          if (mounted) {
+            setState(() => _isProcessing = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Payment failed or was cancelled. Please try again.'),
+                backgroundColor: Theme.of(context).colorScheme.error,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
       );
-
-      if (response == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Payment was cancelled.'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-        return;
-      }
-
-      if (!response.success) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Payment was declined. Please try again.'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-        return;
-      }
-
-      final transactionId = response.transactionID?.toString() ?? '';
-
-      // Activate premium
-      await PremiumService.activatePremium(
-        userId: user.id,
-        transactionId: transactionId,
-        amountPaid: PremiumService.premiumPrice,
-      );
-
-      // Save payment record
-      final payment = PaymentModel(
-        id: '',
-        buyerId: user.id,
-        buyerName: user.name,
-        sellerId: 'barter_premium',
-        productId: 'premium_subscription',
-        productTitle: 'Premium Subscription',
-        amount: PremiumService.premiumPrice,
-        currency: 'EGP',
-        transactionId: transactionId,
-        status: PaymentStatus.completed,
-        createdAt: DateTime.now(),
-      );
-      await context.read<PaymentViewModel>().savePayment(payment);
-
-      // Reload
-      await _loadSubscription();
-
-      if (mounted) {
-        await showInfoDialog(
-          context: context,
-          title: 'Welcome to Premium! 🎉',
-          message:
-              'Your premium subscription is now active. Enjoy all the exclusive benefits!',
-          icon: Icons.workspace_premium,
-          iconColor: const Color(0xFFFFB800),
-        );
-      }
     } catch (e) {
       if (mounted) {
+        setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Payment failed: $e'),
+            content: Text('Could not start payment: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
           ),
         );
       }
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
