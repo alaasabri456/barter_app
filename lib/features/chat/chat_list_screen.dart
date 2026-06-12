@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../../features/chat/viewmodels/chat_viewmodel.dart';
+import '../../features/authentication/viewmodels/auth_viewmodel.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/routes_manager/routes_manager.dart';
@@ -29,7 +31,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
     return Scaffold(
       appBar: CustomAppBar(title: 'Messages'),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseService.getUserConversations(currentUser.id),
+        stream: context.read<ChatViewModel>().getUserConversations(currentUser.id),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
@@ -79,7 +81,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
               // We need to fetch the other user's details
               return FutureBuilder<UserModel?>(
-                future: FirebaseService.getUserFromFireStore(otherUserId),
+                future: context.read<AuthViewModel>().getUserFromFireStore(otherUserId),
                 builder: (context, userSnapshot) {
                   if (!userSnapshot.hasData) {
                     return SizedBox.shrink(); // Loading or error, just hide for now

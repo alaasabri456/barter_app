@@ -1,6 +1,6 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../firebase/firebase_service.dart';
+import '../data/repositories/auth_repository.dart';
 import '../features/authentication/models/user_model.dart';
 
 class PushNotificationService {
@@ -127,7 +127,8 @@ class PushNotificationService {
   static Future<void> _updateTokenInFirestore(String token) async {
     final userId = UserModel.currentUser?.id;
     if (userId != null) {
-      await FirebaseService.updateUserFcmToken(userId, token);
+      final authRepository = AuthRepository();
+      await authRepository.updateUserFcmToken(userId, token);
       // Update local model as well so the UI knows it's available
       UserModel.currentUser = UserModel.currentUser?.copyWith(fcmToken: token);
     }

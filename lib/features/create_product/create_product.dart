@@ -6,7 +6,9 @@ import 'package:barter/core/routes_manager/routes_manager.dart';
 import '../../core/validators.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../products/viewmodels/product_viewmodel.dart';
+import '../admin/viewmodels/admin_viewmodel.dart';
 import '../../features/products/models/product_model.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../authentication/widgets/auth_button.dart';
@@ -93,7 +95,7 @@ class _CreateProductState extends State<CreateProduct> {
       }
 
       final count =
-          await FirebaseService.getUntradedProductsCount(user.id, context);
+          await context.read<ProductViewModel>().getUntradedProductsCount(user.id);
       setState(() => _isLoading = false);
 
       if (count >= limit && mounted) {
@@ -225,7 +227,7 @@ class _CreateProductState extends State<CreateProduct> {
           _selectedCategory == ProductCategory.others.name) {
         customCategoryName = _customCategoryController.text.trim();
         if (customCategoryName.isNotEmpty) {
-          await FirebaseService.suggestCategory(
+          await context.read<AdminViewModel>().suggestCategory(
               name: customCategoryName, userId: user.id, userName: user.name);
         }
       }
@@ -279,9 +281,9 @@ class _CreateProductState extends State<CreateProduct> {
       );
 
       if (_isEditing) {
-        await FirebaseService.updateProductInFireStore(product, context);
+        await context.read<ProductViewModel>().updateProduct(product);
       } else {
-        await FirebaseService.addProductToFireStore(product, context);
+        await context.read<ProductViewModel>().addProduct(product);
       }
 
       if (mounted) {

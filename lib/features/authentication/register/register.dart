@@ -4,7 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/routes_manager/routes_manager.dart';
 import '../../../core/validators.dart';
 import '../../../core/widgets/custom_dialog.dart';
-import '../../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../viewmodels/auth_viewmodel.dart';
 import '../models/register_request.dart';
 import '../models/user_model.dart';
 import '../widgets/auth_button.dart';
@@ -129,13 +130,14 @@ class _RegisterState extends State<Register> {
       );
 
       // Create user with Firebase Auth
-      final UserCredential userCredential = await FirebaseService.register(
+      final authViewModel = context.read<AuthViewModel>();
+      final UserCredential? userCredential = await authViewModel.register(
         registerRequest,
       );
 
-      if (userCredential.user != null) {
+      if (userCredential != null && userCredential.user != null) {
         // Check if user is whitelisted as admin
-        final isWhitelisted = await FirebaseService.isEmailWhitelistedAsAdmin(email);
+        final isWhitelisted = await authViewModel.isEmailWhitelistedAsAdmin(email);
         final role = isWhitelisted ? UserRole.admin : UserRole.user;
 
         // Create user document in Firestore
@@ -147,11 +149,11 @@ class _RegisterState extends State<Register> {
           role: role,
         );
 
-        await FirebaseService.addUserToFireStore(newUser);
+        await authViewModel.addUserToFireStore(newUser);
 
         // Set current user
         UserModel.currentUser = newUser;
-        FirebaseService.initUserListener();
+        authViewModel.initUserListener();
 
         // Update FCM token on register
         await PushNotificationService.updateToken();

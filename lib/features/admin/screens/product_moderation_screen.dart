@@ -1,5 +1,6 @@
 import 'package:barter/features/products/models/product_model.dart';
-import 'package:barter/firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../../admin/viewmodels/admin_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -38,7 +39,7 @@ class _ProductModerationScreenState extends State<ProductModerationScreen> {
     });
 
     try {
-      final products = await FirebaseService.getAllProductsAdmin(context);
+      final products = await context.read<AdminViewModel>().getAllProductsAdmin();
       setState(() {
         _products = products;
         _filteredProducts = products;
@@ -103,7 +104,7 @@ class _ProductModerationScreenState extends State<ProductModerationScreen> {
 
     if (confirm == true) {
       try {
-        await FirebaseService.deleteProductById(product.id, context);
+        await context.read<AdminViewModel>().deleteProductById(product.id);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Product deleted successfully')),
         );

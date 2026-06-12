@@ -7,7 +7,8 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import 'viewmodels/profile_viewmodel.dart';
 import '../../services/image_upload_service.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../authentication/widgets/auth_button.dart';
@@ -131,7 +132,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         );
       }
 
-      await FirebaseService.updateUserProfile(
+      await context.read<ProfileViewModel>().updateProfile(
         userId: user.id,
         name: _nameController.text.trim(),
         profileImageUrl: profileImageUrl,

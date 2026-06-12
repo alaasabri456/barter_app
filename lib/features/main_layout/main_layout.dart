@@ -8,7 +8,8 @@ import 'package:barter/features/admin/screens/admin_dashboard_screen.dart';
 import 'package:barter/features/delivery/screens/agent_dashboard_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../chat/viewmodels/chat_viewmodel.dart';
 
 import '../../core/routes_manager/routes_manager.dart';
 import '../authentication/models/user_model.dart';
@@ -120,7 +121,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     }
 
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseService.getUserConversations(user.id),
+      stream: context.read<ChatViewModel>().getUserConversations(user.id),
       builder: (context, snapshot) {
         int unreadCount = 0;
         if (snapshot.hasData) {

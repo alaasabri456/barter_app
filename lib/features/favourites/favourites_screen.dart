@@ -5,7 +5,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/resources/colors_manager.dart';
 import '../../core/widgets/shimmer_loading.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../favourites/viewmodels/favourites_viewmodel.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../../features/products/models/product_model.dart';
 import '../../core/routes_manager/routes_manager.dart';
@@ -25,7 +26,9 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
   @override
   void initState() {
     super.initState();
-    _loadFavourites();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadFavourites();
+    });
   }
 
   Future<void> _loadFavourites() async {
@@ -40,9 +43,8 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
         throw Exception('User not logged in');
       }
 
-      final products = await FirebaseService.getFavouriteProducts(
+      final products = await context.read<FavouritesViewModel>().getFavouriteProducts(
         userId,
-        context,
       );
 
       setState(() {
@@ -67,7 +69,7 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
         _favouriteProducts?.removeWhere((p) => p.id == product.id);
       });
 
-      await FirebaseService.removeFromFavourites(userId, product.id);
+      await context.read<FavouritesViewModel>().toggleFavourite(userId, product.id);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

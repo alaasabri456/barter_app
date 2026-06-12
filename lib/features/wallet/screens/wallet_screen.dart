@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+
+import '../../authentication/viewmodels/auth_viewmodel.dart';
+import '../viewmodels/wallet_viewmodel.dart';
 import '../../authentication/models/user_model.dart';
 import '../models/wallet_transaction_model.dart';
 import '../models/withdrawal_request_model.dart';
@@ -62,7 +65,7 @@ class _WalletScreenState extends State<WalletScreen>
         children: [
           // Balance Card
           StreamBuilder<UserModel?>(
-            stream: FirebaseService.currentUserStream(),
+            stream: context.read<AuthViewModel>().currentUserStream(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return Center(child: Text('Error loading balance: ${snapshot.error}'));
@@ -166,7 +169,7 @@ class _WalletScreenState extends State<WalletScreen>
 
   Widget _buildTransactionsTab(String userId) {
     return StreamBuilder<List<WalletTransactionModel>>(
-      stream: FirebaseService.getWalletTransactions(userId),
+      stream: context.read<WalletViewModel>().getWalletTransactions(userId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -217,7 +220,7 @@ class _WalletScreenState extends State<WalletScreen>
 
   Widget _buildWithdrawalsTab(String userId) {
     return StreamBuilder<List<WithdrawalRequestModel>>(
-      stream: FirebaseService.getSellerWithdrawalRequests(userId),
+      stream: context.read<WalletViewModel>().getSellerWithdrawalRequests(userId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());

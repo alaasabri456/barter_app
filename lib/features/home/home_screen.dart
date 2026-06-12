@@ -1,4 +1,6 @@
-import 'package:barter/firebase/firebase_service.dart';
+import '../../features/products/viewmodels/product_viewmodel.dart';
+import '../../features/admin/viewmodels/admin_viewmodel.dart';
+import '../../features/notifications/viewmodels/notification_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
@@ -41,7 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _productsStream = FirebaseService.getProductsStream();
+    _productsStream = context.read<ProductViewModel>().getProductsStream();
     _loadFavouriteStates();
     _loadCategories();
     _initLocation();
@@ -65,7 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ProductCategory.values.map((c) => c.displayName).toList();
 
       // Get approved custom categories
-      final customCategories = await FirebaseService.getApprovedCategories();
+      final customCategories = await context.read<AdminViewModel>().getApprovedCategories();
       final customNames = customCategories.map((c) => c.name).toList();
 
       if (mounted) {
@@ -92,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Load favourites from first snapshot
       final products = await _productsStream.first;
       for (var product in products) {
-        final isFav = await FirebaseService.isFavourite(userId, product.id);
+        final isFav = await context.read<ProductViewModel>().isFavourite(userId, product.id);
         if (mounted) {
           setState(() {
             _favouriteStates[product.id] = isFav;
@@ -210,7 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final newStatus = await FirebaseService.toggleFavourite(
+      final newStatus = await context.read<ProductViewModel>().toggleFavourite(
         userId,
         product.id,
       );
@@ -528,7 +530,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               StreamBuilder<int>(
-                stream: FirebaseService.getUnreadNotificationCount(
+                stream: context.read<NotificationViewModel>().getUnreadNotificationCount(
                   UserModel.currentUser?.id ?? '',
                 ),
                 builder: (context, snapshot) {

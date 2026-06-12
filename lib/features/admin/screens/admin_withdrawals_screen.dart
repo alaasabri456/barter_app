@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../../wallet/viewmodels/wallet_viewmodel.dart';
 import '../../wallet/models/withdrawal_request_model.dart';
 
 class AdminWithdrawalsScreen extends StatelessWidget {
@@ -9,7 +10,7 @@ class AdminWithdrawalsScreen extends StatelessWidget {
 
   Future<void> _updateStatus(BuildContext context, WithdrawalRequestModel request, WithdrawalStatus newStatus) async {
     try {
-      await FirebaseService.updateWithdrawalStatus(request.id, newStatus);
+      await context.read<WalletViewModel>().updateWithdrawalStatus(request.id, newStatus);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -41,7 +42,7 @@ class AdminWithdrawalsScreen extends StatelessWidget {
         centerTitle: true,
       ),
       body: StreamBuilder<List<WithdrawalRequestModel>>(
-        stream: FirebaseService.getAllWithdrawalRequests(),
+        stream: context.read<WalletViewModel>().getAllWithdrawalRequests(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

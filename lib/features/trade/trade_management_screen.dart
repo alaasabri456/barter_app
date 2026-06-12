@@ -7,7 +7,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
 import '../../core/widgets/loading_widget.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../../features/trade/viewmodels/trade_viewmodel.dart';
+import '../../features/products/viewmodels/product_viewmodel.dart';
 import '../../features/trade/models/trade_offer.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../../features/products/models/product_model.dart';
@@ -38,13 +40,13 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
     _debugCheckTrades();
 
     // Check for expired trades periodically
-    FirebaseService.checkAndExpireTrades();
+    context.read<TradeViewModel>().checkAndExpireTrades();
   }
 
   Future<void> _debugCheckTrades() async {
     final user = UserModel.currentUser;
     if (user != null) {
-      await FirebaseService.debugCheckReceivedTrades(user.id);
+      await context.read<TradeViewModel>().debugCheckReceivedTrades(user.id);
     }
   }
 
@@ -60,7 +62,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         _isLoading = true;
       });
 
-      await FirebaseService.updateTradeStatus(
+      await context.read<TradeViewModel>().updateTradeStatus(
         tradeId: trade.id,
         newStatus: TradeStatus.accepted,
         userId: UserModel.currentUser!.id,
@@ -111,7 +113,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         _isLoading = true;
       });
 
-      await FirebaseService.updateTradeStatus(
+      await context.read<TradeViewModel>().updateTradeStatus(
         tradeId: trade.id,
         newStatus: TradeStatus.rejected,
         userId: UserModel.currentUser!.id,
@@ -162,7 +164,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         _isLoading = true;
       });
 
-      await FirebaseService.updateTradeStatus(
+      await context.read<TradeViewModel>().updateTradeStatus(
         tradeId: trade.id,
         newStatus: TradeStatus.cancelled,
         userId: UserModel.currentUser!.id,
@@ -296,7 +298,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         _isLoading = true;
       });
 
-      await FirebaseService.updateTradeStatus(
+      await context.read<TradeViewModel>().updateTradeStatus(
         tradeId: trade.id,
         newStatus: TradeStatus.completed,
         userId: UserModel.currentUser!.id,
@@ -315,7 +317,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         );
 
         // Add user to trade's deliveryProvidedBy list
-        await FirebaseService.addDeliveryProvidedByUser(
+        await context.read<TradeViewModel>().addDeliveryProvidedByUser(
           tradeId: trade.id,
           userId: UserModel.currentUser!.id,
         );
@@ -371,7 +373,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
       );
 
       // Add user to trade's deliveryProvidedBy list
-      await FirebaseService.addDeliveryProvidedByUser(
+      await context.read<TradeViewModel>().addDeliveryProvidedByUser(
         tradeId: trade.id,
         userId: UserModel.currentUser!.id,
       );
@@ -431,7 +433,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                 controller: _tabController,
                 children: [
                   StreamBuilder<List<TradeOffer>>(
-                    stream: FirebaseService.streamReceivedTrades(
+                    stream: context.read<TradeViewModel>().streamReceivedTrades(
                       UserModel.currentUser!.id,
                     ),
                     builder: (context, snapshot) {
@@ -446,7 +448,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                     },
                   ),
                   StreamBuilder<List<TradeOffer>>(
-                    stream: FirebaseService.streamSentTrades(
+                    stream: context.read<TradeViewModel>().streamSentTrades(
                       UserModel.currentUser!.id,
                     ),
                     builder: (context, snapshot) {
@@ -627,7 +629,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                   if (!trade.isCounterOffer && isReceived && isPending) ...[
                     SizedBox(width: 8.w),
                     FutureBuilder<int>(
-                      future: FirebaseService.getPendingTradeCountForProduct(
+                      future: context.read<TradeViewModel>().getPendingTradeCountForProduct(
                         trade.requestedProductIds.first,
                       ),
                       builder: (context, snapshot) {
@@ -1119,7 +1121,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
 
   Widget _buildCounterOffersSection(TradeOffer parentTrade) {
     return FutureBuilder<List<TradeOffer>>(
-      future: FirebaseService.getCounterOffersForTrade(parentTrade.id),
+      future: context.read<TradeViewModel>().getCounterOffersForTrade(parentTrade.id),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const SizedBox.shrink();
@@ -1259,9 +1261,8 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
     try {
       if (productIds.isEmpty) return [];
 
-      final products = await FirebaseService.getProductsByIds(
+      final products = await context.read<ProductViewModel>().getProductsByIds(
         productIds,
-        context,
       );
       return products;
     } catch (e) {

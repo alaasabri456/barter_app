@@ -2,7 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../notifications/viewmodels/notification_viewmodel.dart';
 import '../authentication/models/user_model.dart';
 import 'models/notification_model.dart';
 import '../../core/routes_manager/routes_manager.dart';
@@ -24,7 +25,7 @@ class NotificationsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Notifications')),
       body: StreamBuilder<List<NotificationModel>>(
-        stream: FirebaseService.getUserNotifications(currentUser.id),
+        stream: context.read<NotificationViewModel>().getUserNotifications(currentUser.id),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -112,7 +113,7 @@ class NotificationsScreen extends StatelessWidget {
       onTap: () async {
         // Mark as read
         if (!notification.isRead) {
-          await FirebaseService.markNotificationAsRead(notification.id);
+          await context.read<NotificationViewModel>().markNotificationAsRead(notification.id);
         }
 
         // Navigate based on type

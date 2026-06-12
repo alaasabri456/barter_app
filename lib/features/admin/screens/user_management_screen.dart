@@ -1,7 +1,8 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:barter/features/authentication/models/user_model.dart';
-import 'package:barter/firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../../admin/viewmodels/admin_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -56,7 +57,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
     if (newRole != null && newRole != user.role) {
       try {
-        await FirebaseService.updateUserRole(userId: user.id, newRole: newRole);
+        await context.read<AdminViewModel>().updateUserRole(userId: user.id, newRole: newRole);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('User role updated to ${newRole.displayName}'),
@@ -97,7 +98,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
     if (confirm == true) {
       try {
-        await FirebaseService.suspendUser(user.id);
+        await context.read<AdminViewModel>().suspendUser(user.id);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User suspended successfully')),
         );
@@ -133,7 +134,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
     if (confirm == true) {
       try {
-        await FirebaseService.unsuspendUser(user.id);
+        await context.read<AdminViewModel>().unsuspendUser(user.id);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User unsuspended successfully')),
         );
@@ -174,7 +175,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
     if (confirm == true) {
       try {
-        await FirebaseService.deleteUserData(user.id);
+        await context.read<AdminViewModel>().deleteUserData(user.id);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User deleted successfully')),
         );
@@ -245,7 +246,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
     if (confirm == true) {
       try {
-        await FirebaseService.addToAdminWhitelist(emailController.text.trim());
+        await context.read<AdminViewModel>().addToAdminWhitelist(emailController.text.trim());
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -295,7 +296,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           // User List
           Expanded(
             child: StreamBuilder<List<UserModel>>(
-              stream: FirebaseService.streamAllUsers(),
+              stream: context.read<AdminViewModel>().streamAllUsers(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());

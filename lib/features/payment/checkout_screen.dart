@@ -5,7 +5,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../../features/payment/models/payment_model.dart';
 import '../../features/products/models/product_model.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../../features/payment/viewmodels/payment_viewmodel.dart';
+import '../../features/products/viewmodels/product_viewmodel.dart';
 import '../../services/payment_service.dart';
 import '../authentication/widgets/auth_button.dart';
 import 'payment_success_screen.dart';
@@ -87,10 +89,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         createdAt: DateTime.now(),
       );
 
-      await FirebaseService.savePayment(payment);
+      await context.read<PaymentViewModel>().savePayment(payment);
 
       // Mark product as traded/sold
-      await FirebaseService.updateProductAvailability(
+      await context.read<ProductViewModel>().updateProductAvailability(
         productId: widget.product.id,
         isAvailable: false,
         newStatus: ProductStatus.traded,

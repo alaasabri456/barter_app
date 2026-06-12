@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/routes_manager/routes_manager.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../authentication/viewmodels/auth_viewmodel.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../../services/push_notification_service.dart';
 import '../../core/resources/colors_manager.dart';
@@ -50,10 +51,11 @@ class _SplashScreenState extends State<SplashScreen>
       final currentUser = FirebaseAuth.instance.currentUser;
 
       if (currentUser != null) {
-        UserModel.currentUser = await FirebaseService.getUserFromFireStore(
+        final authViewModel = context.read<AuthViewModel>();
+        UserModel.currentUser = await authViewModel.getUserFromFireStore(
           currentUser.uid,
         );
-        FirebaseService.initUserListener();
+        authViewModel.initUserListener();
 
         if (UserModel.currentUser == null && currentUser.isAnonymous) {
           UserModel.currentUser = UserModel.guest(currentUser.uid);

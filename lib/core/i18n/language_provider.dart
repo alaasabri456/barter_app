@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../firebase/firebase_service.dart';
+import '../../data/repositories/auth_repository.dart';
 import '../../features/authentication/models/user_model.dart';
 
 class LanguageProvider extends ChangeNotifier {
@@ -36,7 +36,7 @@ class LanguageProvider extends ChangeNotifier {
     final user = UserModel.currentUser;
     if (user != null) {
       user.languageCode = languageCode;
-      await FirebaseService.updateUserLanguage(user.id, languageCode);
+      await AuthRepository().updateUserLanguage(user.id, languageCode);
     }
 
     notifyListeners();

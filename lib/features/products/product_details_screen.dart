@@ -8,7 +8,10 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
 import '../../core/widgets/loading_widget.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../products/viewmodels/product_viewmodel.dart';
+import '../admin/viewmodels/admin_viewmodel.dart';
+import '../trade/viewmodels/trade_viewmodel.dart';
 import '../../features/products/models/product_model.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../authentication/widgets/auth_button.dart';
@@ -41,7 +44,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadProductDetails();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProductDetails();
+    });
   }
 
   Future<void> _loadProductDetails() async {
@@ -49,7 +54,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       // Increment view count (fire and forget - don't block loading)
       final userId = UserModel.currentUser?.id ?? '';
       if (userId.isNotEmpty) {
-        FirebaseService.incrementProductViewCount(
+        context.read<ProductViewModel>().incrementProductViewCount(
           widget.productId,
           userId,
         ).catchError((e) {
@@ -58,9 +63,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       }
 
       // Load product details
-      final product = await FirebaseService.getProductById(
+      final product = await context.read<ProductViewModel>().getProductById(
         widget.productId,
-        context,
       );
       setState(() {
         _product = product;
@@ -71,7 +75,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       await _loadFavouriteStatus();
 
       // Load pending trade count
-      final count = await FirebaseService.getPendingTradeCountForProduct(
+      final count = await context.read<TradeViewModel>().getPendingTradeCountForProduct(
         widget.productId,
       );
       if (mounted) {
@@ -92,7 +96,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     if (userId == null) return;
 
     try {
-      final isFav = await FirebaseService.isFavourite(userId, widget.productId);
+      final isFav = await context.read<ProductViewModel>().isFavourite(userId, widget.productId);
       if (mounted) {
         setState(() {
           _isFavourite = isFav;
@@ -135,7 +139,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
     try {
       print('Calling toggleFavourite for product: ${widget.productId}');
-      final newStatus = await FirebaseService.toggleFavourite(
+      final newStatus = await context.read<ProductViewModel>().toggleFavourite(
         userId,
         widget.productId,
       );
@@ -420,7 +424,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
       try {
         // 1. Update reportedByUserIds on the product (existing behavior)
-        await FirebaseService.reportProduct(
+        await context.read<ProductViewModel>().reportProduct(
           productId: _product!.id,
           userId: userId,
         );
@@ -437,10 +441,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           description: description,
           createdAt: DateTime.now(),
         );
-        await FirebaseService.submitReport(report);
+        await context.read<AdminViewModel>().submitReport(report);
 
         // 3. Notify admin(s) via system notification
-        await FirebaseService.notifyAdminsOfReport(report);
+        await context.read<AdminViewModel>().notifyAdminsOfReport(report);
 
         if (mounted) {
           showInfoDialog(

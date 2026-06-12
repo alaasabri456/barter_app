@@ -8,7 +8,8 @@ import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/loading_widget.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../../features/trade/models/trade_offer.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../trade/viewmodels/trade_viewmodel.dart';
 import '../reviews/leave_review_screen.dart';
 import 'public_profile_screen.dart';
 
@@ -31,7 +32,9 @@ class _TradeHistoryScreenState extends State<TradeHistoryScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _loadTrades();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadTrades();
+    });
   }
 
   @override
@@ -56,8 +59,8 @@ class _TradeHistoryScreenState extends State<TradeHistoryScreen>
     });
 
     try {
-      final sent = await FirebaseService.getSentTrades(user.id);
-      final received = await FirebaseService.getReceivedTrades(user.id);
+      final sent = await context.read<TradeViewModel>().getSentTrades(user.id);
+      final received = await context.read<TradeViewModel>().getReceivedTrades(user.id);
 
       setState(() {
         _sentTrades = sent;

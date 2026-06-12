@@ -1,7 +1,8 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:barter/features/admin/models/report_model.dart';
-import 'package:barter/firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../../admin/viewmodels/admin_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -70,7 +71,7 @@ class _ReportsManagementScreenState extends State<ReportsManagementScreen> {
     if (note == null) return;
 
     try {
-      await FirebaseService.updateReportStatus(
+      await context.read<AdminViewModel>().updateReportStatus(
         reportId: report.id,
         newStatus: ReportStatus.dismissed,
         adminNote: note.isEmpty ? 'Dismissed by admin' : note,
@@ -111,8 +112,8 @@ class _ReportsManagementScreenState extends State<ReportsManagementScreen> {
     if (confirm != true) return;
 
     try {
-      await FirebaseService.deleteProductById(report.reportedProductId, context);
-      await FirebaseService.updateReportStatus(
+      await context.read<AdminViewModel>().deleteProductById(report.reportedProductId);
+      await context.read<AdminViewModel>().updateReportStatus(
         reportId: report.id,
         newStatus: ReportStatus.actioned,
         adminNote: 'Action taken: Product deleted',
@@ -155,8 +156,8 @@ class _ReportsManagementScreenState extends State<ReportsManagementScreen> {
     if (confirm != true) return;
 
     try {
-      await FirebaseService.suspendUser(report.reportedProductOwnerId);
-      await FirebaseService.updateReportStatus(
+      await context.read<AdminViewModel>().suspendUser(report.reportedProductOwnerId);
+      await context.read<AdminViewModel>().updateReportStatus(
         reportId: report.id,
         newStatus: ReportStatus.actioned,
         adminNote: 'Product owner suspended by admin',
@@ -201,7 +202,7 @@ class _ReportsManagementScreenState extends State<ReportsManagementScreen> {
           ),
           Expanded(
             child: StreamBuilder<List<ReportModel>>(
-              stream: FirebaseService.streamAllReports(),
+              stream: context.read<AdminViewModel>().streamAllReports(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());

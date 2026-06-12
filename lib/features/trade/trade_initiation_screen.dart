@@ -8,7 +8,9 @@ import '../../core/routes_manager/routes_manager.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
 import '../../core/widgets/loading_widget.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../../features/products/viewmodels/product_viewmodel.dart';
+import '../../features/trade/viewmodels/trade_viewmodel.dart';
 import '../../features/products/models/product_model.dart';
 import '../../features/trade/models/trade_offer.dart';
 import '../../features/authentication/models/user_model.dart';
@@ -48,8 +50,10 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
     _selectedRequestedProducts = [
       widget.targetProduct,
     ]; // Initialize with target
-    _loadUserProducts();
-    _loadTargetUserProducts(); // Load target inventory
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserProducts();
+      _loadTargetUserProducts(); // Load target inventory
+    });
   }
 
   Future<void> _loadUserProducts() async {
@@ -59,7 +63,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
         throw Exception('Please log in to view your products');
       }
 
-      final products = await FirebaseService.getUserProducts(user.id, context);
+      final products = await context.read<ProductViewModel>().getUserProducts(user.id);
 
       // Additional client-side filtering
       final availableProducts = products
@@ -115,9 +119,8 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
 
   Future<void> _loadTargetUserProducts() async {
     try {
-      final products = await FirebaseService.getUserProducts(
+      final products = await context.read<ProductViewModel>().getUserProducts(
         widget.targetProduct.ownerId,
-        context,
       );
       if (mounted) {
         setState(() {
@@ -151,7 +154,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
       }
 
       // Check for duplicate trade
-      final isDuplicate = await FirebaseService.isDuplicateTrade(
+      final isDuplicate = await context.read<TradeViewModel>().isDuplicateTrade(
         userId: user.id,
         targetProductId: widget.targetProduct.id,
         offeredProductIds: _selectedOfferedProducts.map((p) => p.id).toList(),
@@ -187,7 +190,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
         expiresAt: DateTime.now().add(const Duration(days: 7)), // 7 days expiry
       );
 
-      await FirebaseService.createTradeOffer(tradeOffer);
+      await context.read<TradeViewModel>().createTradeOffer(tradeOffer);
 
       if (mounted) {
         await showInfoDialog(

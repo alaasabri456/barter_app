@@ -7,7 +7,9 @@ import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/loading_widget.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../../features/products/models/product_model.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../products/viewmodels/product_viewmodel.dart';
+import '../trade/viewmodels/trade_viewmodel.dart';
 import '../authentication/widgets/auth_text_field.dart';
 import 'widgets/product_card.dart';
 import '../create_product/create_product.dart';
@@ -61,8 +63,10 @@ class _ProductsScreenState extends State<ProductsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _loadProducts();
-    _initLocation();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProducts();
+      _initLocation();
+    });
   }
 
   Future<void> _initLocation() async {
@@ -100,7 +104,7 @@ class _ProductsScreenState extends State<ProductsScreen>
     });
 
     try {
-      final products = await FirebaseService.getUserProducts(user.id, context);
+      final products = await context.read<ProductViewModel>().getUserProducts(user.id);
       if (!mounted) return;
       setState(() {
         _products = products;
@@ -595,7 +599,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                   try {
                     // Check if item is in pending trade
                     final isInTrade =
-                        await FirebaseService.isProductInPendingTrade(
+                        await context.read<TradeViewModel>().isProductInPendingTrade(
                       product.id,
                     );
 
@@ -618,7 +622,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                       return;
                     }
 
-                    await FirebaseService.deleteProduct(product.id);
+                    await context.read<ProductViewModel>().deleteProduct(product.id);
                     _loadProducts();
 
                     if (mounted) {

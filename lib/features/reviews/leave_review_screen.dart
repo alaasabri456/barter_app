@@ -8,7 +8,8 @@ import '../../core/widgets/custom_dialog.dart';
 import '../../features/authentication/models/user_model.dart';
 import '../../features/authentication/widgets/auth_button.dart';
 import '../../features/trade/models/trade_offer.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import 'viewmodels/review_viewmodel.dart';
 import 'models/review_model.dart';
 
 class LeaveReviewScreen extends StatefulWidget {
@@ -69,7 +70,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
         tradeId: widget.trade.id,
       );
 
-      await FirebaseService.addReview(review);
+      await context.read<ReviewViewModel>().addReview(review);
 
       if (mounted) {
         await showInfoDialog(

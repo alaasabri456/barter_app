@@ -5,7 +5,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../authentication/models/user_model.dart';
 import '../../payment/models/payment_model.dart';
-import '../../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../../payment/viewmodels/payment_viewmodel.dart';
 import '../../../services/payment_service.dart';
 import '../models/premium_subscription.dart';
 import '../services/premium_service.dart';
@@ -115,7 +116,7 @@ class _PremiumSubscriptionScreenState extends State<PremiumSubscriptionScreen> {
         status: PaymentStatus.completed,
         createdAt: DateTime.now(),
       );
-      await FirebaseService.savePayment(payment);
+      await context.read<PaymentViewModel>().savePayment(payment);
 
       // Reload
       await _loadSubscription();

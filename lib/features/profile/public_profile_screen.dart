@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../features/trade/models/trade_offer.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../products/viewmodels/product_viewmodel.dart';
+import '../trade/viewmodels/trade_viewmodel.dart';
+import '../reviews/viewmodels/review_viewmodel.dart';
 import '../reviews/reviews_screen.dart';
 import '../premium/widgets/premium_badge_widget.dart';
 import '../premium/services/premium_service.dart';
@@ -32,8 +35,10 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadProfileStats();
-    _loadPremiumStatus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProfileStats();
+      _loadPremiumStatus();
+    });
   }
 
   Future<void> _loadPremiumStatus() async {
@@ -48,14 +53,13 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   Future<void> _loadProfileStats() async {
     try {
       // Load products count
-      final products = await FirebaseService.getUserProducts(
+      final products = await context.read<ProductViewModel>().getUserProducts(
         widget.userId,
-        context,
       );
 
       // Load trades count
-      final sentTrades = await FirebaseService.getSentTrades(widget.userId);
-      final receivedTrades = await FirebaseService.getReceivedTrades(
+      final sentTrades = await context.read<TradeViewModel>().getSentTrades(widget.userId);
+      final receivedTrades = await context.read<TradeViewModel>().getReceivedTrades(
         widget.userId,
       );
 
@@ -68,7 +72,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           .length;
 
       // Load reviews count
-      final reviews = await FirebaseService.getUserReviews(widget.userId);
+      final reviews = await context.read<ReviewViewModel>().getUserReviews(widget.userId);
 
       if (mounted) {
         setState(() {

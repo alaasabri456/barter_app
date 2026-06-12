@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:provider/provider.dart';
 import '../../features/authentication/models/user_model.dart';
+import '../../features/authentication/viewmodels/auth_viewmodel.dart';
+import '../../features/chat/viewmodels/chat_viewmodel.dart';
 import '../../features/chat/models/chat_message.dart';
-import '../../firebase/firebase_service.dart';
 import '../../services/image_upload_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -43,10 +45,14 @@ class _ChatScreenState extends State<ChatScreen> {
     // Generate conversation ID if not provided
     final currentUserId = UserModel.currentUser?.id ?? '';
     _conversationId = widget.conversationId ??
-        FirebaseService.getConversationId(currentUserId, widget.otherUserId);
+        context
+            .read<ChatViewModel>()
+            .getConversationId(currentUserId, widget.otherUserId);
 
-    // Initialize conversation and mark messages as read
-    _initializeChat();
+    // Defer ViewModel calls to avoid setState/notifyListeners during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeChat();
+    });
   }
 
   Future<void> _initializeChat() async {
@@ -54,23 +60,28 @@ class _ChatScreenState extends State<ChatScreen> {
     if (currentUserId != null) {
       if (mounted) {
         setState(() {
-          _isBlockedByMe = UserModel.currentUser?.blockedUserIds.contains(widget.otherUserId) ?? false;
+          _isBlockedByMe = UserModel.currentUser?.blockedUserIds
+                  .contains(widget.otherUserId) ??
+              false;
         });
       }
 
       // Create conversation if it doesn't exist
-      await FirebaseService.getOrCreateConversation(
-        currentUserId,
-        widget.otherUserId,
-      );
+      await context.read<ChatViewModel>().getOrCreateConversation(
+            currentUserId,
+            widget.otherUserId,
+          );
       // Mark messages as read
       _markAsRead();
 
       try {
-        final otherUser = await FirebaseService.getUserFromFireStore(widget.otherUserId);
+        final otherUser = await context
+            .read<AuthViewModel>()
+            .getUserFromFireStore(widget.otherUserId);
         if (otherUser != null && mounted) {
           setState(() {
-            _amIBlockedByOther = otherUser.blockedUserIds.contains(currentUserId);
+            _amIBlockedByOther =
+                otherUser.blockedUserIds.contains(currentUserId);
           });
         }
       } catch (e) {
@@ -85,7 +96,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       if (_isBlockedByMe) {
-        await FirebaseService.unblockUser(currentUser.id, widget.otherUserId);
+        await context
+            .read<AuthViewModel>()
+            .unblockUser(currentUser.id, widget.otherUserId);
         if (mounted) {
           setState(() {
             _isBlockedByMe = false;
@@ -99,7 +112,8 @@ class _ChatScreenState extends State<ChatScreen> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Block User'),
-            content: const Text('Are you sure you want to block this user? You will not be able to send or receive messages from them.'),
+            content: const Text(
+                'Are you sure you want to block this user? You will not be able to send or receive messages from them.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -115,7 +129,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
         if (confirm != true) return;
 
-        await FirebaseService.blockUser(currentUser.id, widget.otherUserId);
+        await context
+            .read<AuthViewModel>()
+            .blockUser(currentUser.id, widget.otherUserId);
         if (mounted) {
           setState(() {
             _isBlockedByMe = true;
@@ -137,10 +153,10 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _markAsRead() async {
     final currentUser = UserModel.currentUser;
     if (currentUser != null) {
-      await FirebaseService.markConversationMessagesAsRead(
-        _conversationId,
-        currentUser.id,
-      );
+      await context.read<ChatViewModel>().markConversationMessagesAsRead(
+            _conversationId,
+            currentUser.id,
+          );
     }
   }
 
@@ -165,7 +181,9 @@ class _ChatScreenState extends State<ChatScreen> {
         timestamp: DateTime.now(),
       );
 
-      await FirebaseService.sendConversationMessage(message, _conversationId);
+      await context
+          .read<ChatViewModel>()
+          .sendConversationMessage(message, _conversationId);
       _messageController.clear();
 
       // Scroll to bottom
@@ -223,7 +241,9 @@ class _ChatScreenState extends State<ChatScreen> {
         timestamp: DateTime.now(),
       );
 
-      await FirebaseService.sendConversationMessage(message, _conversationId);
+      await context
+          .read<ChatViewModel>()
+          .sendConversationMessage(message, _conversationId);
 
       // Scroll to bottom
       if (_scrollController.hasClients) {
@@ -328,7 +348,9 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             child: StreamBuilder<List<ChatMessage>>(
-              stream: FirebaseService.getConversationMessages(_conversationId),
+              stream: context
+                  .read<ChatViewModel>()
+                  .getConversationMessages(_conversationId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());

@@ -6,7 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/routes_manager/routes_manager.dart';
 import '../../../core/validators.dart';
 import '../../../core/widgets/custom_dialog.dart';
-import '../../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../viewmodels/auth_viewmodel.dart';
 import '../models/login_request.dart';
 import '../models/user_model.dart';
 import '../widgets/auth_button.dart';
@@ -54,16 +55,12 @@ class _LoginState extends State<Login> {
       );
 
       // Sign in with Firebase Auth
-      final UserCredential userCredential = await FirebaseService.login(
+      final authViewModel = context.read<AuthViewModel>();
+      final UserCredential? userCredential = await authViewModel.login(
         loginRequest,
       );
 
-      if (userCredential.user != null) {
-        // Get user data from Firestore
-        UserModel.currentUser = await FirebaseService.getUserFromFireStore(
-          userCredential.user!.uid,
-        );
-        FirebaseService.initUserListener();
+      if (userCredential != null && userCredential.user != null) {
 
         if (UserModel.currentUser != null && UserModel.currentUser!.is2faEnabled) {
           final newOtp = (100000 + Random().nextInt(900000)).toString();
@@ -147,14 +144,11 @@ class _LoginState extends State<Login> {
     });
 
     try {
-      final userCredential = await FirebaseService.signInWithGoogle();
-      final user = userCredential.user;
+      final authViewModel = context.read<AuthViewModel>();
+      final userCredential = await authViewModel.signInWithGoogle();
+      final user = userCredential?.user;
 
       if (user != null) {
-        UserModel userModel =
-            await FirebaseService.handleGoogleSignInUser(user);
-        UserModel.currentUser = userModel;
-        FirebaseService.initUserListener();
         
         if (UserModel.currentUser!.is2faEnabled) {
           final newOtp = (100000 + Random().nextInt(900000)).toString();

@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import 'viewmodels/profile_viewmodel.dart';
+import '../../data/services/notification_service.dart';
 import '../../core/resources/colors_manager.dart';
 import '../../core/routes_manager/routes_manager.dart';
 import '../../core/widgets/custom_app_bar.dart';
@@ -164,7 +166,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     setState(() => _isLoading = true);
     try {
-      await FirebaseService.sendPushNotification(
+      await NotificationService().sendPushNotification(
         recipientToken: user.fcmToken!,
         title: 'Test Notification',
         body: 'Hello! This is a test push notification from Barter.',
@@ -352,7 +354,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     SizedBox(height: 16.h),
                     // Stats row
                     StreamBuilder<Map<String, int>>(
-                      stream: FirebaseService.streamProfileStats(user.id),
+                      stream: context.read<ProfileViewModel>().streamProfileStats(user.id),
                       builder: (context, snapshot) {
                         final productsCount = snapshot.data?['productsCount'] ?? 0;
                         final tradesCount = snapshot.data?['completedTradesCount'] ?? 0;

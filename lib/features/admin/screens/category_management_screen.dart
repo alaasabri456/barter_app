@@ -1,6 +1,7 @@
 import 'package:barter/features/admin/models/category_suggestion_model.dart';
 import 'package:barter/features/authentication/models/user_model.dart';
-import 'package:barter/firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../../admin/viewmodels/admin_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -39,7 +40,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
     });
 
     try {
-      final suggestions = await FirebaseService.getCategorySuggestions();
+      final suggestions = await context.read<AdminViewModel>().getCategorySuggestions();
       setState(() {
         _suggestions = suggestions;
         _filteredSuggestions = suggestions;
@@ -103,7 +104,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
     if (confirmed == true) {
       try {
         final admin = UserModel.currentUser!;
-        await FirebaseService.approveCategorySuggestion(
+        await context.read<AdminViewModel>().approveCategorySuggestion(
           suggestionId: suggestion.id,
           adminId: admin.id,
           adminName: admin.name,
@@ -147,7 +148,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
     if (confirmed == true) {
       try {
         final admin = UserModel.currentUser!;
-        await FirebaseService.rejectCategorySuggestion(
+        await context.read<AdminViewModel>().rejectCategorySuggestion(
           suggestionId: suggestion.id,
           adminId: admin.id,
           adminName: admin.name,

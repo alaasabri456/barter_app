@@ -3,7 +3,8 @@ import 'package:barter/features/admin/screens/product_moderation_screen.dart';
 import 'package:barter/features/admin/screens/user_management_screen.dart';
 import 'package:barter/features/admin/screens/category_management_screen.dart';
 import 'package:barter/features/admin/screens/reports_management_screen.dart';
-import 'package:barter/firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../../admin/viewmodels/admin_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -29,7 +30,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         title: const Text('Admin Dashboard'),
       ),
       body: StreamBuilder<AdminStats>(
-        stream: FirebaseService.streamSystemStats(),
+        stream: context.read<AdminViewModel>().streamSystemStats(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

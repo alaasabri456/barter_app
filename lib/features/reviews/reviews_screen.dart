@@ -3,7 +3,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/loading_widget.dart';
-import '../../firebase/firebase_service.dart';
+import 'package:provider/provider.dart';
+import 'viewmodels/review_viewmodel.dart';
 import 'models/review_model.dart';
 
 class ReviewsScreen extends StatefulWidget {
@@ -23,7 +24,9 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadReviews();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadReviews();
+    });
   }
 
   Future<void> _loadReviews() async {
@@ -33,7 +36,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
     });
 
     try {
-      final reviews = await FirebaseService.getUserReviews(widget.userId);
+      final reviews = await context.read<ReviewViewModel>().getUserReviews(widget.userId);
       setState(() {
         _reviews = reviews;
         _isLoading = false;
