@@ -38,51 +38,55 @@ export const paymobWebhook = onRequest(async (req, res) => {
 });
 
 /**
- * ✅ NEW: Firestore trigger — fires whenever a Payment document is created.
- * This completely eliminates the race condition because:
- *   1. The Flutter app saves the Payment doc to Firestore.
- *   2. This trigger fires immediately with all the data already in the document.
- *   3. No need to query or match transactionIds.
+ * Firestore trigger — fires whenever a Payment document is **updated**.
+ *
+ * The Flutter app now follows a two-phase write:
+ *   Phase 1 (before gateway): creates the doc with status = 'pending'.
+ *   Phase 3 (after gateway):  updates the same doc to status = 'completed'.
+ *
+ * This function fires on Phase 3 and credits the seller's wallet only when
+ * the status transitions from 'pending' → 'completed', preventing any
+ * double-crediting even if the trigger fires more than once.
  */
-export const onPaymentCreated = onDocumentCreated(
+export const onPaymentStatusChanged = onDocumentUpdated(
   "Payments/{paymentId}",
   async (event) => {
-    const snap = event.data;
-    if (!snap) {
-      logger.error("onPaymentCreated: No data in event");
+    if (!event.data) {
+      logger.error("onPaymentStatusChanged: No data in event");
       return;
     }
 
-    const paymentData = snap.data();
+    const before = event.data.before.data();
+    const after  = event.data.after.data();
     const paymentId = event.params.paymentId;
 
-    logger.info(`onPaymentCreated triggered for payment: ${paymentId}`);
-
-    // Only process completed payments
-    if (paymentData.status !== "completed") {
-      logger.info(`Payment ${paymentId} status is '${paymentData.status}', skipping.`);
+    // Guard: only act on the pending → completed transition.
+    if (before.status !== "pending" || after.status !== "completed") {
+      logger.info(
+        `Payment ${paymentId}: status changed from '${before.status}' to '${after.status}'. No action needed.`
+      );
       return;
     }
 
-    // Check idempotency (prevent double crediting)
-    if (paymentData.isCredited === true) {
+    // Guard: idempotency — prevent double-crediting.
+    if (after.isCredited === true) {
       logger.info(`Payment ${paymentId} was already credited. Skipping.`);
       return;
     }
 
-    const sellerId = paymentData.sellerId;
-    const amount = paymentData.amount;
-    const productTitle = paymentData.productTitle || "a product";
+    const sellerId    = after.sellerId;
+    const amount      = after.amount;
+    const productTitle = after.productTitle || "a product";
 
     if (!sellerId || !amount) {
-      logger.error(`Payment ${paymentId} is missing sellerId or amount.`, paymentData);
+      logger.error(`Payment ${paymentId} is missing sellerId or amount.`, after);
       return;
     }
 
     try {
-      // Atomic transaction: credit seller + create wallet record + mark as credited
+      // Atomic transaction: credit seller + create wallet record + mark as credited.
       await db.runTransaction(async (t) => {
-        const sellerRef = db.collection("Users").doc(sellerId);
+        const sellerRef  = db.collection("Users").doc(sellerId);
         const sellerSnap = await t.get(sellerRef);
 
         if (!sellerSnap.exists) {
@@ -90,12 +94,12 @@ export const onPaymentCreated = onDocumentCreated(
         }
 
         const currentBalance = sellerSnap.data()?.walletBalance || 0;
-        const newBalance = currentBalance + amount;
+        const newBalance     = currentBalance + amount;
 
-        // Update seller's wallet balance
+        // Update seller's wallet balance.
         t.update(sellerRef, { walletBalance: newBalance });
 
-        // Create a WalletTransaction record
+        // Create a WalletTransaction record.
         const walletTxRef = db.collection("WalletTransactions").doc();
         t.set(walletTxRef, {
           id: walletTxRef.id,
@@ -107,15 +111,17 @@ export const onPaymentCreated = onDocumentCreated(
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
-        // Mark payment as credited (idempotency flag)
-        t.update(snap.ref, { isCredited: true });
+        // Mark payment as credited (idempotency flag).
+        t.update(event.data!.after.ref, { isCredited: true });
       });
 
-      logger.info(`Successfully credited ${amount} EGP to seller ${sellerId} for payment ${paymentId}`);
+      logger.info(
+        `Successfully credited ${amount} EGP to seller ${sellerId} for payment ${paymentId}`
+      );
 
-      // Send push notification to seller
+      // Send push notification to seller.
       const sellerDoc = await db.collection("Users").doc(sellerId).get();
-      const fcmToken = sellerDoc.data()?.fcmToken;
+      const fcmToken  = sellerDoc.data()?.fcmToken;
       if (fcmToken) {
         await admin.messaging().send({
           token: fcmToken,
@@ -134,6 +140,7 @@ export const onPaymentCreated = onDocumentCreated(
     }
   }
 );
+
 
 /**
  * Triggered when a WithdrawalRequest document is updated.

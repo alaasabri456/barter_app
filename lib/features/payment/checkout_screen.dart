@@ -34,19 +34,68 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> _handlePayment() async {
     setState(() => _isProcessing = true);
 
-    try {
-      final user = UserModel.currentUser;
-      if (user == null) throw Exception('Please log in to continue.');
+    final user = UserModel.currentUser;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to continue.')),
+        );
+      }
+      setState(() => _isProcessing = false);
+      return;
+    }
 
-      // Launch Paymob WebView checkout
+    // ─────────────────────────────────────────────────────────────────────────
+    // PHASE 1: Write a pending Payment doc to Firestore BEFORE opening Paymob.
+    // This guarantees a transaction record exists even if the app crashes later.
+    // ─────────────────────────────────────────────────────────────────────────
+    String? pendingDocId;
+    try {
+      pendingDocId = await context.read<PaymentViewModel>().createPendingPayment(
+        PaymentModel(
+          id: '',
+          buyerId: user.id,
+          buyerName: user.name,
+          sellerId: widget.product.ownerId,
+          productId: widget.product.id,
+          productTitle: widget.product.title,
+          amount: _total,
+          currency: 'EGP',
+          transactionId: '',        // filled in Phase 3
+          status: PaymentStatus.pending,
+          createdAt: DateTime.now(),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not start payment: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        setState(() => _isProcessing = false);
+      }
+      return;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PHASE 2: Open Paymob WebView.
+    // ─────────────────────────────────────────────────────────────────────────
+    try {
       final response = await PaymentService.pay(
         amount: _total,
         context: context,
         user: user,
       );
 
-      // User dismissed the WebView without completing payment
+      // User dismissed the WebView without completing payment → mark cancelled.
       if (response == null) {
+        context.read<PaymentViewModel>().updatePaymentStatus(
+          docId: pendingDocId,
+          status: PaymentStatus.cancelled,
+        );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -59,8 +108,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         return;
       }
 
-      // Payment was declined or failed
+      // Paymob declined the payment → mark failed.
       if (!response.success) {
+        context.read<PaymentViewModel>().updatePaymentStatus(
+          docId: pendingDocId,
+          status: PaymentStatus.failed,
+        );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -73,25 +126,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         return;
       }
 
-      // Save payment record to Firestore
+      // ───────────────────────────────────────────────────────────────────────
+      // PHASE 3: Payment confirmed — update the pending doc to completed.
+      // The Cloud Function listens for this status transition and credits the
+      // seller's wallet. Even if the app crashes here, the pending doc persists
+      // and can be reconciled manually.
+      // ───────────────────────────────────────────────────────────────────────
       final transactionId = response.transactionID?.toString() ?? '';
-      final payment = PaymentModel(
-        id: '',
-        buyerId: user.id,
-        buyerName: user.name,
-        sellerId: widget.product.ownerId,
-        productId: widget.product.id,
-        productTitle: widget.product.title,
-        amount: _total,
-        currency: 'EGP',
+
+      await context.read<PaymentViewModel>().updatePaymentToCompleted(
+        docId: pendingDocId,
         transactionId: transactionId,
-        status: PaymentStatus.completed,
-        createdAt: DateTime.now(),
       );
 
-      await context.read<PaymentViewModel>().savePayment(payment);
-
-      // Mark product as traded/sold
+      // Mark product as sold.
       await context.read<ProductViewModel>().updateProductAvailability(
         productId: widget.product.id,
         isAvailable: false,
