@@ -25,8 +25,13 @@ import '../admin/models/report_model.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final String productId;
+  final ProductModel? initialProduct;
 
-  const ProductDetailsScreen({super.key, required this.productId});
+  const ProductDetailsScreen({
+    super.key,
+    required this.productId,
+    this.initialProduct,
+  });
 
   @override
   State<ProductDetailsScreen> createState() => _ProductDetailsScreenState();
@@ -44,18 +49,66 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   @override
   void initState() {
     super.initState();
+    _product = widget.initialProduct;
+    _isLoading = _product == null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadProductDetails();
     });
   }
 
+  List<String> get _productFetchIds {
+    final ids = <String>[];
+
+    void addId(String? id) {
+      if (id != null && id.isNotEmpty && !ids.contains(id)) {
+        ids.add(id);
+      }
+    }
+
+    addId(widget.productId);
+    addId(widget.initialProduct?.id);
+    addId(_product?.id);
+    return ids;
+  }
+
+  String get _activeProductId {
+    final productId = _product?.id;
+    if (productId != null && productId.isNotEmpty) {
+      return productId;
+    }
+    return widget.productId;
+  }
+
+  Future<ProductModel?> _fetchProductWithFallback() async {
+    final productViewModel = context.read<ProductViewModel>();
+
+    for (final productId in _productFetchIds) {
+      try {
+        final product = await productViewModel.getProductById(productId);
+        if (product != null) return product;
+      } catch (e) {
+        print('Failed to fetch product $productId: $e');
+      }
+    }
+
+    return _product;
+  }
+
   Future<void> _loadProductDetails() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = _product == null;
+        _errorLoading = false;
+      });
+    }
+
     try {
       // Increment view count (fire and forget - don't block loading)
       final userId = UserModel.currentUser?.id ?? '';
-      if (userId.isNotEmpty) {
+      final viewProductId = _activeProductId;
+      if (userId.isNotEmpty && viewProductId.isNotEmpty) {
         context.read<ProductViewModel>().incrementProductViewCount(
-          widget.productId,
+          viewProductId,
           userId,
         ).catchError((e) {
           print('Failed to increment view count: $e');
@@ -63,40 +116,52 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       }
 
       // Load product details
-      final product = await context.read<ProductViewModel>().getProductById(
-        widget.productId,
-      );
+      final product = await _fetchProductWithFallback();
+      if (!mounted) return;
+
       setState(() {
         _product = product;
+        _errorLoading = product == null;
         _isLoading = false;
       });
 
+      if (product == null) return;
+
+      final productId = product.id.isNotEmpty ? product.id : widget.productId;
+      if (productId.isEmpty) return;
+
       // Load favorite status
-      await _loadFavouriteStatus();
+      await _loadFavouriteStatus(productId);
 
       // Load pending trade count
-      final count = await context.read<TradeViewModel>().getPendingTradeCountForProduct(
-        widget.productId,
-      );
+      final count = await context
+          .read<TradeViewModel>()
+          .getPendingTradeCountForProduct(productId);
       if (mounted) {
         setState(() {
           _pendingTradeCount = count;
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _errorLoading = true;
+        _errorLoading = _product == null;
         _isLoading = false;
       });
     }
   }
 
-  Future<void> _loadFavouriteStatus() async {
+  Future<void> _loadFavouriteStatus([String? productId]) async {
     final userId = UserModel.currentUser?.id;
     if (userId == null) return;
 
+    final targetProductId = productId ?? _activeProductId;
+    if (targetProductId.isEmpty) return;
+
     try {
-      final isFav = await context.read<ProductViewModel>().isFavourite(userId, widget.productId);
+      final isFav = await context
+          .read<ProductViewModel>()
+          .isFavourite(userId, targetProductId);
       if (mounted) {
         setState(() {
           _isFavourite = isFav;
@@ -549,11 +614,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       body: LoadingOverlay(
         isLoading: _isLoading,
         loadingMessage: 'Loading product details...',
-        child: _errorLoading
-            ? _buildErrorState()
-            : _product == null
-                ? _buildEmptyState()
-                : _buildProductDetails(isOwnProduct),
+        child: _product != null
+            ? _buildProductDetails(isOwnProduct)
+            : _isLoading
+                ? const SizedBox.shrink()
+                : _errorLoading
+                    ? _buildErrorState()
+                    : _buildEmptyState(),
       ),
     );
   }

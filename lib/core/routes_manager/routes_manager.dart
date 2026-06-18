@@ -115,9 +115,33 @@ class RoutesManager {
 
       case productDetails:
         {
-          final String productId = setting.arguments as String;
+          final args = setting.arguments;
+          ProductModel? initialProduct;
+          String productId = '';
+
+          if (args is ProductModel) {
+            initialProduct = args;
+            productId = args.id;
+          } else if (args is String) {
+            productId = args;
+          } else if (args is Map) {
+            final productArg = args['product'];
+            final productIdArg = args['productId'];
+            if (productArg is ProductModel) {
+              initialProduct = productArg;
+            }
+            if (productIdArg is String) {
+              productId = productIdArg;
+            }
+            productId =
+                productId.isNotEmpty ? productId : initialProduct?.id ?? '';
+          }
+
           return MaterialPageRoute(
-            builder: (context) => ProductDetailsScreen(productId: productId),
+            builder: (context) => ProductDetailsScreen(
+              productId: productId,
+              initialProduct: initialProduct,
+            ),
           );
         }
 
