@@ -93,4 +93,22 @@ class DeliveryService {
     // accidentally tracking the wrong shipment.
     return null;
   }
+
+  /// Returns true if [userId] already has a delivery document for [tradeId].
+  /// Used to decide whether to show "Provide Delivery Details" or a confirmation
+  /// banner in the accepted-state card for User 2.
+  static Future<bool> hasCurrentUserSubmittedDelivery(
+      String tradeId, String userId) async {
+    final query = await _deliveriesCollection
+        .where('tradeId', isEqualTo: tradeId)
+        .get();
+
+    for (final doc in query.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      if (data['userId'] == userId) {
+        return true;
+      }
+    }
+    return false;
+  }
 }
