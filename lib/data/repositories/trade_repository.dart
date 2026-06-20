@@ -357,13 +357,22 @@ class TradeRepository {
   Future<List<TradeOffer>> getReceivedTrades(String userId) async {
     try {
       final tradesCollection = getTradesCollection();
+      // Use a broad query by toUserId only so it works even while the
+      // composite index is still building, then filter in-memory.
       final querySnapshot = await tradesCollection
           .where('toUserId', isEqualTo: userId)
-          .where('status', whereIn: ['pending', 'accepted'])
-          .orderBy('createdAt', descending: true)
           .get();
 
-      final trades = querySnapshot.docs.map((doc) => doc.data()).toList();
+      final activeStatuses = {
+        TradeStatus.pending.name,
+        TradeStatus.accepted.name,
+        TradeStatus.completed.name,
+      };
+
+      final trades = querySnapshot.docs
+          .map((doc) => doc.data())
+          .where((t) => activeStatuses.contains(t.status.name))
+          .toList();
 
       trades.sort((a, b) {
         if (a.isFromPremium != b.isFromPremium) {
@@ -380,12 +389,22 @@ class TradeRepository {
 
   Stream<List<TradeOffer>> streamReceivedTrades(String userId) {
     final tradesCollection = getTradesCollection();
+    // Query by toUserId only (single-field index — always available) and
+    // filter by status in-memory.  This avoids a composite-index requirement
+    // and also surfaces 'completed' trades so the UI can show delivery tracking.
+    final activeStatuses = {
+      TradeStatus.pending.name,
+      TradeStatus.accepted.name,
+      TradeStatus.completed.name,
+    };
     return tradesCollection
         .where('toUserId', isEqualTo: userId)
-        .where('status', whereIn: ['pending', 'accepted'])
         .snapshots()
         .map((snapshot) {
-      final trades = snapshot.docs.map((doc) => doc.data()).toList();
+      final trades = snapshot.docs
+          .map((doc) => doc.data())
+          .where((t) => activeStatuses.contains(t.status.name))
+          .toList();
       trades.sort((a, b) {
         if (a.isFromPremium != b.isFromPremium) {
           return a.isFromPremium ? -1 : 1;
