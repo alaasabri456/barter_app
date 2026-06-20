@@ -67,6 +67,27 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
+  Future<void> sendPhoneOtp({
+    required String phoneNumber,
+    required void Function(String verificationId, int? resendToken) onCodeSent,
+    required void Function(FirebaseAuthException) onVerificationFailed,
+    required void Function(PhoneAuthCredential) onAutoVerified,
+    int? forceResendingToken,
+  }) async {
+    try {
+      await _authRepository.sendPhoneOtp(
+        phoneNumber: phoneNumber,
+        onCodeSent: onCodeSent,
+        onVerificationFailed: onVerificationFailed,
+        onAutoVerified: onAutoVerified,
+        forceResendingToken: forceResendingToken,
+      );
+    } catch (e) {
+      _errorMessage = e.toString();
+      rethrow;
+    }
+  }
+
   Future<UserCredential?> signInWithGoogle() async {
     _setLoading(true);
     _errorMessage = null;

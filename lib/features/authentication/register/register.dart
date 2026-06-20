@@ -6,11 +6,8 @@ import '../../../core/validators.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/auth_viewmodel.dart';
-import '../models/register_request.dart';
-import '../models/user_model.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
-import '../../../services/push_notification_service.dart';
 import 'dart:math';
 import '../../../services/email_service.dart';
 
@@ -27,6 +24,7 @@ class _RegisterState extends State<Register> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _phoneController = TextEditingController();
 
   bool _isLoading = false;
   bool _agreeToTerms = false;
@@ -37,6 +35,7 @@ class _RegisterState extends State<Register> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -64,17 +63,17 @@ class _RegisterState extends State<Register> {
       final email = _emailController.text.trim();
       bool emailAlreadyExists = false;
       try {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
+        final tempCred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: email,
-          password: '##DUMMY_CHECK##',
+          password: 'TEMPORARY_CHECK_PWD_123!',
         );
+        await tempCred.user?.delete();
       } on FirebaseAuthException catch (e) {
-        if (e.code == 'wrong-password' ||
-            e.code == 'invalid-credential' ||
-            e.code == 'user-disabled') {
+        if (e.code == 'email-already-in-use') {
           emailAlreadyExists = true;
+        } else {
+          rethrow;
         }
-        // 'user-not-found' or 'invalid-email' means the email is not registered
       }
 
       if (emailAlreadyExists) {
@@ -124,56 +123,48 @@ class _RegisterState extends State<Register> {
         _isLoading = true;
       });
 
-      final registerRequest = RegisterRequest(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-
-      // Create user with Firebase Auth
       final authViewModel = context.read<AuthViewModel>();
-      final UserCredential? userCredential = await authViewModel.register(
-        registerRequest,
+      final phoneNumber = _phoneController.text.trim();
+
+      await authViewModel.sendPhoneOtp(
+        phoneNumber: phoneNumber,
+        onCodeSent: (String verificationId, int? resendToken) {
+          setState(() {
+            _isLoading = false;
+          });
+          if (mounted) {
+            Navigator.of(context).pushNamed(
+              RoutesManager.phoneOtpVerification,
+              arguments: {
+                'name': _nameController.text.trim(),
+                'email': email,
+                'password': _passwordController.text,
+                'phoneNumber': phoneNumber,
+                'verificationId': verificationId,
+                'resendToken': resendToken,
+              },
+            );
+          }
+        },
+        onVerificationFailed: (FirebaseAuthException e) {
+          setState(() {
+            _isLoading = false;
+          });
+          if (mounted) {
+            String errorMessage = _getPhoneErrorMessage(e.code);
+            showInfoDialog(
+              context: context,
+              title: 'Phone Verification Failed',
+              message: errorMessage,
+              icon: Icons.error_outline,
+              iconColor: Theme.of(context).colorScheme.error,
+            );
+          }
+        },
+        onAutoVerified: (PhoneAuthCredential credential) {
+          // Automatic SMS resolution
+        },
       );
-
-      if (userCredential != null && userCredential.user != null) {
-        // Check if user is whitelisted as admin
-        final isWhitelisted = await authViewModel.isEmailWhitelistedAsAdmin(email);
-        final role = isWhitelisted ? UserRole.admin : UserRole.user;
-
-        // Create user document in Firestore
-        final newUser = UserModel(
-          id: userCredential.user!.uid,
-          name: _nameController.text.trim(),
-          email: _emailController.text.trim(),
-          favouriteProductIds: [],
-          role: role,
-        );
-
-        await authViewModel.addUserToFireStore(newUser);
-
-        // Set current user
-        UserModel.currentUser = newUser;
-        authViewModel.initUserListener();
-
-        // Update FCM token on register
-        await PushNotificationService.updateToken();
-
-        if (mounted) {
-          // Show success message
-          await showInfoDialog(
-            context: context,
-            title: 'Account Created',
-            message: 'Your account has been created successfully!',
-            icon: Icons.check_circle_outlined,
-            iconColor: Colors.green,
-          );
-
-          // Navigate to main layout
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil(RoutesManager.mainLayout, (route) => false);
-        }
-      }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         String errorMessage = _getErrorMessage(e.code);
@@ -201,6 +192,21 @@ class _RegisterState extends State<Register> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  String _getPhoneErrorMessage(String errorCode) {
+    switch (errorCode) {
+      case 'invalid-phone-number':
+        return 'The phone number entered is invalid. Please include the correct country code (e.g. +201012345678).';
+      case 'quota-exceeded':
+        return 'SMS quota has been exceeded for this project. Please try again tomorrow.';
+      case 'too-many-requests':
+        return 'Too many verification attempts. Please wait a few minutes and try again.';
+      case 'network-request-failed':
+        return 'Network connection failed. Please check your internet connection.';
+      default:
+        return 'An error occurred during phone verification: $errorCode';
     }
   }
 
@@ -441,6 +447,19 @@ class _RegisterState extends State<Register> {
                     value,
                     _passwordController.text,
                   ),
+                  textInputAction: TextInputAction.next,
+                ),
+
+                SizedBox(height: 24.h),
+
+                // Phone Number field
+                AuthTextFieldWithIcon(
+                  label: 'Phone Number',
+                  hint: 'e.g. +201012345678',
+                  controller: _phoneController,
+                  icon: Icons.phone_outlined,
+                  keyboardType: TextInputType.phone,
+                  validator: Validators.validatePhoneNumber,
                   textInputAction: TextInputAction.done,
                   onEditingComplete: _register,
                 ),

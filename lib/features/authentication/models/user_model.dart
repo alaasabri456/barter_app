@@ -40,6 +40,7 @@ class UserModel {
   bool isSuspended;
   DateTime? premiumExpiresAt;
   double walletBalance;
+  String? phoneNumber;
 
   UserModel({
     required this.id,
@@ -57,6 +58,7 @@ class UserModel {
     this.isSuspended = false,
     this.premiumExpiresAt,
     this.walletBalance = 0.0,
+    this.phoneNumber,
   });
 
   factory UserModel.guest(String uid) {
@@ -98,6 +100,7 @@ class UserModel {
           isSuspended: json["isSuspended"] ?? false,
           premiumExpiresAt: _parsePremiumExpiry(json["premiumExpiresAt"]),
           walletBalance: (json["walletBalance"] as num?)?.toDouble() ?? 0.0,
+          phoneNumber: json["phoneNumber"],
         );
 
   static UserRole _parseRole(dynamic roleValue) {
@@ -142,6 +145,7 @@ class UserModel {
         "isSuspended": isSuspended,
         "premiumExpiresAt": premiumExpiresAt?.toIso8601String(),
         "walletBalance": walletBalance,
+        "phoneNumber": phoneNumber,
       };
 
   UserModel copyWith({
@@ -160,6 +164,7 @@ class UserModel {
     bool? isSuspended,
     DateTime? premiumExpiresAt,
     double? walletBalance,
+    String? phoneNumber,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -177,6 +182,7 @@ class UserModel {
       isSuspended: isSuspended ?? this.isSuspended,
       premiumExpiresAt: premiumExpiresAt ?? this.premiumExpiresAt,
       walletBalance: walletBalance ?? this.walletBalance,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
     );
   }
 
