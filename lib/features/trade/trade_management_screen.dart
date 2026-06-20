@@ -57,6 +57,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
   }
 
   Future<void> _acceptTrade(TradeOffer trade) async {
+    bool acceptSucceeded = false;
     try {
       setState(() {
         _isLoading = true;
@@ -68,12 +69,14 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         userId: UserModel.currentUser!.id,
         userName: UserModel.currentUser!.name,
       );
+      acceptSucceeded = true;
 
       if (mounted) {
         await showInfoDialog(
           context: context,
-          title: 'Trade Accepted',
-          message: 'You have accepted the trade offer!',
+          title: 'Trade Accepted! 🎉',
+          message:
+              'Great! Now please fill in your delivery details so the other party can track the item coming to them.',
           icon: Icons.check_circle,
           iconColor: Colors.green,
         );
@@ -84,6 +87,58 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
           context: context,
           title: 'Error',
           message: 'Failed to accept trade: $e',
+          icon: Icons.error_outline,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+
+    if (!acceptSucceeded || !mounted) return;
+
+    // Immediately collect User 2's delivery details so User 1 can track the shipment.
+    final deliveryDetails = await _showDeliveryDetailsForm(context);
+    if (deliveryDetails == null) return; // User can submit later via the card's button.
+
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      await DeliveryService.createDelivery(
+        userId: UserModel.currentUser!.id,
+        itemName: 'Trade Items (${trade.id.substring(0, 5)})',
+        fullName: deliveryDetails['fullName']!,
+        phoneNumber: deliveryDetails['phoneNumber']!,
+        address: deliveryDetails['address']!,
+        tradeId: trade.id,
+      );
+
+      await context.read<TradeViewModel>().addDeliveryProvidedByUser(
+        tradeId: trade.id,
+        userId: UserModel.currentUser!.id,
+      );
+
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Delivery Details Saved',
+          message:
+              'Your delivery information has been saved. The requester can now track your shipment!',
+          icon: Icons.local_shipping,
+          iconColor: Colors.blue,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Error',
+          message: 'Failed to save delivery details: $e',
           icon: Icons.error_outline,
         );
       }
@@ -991,31 +1046,87 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                     ],
                   ),
                 ] else ...[
-                  // If I'm the recipient (owner), I've already accepted, now waiting for sender
-                  Container(
-                    padding: EdgeInsets.all(12.w),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.hourglass_empty,
-                            size: 16.w, color: Colors.orange),
-                        SizedBox(width: 8.w),
-                        Expanded(
-                          child: Text(
-                            'Accepted. Waiting for requester to confirm completion.',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                color: Colors.orange,
-                                fontWeight: FontWeight.w600),
-                          ),
+                  // User 2 (recipient): show delivery details prompt + waiting banner.
+                  Builder(
+                    builder: (context) {
+                      final currentUserId = UserModel.currentUser?.id ?? '';
+                      return FutureBuilder<bool>(
+                        future: DeliveryService.hasCurrentUserSubmittedDelivery(
+                          trade.id,
+                          currentUserId,
                         ),
-                      ],
-                    ),
+                        builder: (context, snapshot) {
+                          final hasSubmitted = snapshot.data ?? false;
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Delivery details section
+                              if (!hasSubmitted)
+                                AuthButton(
+                                  text: 'Provide Delivery Details',
+                                  onPressed: () => _provideDeliveryDetailsOnly(trade),
+                                  backgroundColor: Colors.green,
+                                )
+                              else
+                                Container(
+                                  padding: EdgeInsets.all(10.w),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12.r),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.local_shipping,
+                                          size: 16.w, color: Colors.green),
+                                      SizedBox(width: 8.w),
+                                      Expanded(
+                                        child: Text(
+                                          'Delivery details submitted. The requester can now track your item.',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: Colors.green,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              SizedBox(height: 8.h),
+                              // Waiting for requester to confirm banner
+                              Container(
+                                padding: EdgeInsets.all(10.w),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.hourglass_empty,
+                                        size: 16.w, color: Colors.orange),
+                                    SizedBox(width: 8.w),
+                                    Expanded(
+                                      child: Text(
+                                        'Waiting for requester to confirm completion.',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: Colors.orange,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
                   ),
                 ],
               ] else if (trade.status == TradeStatus.completed) ...[
@@ -1374,7 +1485,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         return 'PENDING';
       case TradeStatus.accepted:
         return isReceived
-            ? 'WAITING FOR CONFIRMATION'
+            ? 'ACCEPTED'
             : 'NEED YOUR CONFIRMATION';
       case TradeStatus.rejected:
         return 'REJECTED';
