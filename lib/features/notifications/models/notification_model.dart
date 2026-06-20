@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum NotificationType { productUpdate, tradeUpdate, system, chatMessage }
 
 class NotificationModel {
@@ -33,11 +35,25 @@ class NotificationModel {
       ),
       relatedId: json['relatedId'],
       isRead: json['isRead'] ?? false,
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
-          : DateTime.now(),
+      // Cloud Functions write createdAt as a Firestore server Timestamp;
+      // older client-written docs stored it as an ISO 8601 String.
+      // Handle both types gracefully.
+      createdAt: _parseDateTime(json['createdAt']),
     );
   }
+
+  /// Parses a createdAt value that may be:
+  ///   - a Firestore [Timestamp] (written by Cloud Functions via serverTimestamp)
+  ///   - an ISO 8601 [String] (written by the old client-side code)
+  ///   - null (fallback to now)
+  static DateTime _parseDateTime(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is Timestamp) return value.toDate();
+    if (value is String) return DateTime.parse(value);
+    // Fallback for any unexpected type
+    return DateTime.now();
+  }
+
 
   Map<String, dynamic> toJson() {
     return {

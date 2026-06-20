@@ -364,21 +364,13 @@ service cloud.firestore {
         && (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
     }
 
+
     // ─── Notification helpers ────────────────────────────────────────────
-
-    function notificationFields() {
-      return [
-        'id', 'userId', 'title', 'body', 'type', 'relatedId',
-        'isRead', 'createdAt', 'readAt'
-      ];
-    }
-
-    function validNotificationCreate(notificationId) {
-      return request.resource.data.keys().hasOnly(notificationFields())
-        && request.resource.data.id == notificationId
-        && request.resource.data.userId is string
-        && request.resource.data.isRead == false;
-    }
+    //
+    // NOTE: notificationFields() and validNotificationCreate() have been removed.
+    // Notification documents are now created exclusively by Cloud Functions
+    // triggered on real platform events (trade, chat, review, report, product
+    // update). No client-side trust is required or permitted for this collection.
 
     function validOwnNotificationReadUpdate() {
       return isSignedIn()
@@ -523,9 +515,9 @@ service cloud.firestore {
     match /Notifications/{notificationId} {
       allow read: if isAdmin()
         || (isSignedIn() && resource.data.userId == request.auth.uid);
-      // TODO: Move notification creation to Cloud Functions.
-      allow create: if isAdmin()
-        || (isSignedIn() && validNotificationCreate(notificationId));
+      // Notification creation is handled exclusively by Cloud Functions.
+      // Clients may only mark their own notifications as read.
+      allow create: if isAdmin();
       allow update: if isAdmin() || validOwnNotificationReadUpdate();
       allow delete: if isAdmin();
     }
