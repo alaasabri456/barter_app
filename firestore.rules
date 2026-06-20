@@ -68,14 +68,14 @@ service cloud.firestore {
         'id', 'name', 'email', 'favouriteProductIds', 'blockedUserIds',
         'role', 'fcmToken', 'languageCode', 'profileImageUrl', 'isAnonymous',
         'is2faEnabled', 'isPremiumActive', 'isSuspended', 'premiumExpiresAt',
-        'walletBalance'
+        'walletBalance', 'phoneNumber'
       ];
     }
 
     function userSafeUpdateFields() {
       return [
         'name', 'fcmToken', 'languageCode', 'profileImageUrl', 'is2faEnabled',
-        'favouriteProductIds', 'blockedUserIds'
+        'favouriteProductIds', 'blockedUserIds', 'phoneNumber'
       ];
     }
 
