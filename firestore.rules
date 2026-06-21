@@ -83,8 +83,9 @@ service cloud.firestore {
       return request.resource.data.role == 'user'
         || (
           request.resource.data.role == 'admin'
-          && request.auth.token.email == request.resource.data.email
-          && exists(/databases/$(database)/documents/AdminWhitelist/$(request.resource.data.email))
+          && 'email' in request.auth.token
+          && request.auth.token.email.lower() == request.resource.data.email.lower()
+          && exists(/databases/$(database)/documents/AdminWhitelist/$(request.resource.data.email.lower()))
         );
     }
 
@@ -95,7 +96,10 @@ service cloud.firestore {
         && request.resource.data.id == userId
         && request.resource.data.email is string
         && validInitialUserRole()
-        && missingOrDefault('walletBalance', 0)
+        && (
+          !('walletBalance' in request.resource.data)
+          || float(request.resource.data.walletBalance) == 0.0
+        )
         && missingOrDefault('isPremiumActive', false)
         && missingOrDefault('isSuspended', false)
         && missingOrNull('premiumExpiresAt');
@@ -113,7 +117,11 @@ service cloud.firestore {
         && request.resource.data.id == resource.data.id
         && request.resource.data.email == resource.data.email
         && request.resource.data.role == resource.data.role
-        && (!('walletBalance' in resource.data) || request.resource.data.walletBalance == resource.data.walletBalance)
+        && (
+          !('walletBalance' in resource.data)
+          || !('walletBalance' in request.resource.data)
+          || float(request.resource.data.walletBalance) == float(resource.data.walletBalance)
+        )
         && (!('isPremiumActive' in resource.data) || request.resource.data.isPremiumActive == resource.data.isPremiumActive)
         && (!('premiumExpiresAt' in resource.data) || request.resource.data.premiumExpiresAt == resource.data.premiumExpiresAt)
         && (!('isSuspended' in resource.data) || request.resource.data.isSuspended == resource.data.isSuspended)
@@ -583,7 +591,10 @@ service cloud.firestore {
     }
 
     match /AdminWhitelist/{email} {
-      allow read, write: if isAdmin();
+      allow read: if isSignedIn()
+        && 'email' in request.auth.token
+        && request.auth.token.email.lower() == email.lower();
+      allow write: if isAdmin();
     }
 
     match /ApprovedCategories/{categoryId} {
