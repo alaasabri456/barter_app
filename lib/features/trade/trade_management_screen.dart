@@ -608,118 +608,129 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
             children: [
               // Header with status and time
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 8.w,
-                      vertical: 4.h,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(
-                        trade.status,
-                      ).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    child: Text(
-                      _getStatusText(trade.status, isReceived: isReceived),
-                      style: TextStyle(
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w600,
-                        color: _getStatusColor(trade.status),
-                      ),
-                    ),
-                  ),
-                  if (trade.isFromPremium) ...[
-                    SizedBox(width: 8.w),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 8.w,
-                        vertical: 4.h,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(color: Colors.amber[700]!, width: 1),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const PremiumBadgeWidget.compact(),
-                          SizedBox(width: 4.w),
-                          Text(
-                            'PREMIUM OFFER',
-                            style: TextStyle(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.amber[800],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  if (trade.isCounterOffer) ...[
-                    SizedBox(width: 8.w),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 8.w,
-                        vertical: 4.h,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(color: Colors.orange, width: 1),
-                      ),
-                      child: Text(
-                        'COUNTER OFFER',
-                        style: TextStyle(
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.orange[700],
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (!trade.isCounterOffer && isReceived && isPending) ...[
-                    SizedBox(width: 8.w),
-                    FutureBuilder<int>(
-                      future: context.read<TradeViewModel>().getPendingTradeCountForProduct(
-                        trade.requestedProductIds.first,
-                      ),
-                      builder: (context, snapshot) {
-                        final count = (snapshot.data ?? 1) - 1;
-                        if (count <= 0) return const SizedBox.shrink();
-                        return Container(
+                  // Left: badges group — wraps to next line if needed
+                  Expanded(
+                    child: Wrap(
+                      spacing: 6.w,
+                      runSpacing: 4.h,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        // Status badge
+                        Container(
                           padding: EdgeInsets.symmetric(
                             horizontal: 8.w,
                             vertical: 4.h,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
+                            color: _getStatusColor(
+                              trade.status,
+                            ).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12.r),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.local_fire_department,
-                                  size: 12.w, color: Colors.red),
-                              SizedBox(width: 4.w),
-                              Text(
-                                '$count COMPETING OFFER${count > 1 ? 'S' : ''}',
-                                style: TextStyle(
-                                  fontSize: 10.sp,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.red,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            _getStatusText(trade.status, isReceived: isReceived),
+                            style: TextStyle(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w600,
+                              color: _getStatusColor(trade.status),
+                            ),
                           ),
-                        );
-                      },
+                        ),
+                        // Premium badge
+                        if (trade.isFromPremium)
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8.w,
+                              vertical: 4.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12.r),
+                              border: Border.all(color: Colors.amber[700]!, width: 1),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const PremiumBadgeWidget.compact(),
+                                SizedBox(width: 4.w),
+                                Text(
+                                  'PREMIUM OFFER',
+                                  style: TextStyle(
+                                    fontSize: 10.sp,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.amber[800],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        // Counter offer badge
+                        if (trade.isCounterOffer)
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8.w,
+                              vertical: 4.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12.r),
+                              border: Border.all(color: Colors.orange, width: 1),
+                            ),
+                            child: Text(
+                              'COUNTER OFFER',
+                              style: TextStyle(
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.orange[700],
+                              ),
+                            ),
+                          ),
+                        // Competing offers badge
+                        if (!trade.isCounterOffer && isReceived && isPending)
+                          FutureBuilder<int>(
+                            future: context.read<TradeViewModel>().getPendingTradeCountForProduct(
+                              trade.requestedProductIds.first,
+                            ),
+                            builder: (context, snapshot) {
+                              final count = (snapshot.data ?? 1) - 1;
+                              if (count <= 0) return const SizedBox.shrink();
+                              return Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 8.w,
+                                  vertical: 4.h,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.local_fire_department,
+                                        size: 12.w, color: Colors.red),
+                                    SizedBox(width: 4.w),
+                                    Text(
+                                      '$count COMPETING OFFER${count > 1 ? 'S' : ''}',
+                                      style: TextStyle(
+                                        fontSize: 10.sp,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                      ],
                     ),
-                  ],
+                  ),
+                  SizedBox(width: 8.w),
+                  // Right: chat button + time
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       // Chat Button with Notification Badge
                       Stack(
@@ -757,7 +768,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                               top: 0,
                               child: Container(
                                 padding: EdgeInsets.all(4.w),
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   color: Colors.red,
                                   shape: BoxShape.circle,
                                 ),
@@ -769,7 +780,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                             ),
                         ],
                       ),
-                      SizedBox(width: 8.w),
+                      SizedBox(width: 4.w),
                       Text(
                         _getTimeAgo(trade.createdAt),
                         style: Theme.of(context).textTheme.bodySmall,

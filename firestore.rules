@@ -408,6 +408,29 @@ service cloud.firestore {
         );
     }
 
+    // Buyer may flip their own pending payment to completed after gateway success.
+    // Only the three fields written by updatePaymentToCompleted() may change.
+    function validPaymentComplete(paymentId) {
+      return isSignedIn()
+        && resource.data.buyerId == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'completed'
+        && affectedKeys().hasOnly(['status', 'transactionId', 'completedAt'])
+        && request.resource.data.buyerId == resource.data.buyerId
+        && request.resource.data.sellerId == resource.data.sellerId
+        && request.resource.data.productId == resource.data.productId
+        && request.resource.data.amount == resource.data.amount;
+    }
+
+    // Buyer may cancel their own pending payment (onError / dismissed gateway).
+    function validPaymentCancel(paymentId) {
+      return isSignedIn()
+        && resource.data.buyerId == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'cancelled'
+        && affectedKeys().hasOnly(['status']);
+    }
+
     function validPremiumPaymentCreate(paymentId) {
       return isSignedIn()
         && request.resource.data.keys().hasOnly(paymentFields())
@@ -554,7 +577,11 @@ service cloud.firestore {
         );
       // TODO: Move payment verification to a Paymob webhook Cloud Function.
       allow create: if validPaymentCreate(paymentId) || validPremiumPaymentCreate(paymentId);
-      allow update, delete: if isAdmin();
+      // Buyer may mark their own pending payment completed or cancelled.
+      allow update: if isAdmin()
+        || validPaymentComplete(paymentId)
+        || validPaymentCancel(paymentId);
+      allow delete: if isAdmin();
     }
 
     match /WalletTransactions/{transactionId} {

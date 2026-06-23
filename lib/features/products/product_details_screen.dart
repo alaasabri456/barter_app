@@ -1204,18 +1204,22 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Widget _buildStatItem(IconData icon, String text) {
-    return Column(
-      children: [
-        Icon(icon, size: 20.w, color: Theme.of(context).primaryColor),
-        SizedBox(height: 4.h),
-        Text(
-          text,
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
-          textAlign: TextAlign.center,
-        ),
-      ],
+    return Flexible(
+      child: Column(
+        children: [
+          Icon(icon, size: 20.w, color: Theme.of(context).primaryColor),
+          SizedBox(height: 4.h),
+          Text(
+            text,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 

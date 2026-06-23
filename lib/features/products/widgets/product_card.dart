@@ -245,8 +245,6 @@ class _ProductCardState extends State<ProductCard> {
                   color: widget.type == 'item' ? Colors.blue : Colors.purple,
                 ),
 
-              if (widget.type != null) SizedBox(width: 8.w),
-
               // Condition or Availability badge
               if (widget.type == 'service' && widget.availability != null)
                 _buildTag(

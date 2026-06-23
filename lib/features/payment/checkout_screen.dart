@@ -342,12 +342,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           color: Colors.green,
                         ),
                         SizedBox(width: 6.w),
-                        Text(
-                          'Secured by Paymob · Card or Mobile Wallet',
-                          style: TextStyle(
-                            fontSize: 11.sp,
-                            color: theme.textTheme.bodySmall?.color
-                                ?.withOpacity(0.6),
+                        Flexible(
+                          child: Text(
+                            'Secured by Paymob · Card or Mobile Wallet',
+                            style: TextStyle(
+                              fontSize: 11.sp,
+                              color: theme.textTheme.bodySmall?.color
+                                  ?.withOpacity(0.6),
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],

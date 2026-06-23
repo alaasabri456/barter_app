@@ -104,16 +104,21 @@ class _WalletScreenState extends State<WalletScreen>
                     SizedBox(height: 8.h),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text(
-                          '${currentBalance.toStringAsFixed(2)} EGP',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 32.sp,
-                            fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: Text(
+                            '${currentBalance.toStringAsFixed(2)} EGP',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 32.sp,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        SizedBox(width: 12.w),
                         ElevatedButton(
                           onPressed: currentBalance > 0
                               ? () {
