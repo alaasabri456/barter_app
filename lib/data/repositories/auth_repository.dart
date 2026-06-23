@@ -103,6 +103,7 @@ class AuthRepository {
         name: user.displayName ?? 'Google User',
         email: user.email ?? '',
         favouriteProductIds: [],
+        is2faEnabled: false,
       );
 
       await addUserToFireStore(newUser);

@@ -12,6 +12,7 @@ import '../../services/payment_service.dart';
 import '../authentication/widgets/auth_button.dart';
 import 'payment_success_screen.dart';
 import '../premium/services/premium_service.dart';
+import '../../core/error/error_handler.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final ProductModel product;
@@ -74,7 +75,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not start payment: $e'),
+            content: Text('Could not start payment: ${ErrorHandler.getErrorMessage(e)}'),
             backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
           ),
@@ -133,7 +134,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Payment succeeded but order save failed: $e'),
+                content: Text('Payment succeeded but order save failed: ${ErrorHandler.getErrorMessage(e)}'),
                 backgroundColor: Theme.of(context).colorScheme.error,
                 behavior: SnackBarBehavior.floating,
               ),

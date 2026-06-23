@@ -9,6 +9,7 @@ import '../../authentication/models/user_model.dart';
 import '../models/wallet_transaction_model.dart';
 import '../models/withdrawal_request_model.dart';
 import 'request_withdrawal_screen.dart';
+import '../../../core/error/error_handler.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -68,7 +69,7 @@ class _WalletScreenState extends State<WalletScreen>
             stream: context.read<AuthViewModel>().currentUserStream(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
-                return Center(child: Text('Error loading balance: ${snapshot.error}'));
+                return Center(child: Text('Error loading balance: ${ErrorHandler.getErrorMessage(snapshot.error)}'));
               }
               
               final currentBalance = snapshot.data?.walletBalance ?? user.walletBalance;
@@ -176,6 +177,10 @@ class _WalletScreenState extends State<WalletScreen>
     return StreamBuilder<List<WalletTransactionModel>>(
       stream: context.read<WalletViewModel>().getWalletTransactions(userId),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text(ErrorHandler.getErrorMessage(snapshot.error)));
+        }
+
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -227,6 +232,10 @@ class _WalletScreenState extends State<WalletScreen>
     return StreamBuilder<List<WithdrawalRequestModel>>(
       stream: context.read<WalletViewModel>().getSellerWithdrawalRequests(userId),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text(ErrorHandler.getErrorMessage(snapshot.error)));
+        }
+
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }

@@ -7,6 +7,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
 import '../../core/widgets/loading_widget.dart';
+import '../../core/error/error_handler.dart';
 import 'package:provider/provider.dart';
 import '../../features/trade/viewmodels/trade_viewmodel.dart';
 import '../../features/products/viewmodels/product_viewmodel.dart';
@@ -86,7 +87,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         await showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'Failed to accept trade: $e',
+          message: 'Failed to accept trade: ${ErrorHandler.getErrorMessage(e)}',
           icon: Icons.error_outline,
         );
       }
@@ -138,7 +139,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         await showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'Failed to save delivery details: $e',
+          message: 'Failed to save delivery details: ${ErrorHandler.getErrorMessage(e)}',
           icon: Icons.error_outline,
         );
       }
@@ -189,7 +190,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         await showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'Failed to reject trade: $e',
+          message: 'Failed to reject trade: ${ErrorHandler.getErrorMessage(e)}',
           icon: Icons.error_outline,
         );
       }
@@ -240,7 +241,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         await showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'Failed to cancel trade: $e',
+          message: 'Failed to cancel trade: ${ErrorHandler.getErrorMessage(e)}',
           icon: Icons.error_outline,
         );
       }
@@ -377,7 +378,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
           userId: UserModel.currentUser!.id,
         );
       } catch (e) {
-        print('Error creating delivery: $e');
+        print('Error creating delivery: ${ErrorHandler.getErrorMessage(e)}');
       }
 
       if (mounted) {
@@ -394,7 +395,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         await showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'Failed to complete trade: $e',
+          message: 'Failed to complete trade: ${ErrorHandler.getErrorMessage(e)}',
           icon: Icons.error_outline,
         );
       }
@@ -447,7 +448,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         await showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'Failed to schedule delivery: $e',
+          message: 'Failed to schedule delivery: ${ErrorHandler.getErrorMessage(e)}',
           icon: Icons.error_outline,
         );
       }
@@ -1370,7 +1371,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
       );
       return products;
     } catch (e) {
-      print('=== DEBUG: Error getting products: $e ===');
+      print('=== DEBUG: Error getting products: ${ErrorHandler.getErrorMessage(e)} ===');
       return [];
     }
   }

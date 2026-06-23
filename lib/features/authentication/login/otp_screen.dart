@@ -7,6 +7,7 @@ import '../../../services/email_service.dart';
 import '../../../services/push_notification_service.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
+import '../../../core/error/error_handler.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String email;
@@ -94,7 +95,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         showInfoDialog(
           context: context,
           title: 'Email Delivery Error',
-          message: 'Failed to send verification code. Details: $errorMsg',
+          message: 'Failed to send verification code. Details: ${ErrorHandler.getErrorMessage(errorMsg)}',
           icon: Icons.error_outline,
           iconColor: Theme.of(context).colorScheme.error,
         );

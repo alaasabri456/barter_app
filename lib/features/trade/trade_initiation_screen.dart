@@ -8,6 +8,7 @@ import '../../core/routes_manager/routes_manager.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
 import '../../core/widgets/loading_widget.dart';
+import '../../core/error/error_handler.dart';
 import 'package:provider/provider.dart';
 import '../../features/products/viewmodels/product_viewmodel.dart';
 import '../../features/trade/viewmodels/trade_viewmodel.dart';
@@ -87,7 +88,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
     } catch (e) {
       setState(() {
         _loadingProducts = false;
-        _errorMessage = e.toString();
+        _errorMessage = ErrorHandler.getErrorMessage(e);
       });
 
       if (mounted) {
@@ -95,7 +96,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
           context: context,
           title: 'Loading Failed',
           message:
-              'Failed to load your products: $e\n\nPlease check your internet connection and try again.',
+              'Failed to load your products: ${ErrorHandler.getErrorMessage(e)}\n\nPlease check your internet connection and try again.',
           icon: Icons.error_outline,
         );
       }
@@ -132,7 +133,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
         });
       }
     } catch (e) {
-      print('Error loading target inventory: $e');
+      print('Error loading target inventory: ${ErrorHandler.getErrorMessage(e)}');
     }
   }
 
@@ -208,7 +209,7 @@ class _InitiateTradeScreenState extends State<InitiateTradeScreen> {
         await showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'Failed to send trade offer: $e',
+          message: 'Failed to send trade offer: ${ErrorHandler.getErrorMessage(e)}',
           icon: Icons.error_outline,
         );
       }

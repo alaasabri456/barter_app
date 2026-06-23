@@ -10,6 +10,7 @@ import '../models/user_model.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
 import '../../../services/push_notification_service.dart';
+import '../../../core/error/error_handler.dart';
 
 class PhoneOtpScreen extends StatefulWidget {
   final Map<String, dynamic> arguments;
@@ -74,29 +75,6 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
     });
   }
 
-  String _getPhoneErrorMessage(String errorCode) {
-    switch (errorCode) {
-      case 'invalid-phone-number':
-        return 'The phone number entered is invalid. Please return to the registration screen and check the phone format (e.g. +201012345678).';
-      case 'quota-exceeded':
-        return 'SMS quota has been exceeded for this project. Please try again tomorrow or contact support.';
-      case 'too-many-requests':
-        return 'Too many verification attempts. Please wait a few minutes and try again.';
-      case 'network-request-failed':
-        return 'Network connection failed. Please check your internet connection and try again.';
-      case 'invalid-verification-code':
-        return 'The SMS verification code you entered is incorrect. Please try again.';
-      case 'session-expired':
-        return 'The verification code has expired. Please tap Resend to request a new code.';
-      case 'credential-already-in-use':
-      case 'provider-already-linked':
-        return 'This phone number is already registered with another account.';
-      case 'email-already-in-use':
-        return 'This email address is already registered with another account.';
-      default:
-        return 'An error occurred: $errorCode. Please try again.';
-    }
-  }
 
   Future<void> _verifyOtp() async {
     if (!_formKey.currentState!.validate()) return;
@@ -187,7 +165,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
       });
 
       if (mounted) {
-        String errorMessage = _getPhoneErrorMessage(e.code);
+        String errorMessage = ErrorHandler.getErrorMessage(e);
         showInfoDialog(
           context: context,
           title: 'Verification Failed',
@@ -214,7 +192,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
         showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'An unexpected error occurred: ${e.toString()}',
+          message: ErrorHandler.getErrorMessage(e),
           icon: Icons.error_outline,
           iconColor: Theme.of(context).colorScheme.error,
         );
@@ -255,7 +233,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
             _isLoading = false;
           });
           if (mounted) {
-            String errorMessage = _getPhoneErrorMessage(e.code);
+            String errorMessage = ErrorHandler.getErrorMessage(e);
             showInfoDialog(
               context: context,
               title: 'Resend Failed',
@@ -277,7 +255,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
         showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'Could not send verification code: ${e.toString()}',
+          message: ErrorHandler.getErrorMessage(e),
           icon: Icons.error_outline,
           iconColor: Theme.of(context).colorScheme.error,
         );

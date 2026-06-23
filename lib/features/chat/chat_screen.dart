@@ -8,6 +8,7 @@ import '../../features/chat/models/chat_message.dart';
 import '../../services/image_upload_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../core/error/error_handler.dart';
 
 class ChatScreen extends StatefulWidget {
   final String? tradeId; // Optional - only present when opened from trade
@@ -144,7 +145,7 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update block status: $e')),
+          SnackBar(content: Text('Failed to update block status: ${ErrorHandler.getErrorMessage(e)}')),
         );
       }
     }
@@ -197,7 +198,7 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to send message: $e')));
+      ).showSnackBar(SnackBar(content: Text('Failed to send message: ${ErrorHandler.getErrorMessage(e)}')));
     } finally {
       if (mounted) {
         setState(() {
@@ -257,7 +258,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to send image: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to send image: ${ErrorHandler.getErrorMessage(e)}')));
       }
     } finally {
       if (mounted) {

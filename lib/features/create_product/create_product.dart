@@ -6,6 +6,7 @@ import 'package:barter/core/routes_manager/routes_manager.dart';
 import '../../core/validators.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
+import '../../core/error/error_handler.dart';
 import 'package:provider/provider.dart';
 import '../products/viewmodels/product_viewmodel.dart';
 import '../admin/viewmodels/admin_viewmodel.dart';
@@ -307,7 +308,7 @@ class _CreateProductState extends State<CreateProduct> {
         showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'Failed to ${_isEditing ? 'update' : 'create'} product: $e',
+          message: 'Failed to ${_isEditing ? 'update' : 'create'} product: ${ErrorHandler.getErrorMessage(e)}',
           icon: Icons.error_outline,
           iconColor: Theme.of(context).colorScheme.error,
         );

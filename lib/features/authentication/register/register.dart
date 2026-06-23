@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/routes_manager/routes_manager.dart';
+import '../../../core/error/error_handler.dart';
 import '../../../core/validators.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import 'package:provider/provider.dart';
@@ -151,11 +152,10 @@ class _RegisterState extends State<Register> {
             _isLoading = false;
           });
           if (mounted) {
-            String errorMessage = _getPhoneErrorMessage(e.code);
             showInfoDialog(
               context: context,
               title: 'Phone Verification Failed',
-              message: errorMessage,
+              message: ErrorHandler.getErrorMessage(e),
               icon: Icons.error_outline,
               iconColor: Theme.of(context).colorScheme.error,
             );
@@ -167,11 +167,10 @@ class _RegisterState extends State<Register> {
       );
     } on FirebaseAuthException catch (e) {
       if (mounted) {
-        String errorMessage = _getErrorMessage(e.code);
         await showInfoDialog(
           context: context,
           title: 'Registration Failed',
-          message: errorMessage,
+          message: ErrorHandler.getErrorMessage(e),
           icon: Icons.error_outline,
           iconColor: Theme.of(context).colorScheme.error,
         );
@@ -181,7 +180,7 @@ class _RegisterState extends State<Register> {
         await showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'An unexpected error occurred. Please try again.',
+          message: ErrorHandler.getErrorMessage(e),
           icon: Icons.error_outline,
           iconColor: Theme.of(context).colorScheme.error,
         );
@@ -195,37 +194,7 @@ class _RegisterState extends State<Register> {
     }
   }
 
-  String _getPhoneErrorMessage(String errorCode) {
-    switch (errorCode) {
-      case 'invalid-phone-number':
-        return 'The phone number entered is invalid. Please include the correct country code (e.g. +201012345678).';
-      case 'quota-exceeded':
-        return 'SMS quota has been exceeded for this project. Please try again tomorrow.';
-      case 'too-many-requests':
-        return 'Too many verification attempts. Please wait a few minutes and try again.';
-      case 'network-request-failed':
-        return 'Network connection failed. Please check your internet connection.';
-      default:
-        return 'An error occurred during phone verification: $errorCode';
-    }
-  }
-
-  String _getErrorMessage(String errorCode) {
-    switch (errorCode) {
-      case 'weak-password':
-        return 'The password is too weak. Please use a stronger password.';
-      case 'email-already-in-use':
-        return 'An account already exists with this email address.';
-      case 'invalid-email':
-        return 'Please enter a valid email address.';
-      case 'operation-not-allowed':
-        return 'Email/password accounts are not enabled.';
-      case 'network-request-failed':
-        return 'Network error. Please check your connection.';
-      default:
-        return 'Registration failed. Please try again.';
-    }
-  }
+  // Centralized error handling used instead of local _getPhoneErrorMessage and _getErrorMessage
 
   Future<bool?> _showOtpDialog(String expectedOtp) async {
     final otpController = TextEditingController();
