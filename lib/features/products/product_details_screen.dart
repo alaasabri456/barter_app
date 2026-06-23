@@ -14,6 +14,7 @@ import '../admin/viewmodels/admin_viewmodel.dart';
 import '../trade/viewmodels/trade_viewmodel.dart';
 import '../../features/products/models/product_model.dart';
 import '../../features/authentication/models/user_model.dart';
+import '../authentication/viewmodels/auth_viewmodel.dart';
 import '../authentication/widgets/auth_button.dart';
 import '../chat/chat_screen.dart';
 import '../trade/trade_initiation_screen.dart';
@@ -592,6 +593,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<AuthViewModel>();
     final isOwnProduct = _product?.ownerId == UserModel.currentUser?.id;
 
     return Scaffold(
@@ -1097,6 +1099,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   Widget _buildVisitorActions() {
     final product = _product!;
+    final isOwnProduct = product.ownerId == UserModel.currentUser?.id;
+    if (isOwnProduct) {
+      return _buildOwnerActions();
+    }
     final isAvailable = product.status == ProductStatus.available;
     final isSellItem = product.transactionType == TransactionType.sell;
 

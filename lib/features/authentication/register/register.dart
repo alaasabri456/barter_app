@@ -236,6 +236,7 @@ class _RegisterState extends State<Register> {
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
+          scrollable: true,
           title: Text('Verify Email'),
           content: Form(
             key: localFormKey,
