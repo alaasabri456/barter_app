@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "460987873980-227b1ntce91a9rds6l4tnk7r6fhkfr8t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.barter",
+            "certificate_hash": "075307d7cafcbca7941083e1ee570d11e670d745"
+          }
+        },
+        {
           "client_id": "460987873980-s29ubpkkass8m9c106sf491oc6rbrhrl.apps.googleusercontent.com",
           "client_type": 3
         }
