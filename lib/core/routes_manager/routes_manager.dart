@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../features/authentication/login/login.dart';
 import '../../features/authentication/login/otp_screen.dart';
 import '../../features/authentication/register/register.dart';
+import '../../features/authentication/register/phone_otp_screen.dart';
 import '../../features/create_product/create_product.dart';
 import '../../features/main_layout/main_layout.dart';
 import '../../features/on_boarding/start_screen.dart';
@@ -33,6 +34,7 @@ class RoutesManager {
   static const String register = "/register";
   static const String login = "/login";
   static const String otpVerification = "/otpVerification";
+  static const String phoneOtpVerification = "/phoneOtpVerification";
   static const String mainLayout = "/mainLayout";
   static const String createProduct = "/createProduct";
   static const String productDetails = "/productDetails";
@@ -78,6 +80,15 @@ class RoutesManager {
             ),
           );
         }
+      case phoneOtpVerification:
+        {
+          final args = setting.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (context) => PhoneOtpScreen(
+              arguments: args,
+            ),
+          );
+        }
 
       case mainLayout:
         {
@@ -115,9 +126,33 @@ class RoutesManager {
 
       case productDetails:
         {
-          final String productId = setting.arguments as String;
+          final args = setting.arguments;
+          ProductModel? initialProduct;
+          String productId = '';
+
+          if (args is ProductModel) {
+            initialProduct = args;
+            productId = args.id;
+          } else if (args is String) {
+            productId = args;
+          } else if (args is Map) {
+            final productArg = args['product'];
+            final productIdArg = args['productId'];
+            if (productArg is ProductModel) {
+              initialProduct = productArg;
+            }
+            if (productIdArg is String) {
+              productId = productIdArg;
+            }
+            productId =
+                productId.isNotEmpty ? productId : initialProduct?.id ?? '';
+          }
+
           return MaterialPageRoute(
-            builder: (context) => ProductDetailsScreen(productId: productId),
+            builder: (context) => ProductDetailsScreen(
+              productId: productId,
+              initialProduct: initialProduct,
+            ),
           );
         }
 

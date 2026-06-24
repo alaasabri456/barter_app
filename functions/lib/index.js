@@ -23,13 +23,388 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onTradeCompleted = exports.onDeliveryUpdated = exports.onDeliveryCreated = exports.onWithdrawalStatusChange = exports.onPaymentStatusChanged = exports.paymobWebhook = void 0;
+exports.onTradeCompleted = exports.onDeliveryUpdated = exports.onDeliveryCreated = exports.onWithdrawalStatusChange = exports.onPaymentStatusChanged = exports.paymobWebhook = exports.onProductUpdated = exports.onReportCreated = exports.onReviewCreated = exports.onConversationMessageCreated = exports.onTradeStatusChanged = exports.onTradeCreated = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const logger = __importStar(require("firebase-functions/logger"));
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
 const db = admin.firestore();
+// ─── Localized notification strings (mirrors Dart localizedNotificationStrings) ──
+const localizedStrings = {
+    en: {
+        newOfferTitle: "New Trade Offer",
+        newOfferBody: "{sender} sent you a trade offer.",
+        counterOfferTitle: "New Counter Offer",
+        counterOfferBody: "{sender} sent a counter offer.",
+        tradeAcceptedTitle: "Trade Accepted!",
+        tradeAcceptedBody: "Your trade offer has been accepted!",
+        tradeRejectedTitle: "Trade Rejected",
+        tradeRejectedBody: "Your trade offer was rejected.",
+        tradeAutoRejectedBody: "Your offer was cancelled because the item is no longer available.",
+        tradeCompletedTitle: "Trade Completed!",
+        tradeCompletedBody: "The trade has been confirmed as completed.",
+        newMessageTitle: "New Message",
+        newMessageBody: "{sender}: {message}",
+        newReviewTitle: "New Review received",
+        newReviewBody: "{sender} left you a review: {rating}⭐",
+        newReportTitle: "New Report Submitted",
+        newReportBody: 'A new report was submitted for "{product}" by {reporter}.',
+        productUpdatedTitle: "Product Updated",
+        productUpdatedBody: 'The item "{product}" in your pending trade has been updated.',
+    },
+    ar: {
+        newOfferTitle: "عرض مبادلة جديد",
+        newOfferBody: "أرسل لك {sender} عرض مبادلة.",
+        counterOfferTitle: "عرض مقابل جديد",
+        counterOfferBody: "أرسل {sender} عرضاً مقابلاً.",
+        tradeAcceptedTitle: "تم قبول المبادلة!",
+        tradeAcceptedBody: "تم قبول عرض المبادلة الخاص بك!",
+        tradeRejectedTitle: "تم رفض المبادلة",
+        tradeRejectedBody: "تم رفض عرض المبادلة الخاص بك.",
+        tradeAutoRejectedBody: "تم إلغاء عرضك لأن السلعة لم تعد متوفرة.",
+        tradeCompletedTitle: "اكتملت المبادلة!",
+        tradeCompletedBody: "تم تأكيد اكتمال المبادلة.",
+        newMessageTitle: "رسالة جديدة",
+        newMessageBody: "{sender}: {message}",
+        newReviewTitle: "تم استلام تقييم جديد",
+        newReviewBody: "ترك لك {sender} تقييمًا: {rating}⭐",
+        newReportTitle: "تم تقديم بلاغ جديد",
+        newReportBody: 'تم تقديم بلاغ جديد عن "{product}" بواسطة {reporter}.',
+        productUpdatedTitle: "تم تحديث المنتج",
+        productUpdatedBody: 'تم تحديث العنصر "{product}" في صفقتك المعلقة.',
+    },
+};
+// ─── Shared helper ────────────────────────────────────────────────────────────
+/**
+ * Resolve a localized string pair for a given recipient, replacing
+ * any {placeholder} tokens with the provided args.
+ */
+async function resolveLocalizedStrings(recipientId, titleKey, bodyKey, args) {
+    var _a, _b, _c, _d, _e, _f;
+    let lang = "en";
+    try {
+        const userSnap = await db.collection("Users").doc(recipientId).get();
+        const userLang = (_a = userSnap.data()) === null || _a === void 0 ? void 0 : _a.languageCode;
+        if (userLang && localizedStrings[userLang])
+            lang = userLang;
+    }
+    catch (_g) {
+        // fall back to English
+    }
+    const strings = (_b = localizedStrings[lang]) !== null && _b !== void 0 ? _b : localizedStrings["en"];
+    let title = (_d = (_c = strings[titleKey]) !== null && _c !== void 0 ? _c : localizedStrings["en"][titleKey]) !== null && _d !== void 0 ? _d : titleKey;
+    let body = (_f = (_e = strings[bodyKey]) !== null && _e !== void 0 ? _e : localizedStrings["en"][bodyKey]) !== null && _f !== void 0 ? _f : bodyKey;
+    if (args) {
+        for (const [key, value] of Object.entries(args)) {
+            const pattern = new RegExp(`\\{${key}\\}`, "g");
+            title = title.replace(pattern, value);
+            body = body.replace(pattern, value);
+        }
+    }
+    return { title, body };
+}
+/**
+ * Write a single in-app Notification document to Firestore on behalf of a
+ * server-side trigger. The document schema matches NotificationModel.toJson().
+ */
+async function createInAppNotification(params) {
+    var _a;
+    const notifRef = db.collection("Notifications").doc();
+    await notifRef.set({
+        id: notifRef.id,
+        userId: params.userId,
+        title: params.title,
+        body: params.body,
+        type: params.type,
+        relatedId: (_a = params.relatedId) !== null && _a !== void 0 ? _a : null,
+        isRead: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+}
+// ─── Trade triggers ───────────────────────────────────────────────────────────
+/**
+ * Fires when a new Trade document is created.
+ * Sends a "new offer" or "counter offer" in-app notification to toUserId.
+ */
+exports.onTradeCreated = (0, firestore_1.onDocumentCreated)("Trades/{tradeId}", async (event) => {
+    var _a;
+    const snap = event.data;
+    if (!snap)
+        return;
+    const trade = snap.data();
+    const tradeId = event.params.tradeId;
+    const isCounterOffer = trade.isCounterOffer === true;
+    const recipientId = trade.toUserId;
+    const senderName = (_a = trade.fromUserName) !== null && _a !== void 0 ? _a : "Someone";
+    const titleKey = isCounterOffer ? "counterOfferTitle" : "newOfferTitle";
+    const bodyKey = isCounterOffer ? "counterOfferBody" : "newOfferBody";
+    try {
+        const { title, body } = await resolveLocalizedStrings(recipientId, titleKey, bodyKey, { sender: senderName });
+        await createInAppNotification({
+            userId: recipientId,
+            title,
+            body,
+            type: "tradeUpdate",
+            relatedId: tradeId,
+        });
+        logger.info(`onTradeCreated: notified ${recipientId} of ${isCounterOffer ? "counter offer" : "new offer"} for trade ${tradeId}`);
+    }
+    catch (err) {
+        logger.error(`onTradeCreated: error for trade ${tradeId}`, err);
+    }
+});
+/**
+ * Fires when a Trade document is updated.
+ * Handles status transitions: accepted, rejected, completed, and auto-rejected
+ * (identified by rejectionReason containing "no longer available").
+ */
+exports.onTradeStatusChanged = (0, firestore_1.onDocumentUpdated)("Trades/{tradeId}", async (event) => {
+    if (!event.data)
+        return;
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+    const tradeId = event.params.tradeId;
+    // Only act when status has changed
+    if (before.status === after.status)
+        return;
+    const newStatus = after.status;
+    const relevantStatuses = ["accepted", "rejected", "cancelled", "completed", "expired"];
+    if (!relevantStatuses.includes(newStatus))
+        return;
+    // The "acting" user is derived from updatedAt context; we notify the other participant.
+    // We don't know which side acted, so we notify both and let the client filter by userId.
+    // Actually: follow the Dart pattern — the notification recipient is the OTHER participant.
+    // Since we don't know who acted, we send to BOTH participants and each only sees their own
+    // notification via `where('userId', isEqualTo: uid)` on the client.
+    // But to keep parity with Dart (one notification, to the other side), we check
+    // lastMessageSenderId or use fromUserId as the actor for status changes.
+    // Simplest correct approach: always notify BOTH participants. Each reads only their own docs.
+    const fromUserId = after.fromUserId;
+    const toUserId = after.toUserId;
+    let titleKey;
+    let bodyKey;
+    const isAutoRejected = newStatus === "rejected" &&
+        typeof after.rejectionReason === "string" &&
+        after.rejectionReason.toLowerCase().includes("no longer available");
+    if (newStatus === "accepted") {
+        titleKey = "tradeAcceptedTitle";
+        bodyKey = "tradeAcceptedBody";
+    }
+    else if (newStatus === "completed") {
+        titleKey = "tradeCompletedTitle";
+        bodyKey = "tradeCompletedBody";
+    }
+    else if (isAutoRejected) {
+        titleKey = "tradeRejectedTitle";
+        bodyKey = "tradeAutoRejectedBody";
+    }
+    else {
+        // rejected / cancelled / expired
+        titleKey = "tradeRejectedTitle";
+        bodyKey = "tradeRejectedBody";
+    }
+    // For accepted/completed/rejected: Dart notified the "other" participant.
+    // For auto-rejected: Dart notified fromUserId (the one who made the offer).
+    const recipientIds = isAutoRejected
+        ? [fromUserId]
+        : [fromUserId, toUserId]; // send to both; each user only reads their own notifications
+    try {
+        for (const recipientId of recipientIds) {
+            const { title, body } = await resolveLocalizedStrings(recipientId, titleKey, bodyKey);
+            await createInAppNotification({
+                userId: recipientId,
+                title,
+                body,
+                type: "tradeUpdate",
+                relatedId: tradeId,
+            });
+        }
+        logger.info(`onTradeStatusChanged: trade ${tradeId} status → ${newStatus}, notified: ${recipientIds.join(", ")}`);
+    }
+    catch (err) {
+        logger.error(`onTradeStatusChanged: error for trade ${tradeId}`, err);
+    }
+});
+// ─── Chat trigger ─────────────────────────────────────────────────────────────
+/**
+ * Fires when a message is created in a Conversation's messages subcollection.
+ * Sends a "new message" in-app notification to the other participant.
+ * The conversationId follows the format: conversation_<uid1>_<uid2>
+ */
+exports.onConversationMessageCreated = (0, firestore_1.onDocumentCreated)("Conversations/{conversationId}/messages/{messageId}", async (event) => {
+    var _a, _b, _c, _d, _e;
+    const snap = event.data;
+    if (!snap)
+        return;
+    const message = snap.data();
+    const conversationId = event.params.conversationId;
+    const senderId = message.senderId;
+    // Read the Conversation document to get the participants array reliably.
+    // (The conversationId format "conversation_uid1_uid2" is an implementation
+    // detail; reading participants from Firestore is more robust.)
+    try {
+        const convSnap = await db.collection("Conversations").doc(conversationId).get();
+        if (!convSnap.exists)
+            return;
+        const participants = (_b = (_a = convSnap.data()) === null || _a === void 0 ? void 0 : _a.participants) !== null && _b !== void 0 ? _b : [];
+        const recipientId = participants.find((uid) => uid !== senderId);
+        if (!recipientId)
+            return;
+        // Resolve sender's name from Users collection
+        let senderName = "Someone";
+        try {
+            const senderSnap = await db.collection("Users").doc(senderId).get();
+            senderName = (_d = (_c = senderSnap.data()) === null || _c === void 0 ? void 0 : _c.name) !== null && _d !== void 0 ? _d : "Someone";
+        }
+        catch (_f) {
+            // use default
+        }
+        const messageText = message.imageUrl ? "📷 Photo" : ((_e = message.text) !== null && _e !== void 0 ? _e : "");
+        const { title, body } = await resolveLocalizedStrings(recipientId, "newMessageTitle", "newMessageBody", { sender: senderName, message: messageText });
+        await createInAppNotification({
+            userId: recipientId,
+            title,
+            body,
+            type: "chatMessage",
+            relatedId: conversationId,
+        });
+        logger.info(`onConversationMessageCreated: notified ${recipientId} of message in conversation ${conversationId}`);
+    }
+    catch (err) {
+        logger.error(`onConversationMessageCreated: error for conversation ${conversationId}`, err);
+    }
+});
+// ─── Review trigger ───────────────────────────────────────────────────────────
+/**
+ * Fires when a new review document is created.
+ * Sends a "new review" in-app notification to the reviewed user (targetUserId).
+ */
+exports.onReviewCreated = (0, firestore_1.onDocumentCreated)("reviews/{reviewId}", async (event) => {
+    var _a, _b;
+    const snap = event.data;
+    if (!snap)
+        return;
+    const review = snap.data();
+    const reviewId = event.params.reviewId;
+    const recipientId = review.targetUserId;
+    const reviewerName = (_a = review.reviewerName) !== null && _a !== void 0 ? _a : "Someone";
+    const rating = String((_b = review.rating) !== null && _b !== void 0 ? _b : "");
+    try {
+        const { title, body } = await resolveLocalizedStrings(recipientId, "newReviewTitle", "newReviewBody", { sender: reviewerName, rating });
+        await createInAppNotification({
+            userId: recipientId,
+            title,
+            body,
+            type: "system",
+            relatedId: reviewId,
+        });
+        logger.info(`onReviewCreated: notified ${recipientId} of new review ${reviewId}`);
+    }
+    catch (err) {
+        logger.error(`onReviewCreated: error for review ${reviewId}`, err);
+    }
+});
+// ─── Report trigger ───────────────────────────────────────────────────────────
+/**
+ * Fires when a new Report document is created.
+ * Sends a "new report" in-app notification to every user with role == 'admin'.
+ */
+exports.onReportCreated = (0, firestore_1.onDocumentCreated)("Reports/{reportId}", async (event) => {
+    var _a, _b;
+    const snap = event.data;
+    if (!snap)
+        return;
+    const report = snap.data();
+    const reportId = event.params.reportId;
+    const reporterName = (_a = report.reporterName) !== null && _a !== void 0 ? _a : "Someone";
+    const productTitle = (_b = report.reportedProductTitle) !== null && _b !== void 0 ? _b : "a product";
+    try {
+        const adminsSnap = await db
+            .collection("Users")
+            .where("role", "==", "admin")
+            .get();
+        if (adminsSnap.empty) {
+            logger.info("onReportCreated: no admins found");
+            return;
+        }
+        for (const adminDoc of adminsSnap.docs) {
+            const adminId = adminDoc.id;
+            const { title, body } = await resolveLocalizedStrings(adminId, "newReportTitle", "newReportBody", { reporter: reporterName, product: productTitle });
+            await createInAppNotification({
+                userId: adminId,
+                title,
+                body,
+                type: "system",
+                relatedId: reportId,
+            });
+        }
+        logger.info(`onReportCreated: notified ${adminsSnap.size} admin(s) of report ${reportId}`);
+    }
+    catch (err) {
+        logger.error(`onReportCreated: error for report ${reportId}`, err);
+    }
+});
+// ─── Product update trigger ───────────────────────────────────────────────────
+/**
+ * Fires when a Product document is updated.
+ * Finds all pending trades that contain this product and notifies the OTHER
+ * participant (the one who does not own the product) of the update.
+ */
+exports.onProductUpdated = (0, firestore_1.onDocumentUpdated)("Products/{productId}", async (event) => {
+    var _a;
+    if (!event.data)
+        return;
+    const after = event.data.after.data();
+    const productId = event.params.productId;
+    const productTitle = (_a = after.title) !== null && _a !== void 0 ? _a : "a product";
+    const ownerId = after.ownerId;
+    try {
+        // Query pending trades that include this product (offered or requested)
+        const [offeredSnap, requestedSnap] = await Promise.all([
+            db
+                .collection("Trades")
+                .where("offeredProductIds", "array-contains", productId)
+                .where("status", "==", "pending")
+                .get(),
+            db
+                .collection("Trades")
+                .where("requestedProductIds", "array-contains", productId)
+                .where("status", "==", "pending")
+                .get(),
+        ]);
+        // Deduplicate by trade ID
+        const tradeMap = new Map();
+        for (const doc of [...offeredSnap.docs, ...requestedSnap.docs]) {
+            if (!tradeMap.has(doc.id))
+                tradeMap.set(doc.id, doc.data());
+        }
+        if (tradeMap.size === 0)
+            return;
+        const notifiedUsers = new Set();
+        for (const [tradeId, trade] of tradeMap) {
+            // Notify the participant who is NOT the product owner
+            const recipientId = trade.fromUserId === ownerId ? trade.toUserId : trade.fromUserId;
+            if (!recipientId || notifiedUsers.has(recipientId))
+                continue;
+            notifiedUsers.add(recipientId);
+            const { title, body } = await resolveLocalizedStrings(recipientId, "productUpdatedTitle", "productUpdatedBody", { product: productTitle });
+            await createInAppNotification({
+                userId: recipientId,
+                title,
+                body,
+                type: "productUpdate",
+                relatedId: tradeId,
+            });
+        }
+        if (notifiedUsers.size > 0) {
+            logger.info(`onProductUpdated: product ${productId} updated, notified ${notifiedUsers.size} user(s)`);
+        }
+    }
+    catch (err) {
+        logger.error(`onProductUpdated: error for product ${productId}`, err);
+    }
+});
 /**
  * Paymob Webhook — simple acknowledger.
  * The actual wallet crediting is now handled by onPaymentCreated below.
@@ -69,7 +444,7 @@ exports.paymobWebhook = (0, https_1.onRequest)(async (req, res) => {
  * double-crediting even if the trigger fires more than once.
  */
 exports.onPaymentStatusChanged = (0, firestore_1.onDocumentUpdated)("Payments/{paymentId}", async (event) => {
-    var _a;
+    var _a, _b;
     if (!event.data) {
         logger.error("onPaymentStatusChanged: No data in event");
         return;
@@ -88,9 +463,10 @@ exports.onPaymentStatusChanged = (0, firestore_1.onDocumentUpdated)("Payments/{p
         return;
     }
     const sellerId = after.sellerId;
-    const amount = after.amount;
+    // Fall back to amount if productPrice is not present in older payment docs
+    const netAmount = (_a = after.productPrice) !== null && _a !== void 0 ? _a : after.amount;
     const productTitle = after.productTitle || "a product";
-    if (!sellerId || !amount) {
+    if (!sellerId || !netAmount) {
         logger.error(`Payment ${paymentId} is missing sellerId or amount.`, after);
         return;
     }
@@ -104,7 +480,7 @@ exports.onPaymentStatusChanged = (0, firestore_1.onDocumentUpdated)("Payments/{p
                 throw new Error(`Seller ${sellerId} does not exist`);
             }
             const currentBalance = ((_a = sellerSnap.data()) === null || _a === void 0 ? void 0 : _a.walletBalance) || 0;
-            const newBalance = currentBalance + amount;
+            const newBalance = currentBalance + netAmount;
             // Update seller's wallet balance.
             t.update(sellerRef, { walletBalance: newBalance });
             // Create a WalletTransaction record.
@@ -112,7 +488,7 @@ exports.onPaymentStatusChanged = (0, firestore_1.onDocumentUpdated)("Payments/{p
             t.set(walletTxRef, {
                 id: walletTxRef.id,
                 userId: sellerId,
-                amount: amount,
+                amount: netAmount,
                 type: "credit",
                 referenceId: paymentId,
                 description: `Payment received for ${productTitle}`,
@@ -121,16 +497,16 @@ exports.onPaymentStatusChanged = (0, firestore_1.onDocumentUpdated)("Payments/{p
             // Mark payment as credited (idempotency flag).
             t.update(event.data.after.ref, { isCredited: true });
         });
-        logger.info(`Successfully credited ${amount} EGP to seller ${sellerId} for payment ${paymentId}`);
+        logger.info(`Successfully credited ${netAmount} EGP to seller ${sellerId} for payment ${paymentId}`);
         // Send push notification to seller.
         const sellerDoc = await db.collection("Users").doc(sellerId).get();
-        const fcmToken = (_a = sellerDoc.data()) === null || _a === void 0 ? void 0 : _a.fcmToken;
+        const fcmToken = (_b = sellerDoc.data()) === null || _b === void 0 ? void 0 : _b.fcmToken;
         if (fcmToken) {
             await admin.messaging().send({
                 token: fcmToken,
                 notification: {
                     title: "Payment Received!",
-                    body: `You received ${amount} EGP for your product "${productTitle}".`,
+                    body: `You received ${netAmount} EGP for your product "${productTitle}".`,
                 },
                 data: {
                     type: "wallet_update",

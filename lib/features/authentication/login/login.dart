@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/routes_manager/routes_manager.dart';
+import '../../../core/error/error_handler.dart';
 import '../../../core/validators.dart';
 import '../../../core/widgets/custom_dialog.dart';
 import 'package:provider/provider.dart';
@@ -110,11 +111,10 @@ class _LoginState extends State<Login> {
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
-        String errorMessage = _getErrorMessage(e.code);
         await showInfoDialog(
           context: context,
           title: 'Login Failed',
-          message: errorMessage,
+          message: ErrorHandler.getErrorMessage(e),
           icon: Icons.error_outline,
           iconColor: Theme.of(context).colorScheme.error,
         );
@@ -124,7 +124,7 @@ class _LoginState extends State<Login> {
         await showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'An unexpected error occurred. Please try again.',
+          message: ErrorHandler.getErrorMessage(e),
           icon: Icons.error_outline,
           iconColor: Theme.of(context).colorScheme.error,
         );
@@ -149,8 +149,8 @@ class _LoginState extends State<Login> {
       final user = userCredential?.user;
 
       if (user != null) {
-        
-        if (UserModel.currentUser!.is2faEnabled) {
+
+        if (UserModel.currentUser?.is2faEnabled == true)  {
           final newOtp = (100000 + Random().nextInt(900000)).toString();
           
           final String? errorMsg = await EmailService.sendOtpEmail(
@@ -195,9 +195,7 @@ class _LoginState extends State<Login> {
           showInfoDialog(
             context: context,
             title: 'Sign In Failed',
-            message: e is Exception
-                ? e.toString().replaceFirst('Exception: ', '')
-                : 'An error occurred during Google Sign-In. Please try again.',
+            message: ErrorHandler.getErrorMessage(e),
             icon: Icons.error_outline,
             iconColor: Theme.of(context).colorScheme.error,
           );
@@ -212,24 +210,7 @@ class _LoginState extends State<Login> {
     }
   }
 
-  String _getErrorMessage(String errorCode) {
-    switch (errorCode) {
-      case 'user-not-found':
-        return 'No account found with this email address.';
-      case 'wrong-password':
-        return 'Incorrect password. Please try again.';
-      case 'invalid-email':
-        return 'Please enter a valid email address.';
-      case 'user-disabled':
-        return 'This account has been disabled.';
-      case 'too-many-requests':
-        return 'Too many failed attempts. Please try again later.';
-      case 'network-request-failed':
-        return 'Network error. Please check your connection.';
-      default:
-        return 'Login failed. Please try again.';
-    }
-  }
+  // Centralized error handling used instead of local _getErrorMessage
 
   void _navigateToRegister() {
     Navigator.of(context).pushNamed(RoutesManager.register);

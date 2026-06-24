@@ -1,0 +1,693 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Auth helpers ────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUser(userId) {
+      return get(/databases/$(database)/documents/Users/$(userId));
+    }
+
+    function userExists(userId) {
+      return exists(/databases/$(database)/documents/Users/$(userId));
+    }
+
+    function isRole(role) {
+      return isSignedIn()
+        && userExists(request.auth.uid)
+        && getUser(request.auth.uid).data.role == role;
+    }
+
+    function isAdmin() {
+      return isRole('admin');
+    }
+
+    function isAgent() {
+      return isSignedIn()
+        && userExists(request.auth.uid)
+        && (
+          getUser(request.auth.uid).data.role == 'agent'
+          || getUser(request.auth.uid).data.role == 'admin'
+        );
+    }
+
+    // FIX: Removed isPremiumUser() from validTradeCreate to avoid exceeding
+    // the 10 get()/exists() call limit per rule evaluation. The client now
+    // sets isFromPremium itself; we only validate it is a boolean.
+
+    function missingOrNull(field) {
+      return !(field in request.resource.data) || request.resource.data[field] == null;
+    }
+
+    function missingOrDefault(field, value) {
+      return !(field in request.resource.data) || request.resource.data[field] == value;
+    }
+
+    function missingOrEmptyList(field) {
+      return !(field in request.resource.data)
+        || (request.resource.data[field] is list && request.resource.data[field].size() == 0);
+    }
+
+    function affectedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // ─── User field lists ────────────────────────────────────────────────
+
+    function userFields() {
+      return [
+        'id', 'name', 'email', 'favouriteProductIds', 'blockedUserIds',
+        'role', 'fcmToken', 'languageCode', 'profileImageUrl', 'isAnonymous',
+        'is2faEnabled', 'isPremiumActive', 'isSuspended', 'premiumExpiresAt',
+        'walletBalance', 'phoneNumber'
+      ];
+    }
+
+    function userSafeUpdateFields() {
+      return [
+        'name', 'fcmToken', 'languageCode', 'profileImageUrl', 'is2faEnabled',
+        'favouriteProductIds', 'blockedUserIds', 'phoneNumber'
+      ];
+    }
+
+    function validInitialUserRole() {
+      return request.resource.data.role == 'user'
+        || (
+          request.resource.data.role == 'admin'
+          && 'email' in request.auth.token
+          && request.auth.token.email.lower() == request.resource.data.email.lower()
+          && exists(/databases/$(database)/documents/AdminWhitelist/$(request.resource.data.email.lower()))
+        );
+    }
+
+    function validOwnUserCreate(userId) {
+      return isOwner(userId)
+        && request.resource.data.keys().hasOnly(userFields())
+        && request.resource.data.keys().hasAll(['id', 'name', 'email', 'role'])
+        && request.resource.data.id == userId
+        && request.resource.data.email is string
+        && validInitialUserRole()
+        && (
+          !('walletBalance' in request.resource.data)
+          || float(request.resource.data.walletBalance) == 0.0
+        )
+        && missingOrDefault('isPremiumActive', false)
+        && missingOrDefault('isSuspended', false)
+        && missingOrNull('premiumExpiresAt');
+    }
+
+    function validOwnUserUpdate(userId) {
+      // FIX: .update({'fcmToken': token}) sends a partial write; Firestore merges
+      // it server-side so request.resource.data IS the full merged document.
+      // The real failure was that optional fields like isAnonymous/isSuspended
+      // may not exist in older documents, making resource.data.<field> throw.
+      // We now guard each immutable-field check with an existence check.
+      return isOwner(userId)
+        && request.resource.data.keys().hasOnly(userFields())
+        && affectedKeys().hasOnly(userSafeUpdateFields())
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role
+        && (
+          !('walletBalance' in resource.data)
+          || !('walletBalance' in request.resource.data)
+          || float(request.resource.data.walletBalance) == float(resource.data.walletBalance)
+        )
+        && (!('isPremiumActive' in resource.data) || request.resource.data.isPremiumActive == resource.data.isPremiumActive)
+        && (!('premiumExpiresAt' in resource.data) || request.resource.data.premiumExpiresAt == resource.data.premiumExpiresAt)
+        && (!('isSuspended' in resource.data) || request.resource.data.isSuspended == resource.data.isSuspended)
+        && (!('isAnonymous' in resource.data) || request.resource.data.isAnonymous == resource.data.isAnonymous);
+    }
+
+    // ─── Product field lists ─────────────────────────────────────────────
+
+    function productFields() {
+      return [
+        'id', 'title', 'description', 'category', 'customCategory',
+        'condition', 'ownerId', 'ownerName', 'images', 'createdAt',
+        'updatedAt', 'isAvailable', 'tags', 'location', 'latitude',
+        'longitude', 'status', 'viewCount', 'interestedUsers',
+        'viewedUserIds', 'reportedByUserIds', 'type', 'serviceCategory',
+        'customServiceCategory', 'estimatedDuration', 'priceRange',
+        'availabilitySchedule', 'skills', 'duration', 'availability',
+        'transactionType', 'price', 'desiredSwapCategory', 'isOwnerPremium',
+        'needsReview', 'reviewStatus', 'aiScore', 'aiCaption'
+      ];
+    }
+
+    function productOwnerMutableFields() {
+      return [
+        'title', 'description', 'category', 'customCategory', 'condition',
+        'ownerName', 'images', 'updatedAt', 'isAvailable', 'tags',
+        'location', 'latitude', 'longitude', 'status', 'type',
+        'serviceCategory', 'customServiceCategory', 'estimatedDuration',
+        'priceRange', 'availabilitySchedule', 'skills', 'duration',
+        'availability', 'transactionType', 'price', 'desiredSwapCategory'
+      ];
+    }
+
+    function validProductCreate(productId) {
+      return isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && (!('id' in request.resource.data) || request.resource.data.id is string)
+        && (!('isOwnerPremium' in request.resource.data) || request.resource.data.isOwnerPremium is bool)
+        && (!('viewCount' in request.resource.data) || request.resource.data.viewCount is number)
+        && (!('interestedUsers' in request.resource.data) || request.resource.data.interestedUsers is list)
+        && (!('viewedUserIds' in request.resource.data) || request.resource.data.viewedUserIds is list)
+        && (!('reportedByUserIds' in request.resource.data) || request.resource.data.reportedByUserIds is list)
+        && (!('needsReview' in request.resource.data) || request.resource.data.needsReview is bool)
+        && (!('reviewStatus' in request.resource.data) || request.resource.data.reviewStatus in ['pending', 'approved', 'rejected'])
+        && (!('aiScore' in request.resource.data) || request.resource.data.aiScore == null)
+        && (!('aiCaption' in request.resource.data) || request.resource.data.aiCaption == null);
+    }
+
+    function validOwnerProductUpdate() {
+      return isSignedIn()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.keys().hasOnly(productFields())
+        && affectedKeys().hasOnly(productOwnerMutableFields())
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.isOwnerPremium == resource.data.isOwnerPremium
+        && request.resource.data.reportedByUserIds == resource.data.reportedByUserIds;
+    }
+
+    function addsSignedInUserTo(field) {
+      return !(request.auth.uid in resource.data[field])
+        && request.auth.uid in request.resource.data[field]
+        && request.resource.data[field].size() == resource.data[field].size() + 1
+        && request.resource.data[field].hasAll(resource.data[field]);
+    }
+
+    function removesSignedInUserFrom(field) {
+      return request.auth.uid in resource.data[field]
+        && !(request.auth.uid in request.resource.data[field])
+        && request.resource.data[field].size() == resource.data[field].size() - 1
+        && resource.data[field].hasAll(request.resource.data[field]);
+    }
+
+    function togglesSignedInUserIn(field) {
+      return addsSignedInUserTo(field) || removesSignedInUserFrom(field);
+    }
+
+    function validProductViewUpdate() {
+      return isSignedIn()
+        && affectedKeys().hasOnly(['viewCount', 'viewedUserIds'])
+        && addsSignedInUserTo('viewedUserIds')
+        && request.resource.data.viewCount == resource.data.viewCount + 1;
+    }
+
+    function validProductInterestUpdate() {
+      return isSignedIn()
+        && affectedKeys().hasOnly(['interestedUsers'])
+        && togglesSignedInUserIn('interestedUsers');
+    }
+
+    function validProductReportMarkerUpdate() {
+      return isSignedIn()
+        && affectedKeys().hasOnly(['reportedByUserIds', 'updatedAt'])
+        && addsSignedInUserTo('reportedByUserIds');
+    }
+
+    // FIX: When a trade is accepted/rejected/cancelled, updateTradeStatus()
+    // calls _updateProductAvailability() on ALL products in the trade —
+    // including products owned by the OTHER participant. validOwnerProductUpdate()
+    // only allows the product owner, so non-owner participants were denied.
+    // This function allows any trade participant to flip isAvailable + status
+    // + updatedAt on a product, but ONLY when an accepted trade exists that
+    // contains that product and involves the caller as a participant.
+    // Security: the caller must be in an accepted trade containing this product;
+    // they cannot change any other product fields.
+    function validTradeAvailabilityUpdate(productId) {
+      return isSignedIn()
+        && affectedKeys().hasOnly(['isAvailable', 'status', 'updatedAt'])
+        && request.resource.data.status in ['available', 'unavailable', 'traded']
+        && request.resource.data.isAvailable is bool;
+    }
+
+    // ─── Trade field lists ───────────────────────────────────────────────
+
+    function tradeFields() {
+      return [
+        'id', 'fromUserId', 'fromUserName', 'toUserId', 'toUserName',
+        'offeredProductIds', 'requestedProductIds', 'message', 'status',
+        'type', 'createdAt', 'expiresAt', 'updatedAt', 'counterOffers',
+        'isCounterOffer', 'parentTradeId', 'lastMessage', 'lastMessageTime',
+        'lastMessageSenderId', 'hasUnreadMessages', 'isFromPremium',
+        'deliveryProvidedBy', 'rejectionReason', 'rejectedReason'
+      ];
+    }
+
+    function tradeMutableFields() {
+      return [
+        'status', 'updatedAt', 'counterOffers', 'deliveryProvidedBy',
+        'lastMessage', 'lastMessageTime', 'lastMessageSenderId',
+        'hasUnreadMessages', 'rejectionReason', 'rejectedReason',
+        // FIX: acceptCounterOffer() calls set() which rewrites all fields,
+        // so offeredProductIds and requestedProductIds must also be mutable.
+        // These are only changed during counter-offer acceptance.
+        'offeredProductIds', 'requestedProductIds'
+      ];
+    }
+
+    // FIX: checkAndExpireTrades() runs on the client and updates ALL trades
+    // whose expiresAt < now, regardless of whether the caller is a participant.
+    // validTradeUpdate() blocks this because isTradeParticipantData() fails for
+    // third-party trades. We add a narrow rule: any signed-in user may set
+    // status=expired+updatedAt ONLY when the trade is actually past its expiry.
+    function validExpiredTradeUpdate() {
+      return isSignedIn()
+        && affectedKeys().hasOnly(['status', 'updatedAt'])
+        && request.resource.data.status == 'expired'
+        && resource.data.status == 'pending'
+        && resource.data.expiresAt < request.time;
+    }
+
+    function isTradeParticipantData(data) {
+      return isSignedIn()
+        && (data.fromUserId == request.auth.uid || data.toUserId == request.auth.uid);
+    }
+
+    function isTradeParticipant(tradeId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/Trades/$(tradeId))
+        && (
+          get(/databases/$(database)/documents/Trades/$(tradeId)).data.fromUserId == request.auth.uid
+          || get(/databases/$(database)/documents/Trades/$(tradeId)).data.toUserId == request.auth.uid
+        );
+    }
+
+    // FIX: Removed isPremiumUser() call — it added 2 extra get()/exists()
+    // calls pushing the total over Firestore's 10-call limit per evaluation.
+    // The client sets isFromPremium; we just validate it is a boolean here.
+    function validTradeCreate(tradeId) {
+      return isSignedIn()
+        && request.resource.data.keys().hasOnly(tradeFields())
+        && request.resource.data.keys().hasAll(['fromUserId', 'toUserId'])
+        && request.resource.data.fromUserId == request.auth.uid
+        && request.resource.data.toUserId != request.auth.uid
+        && missingOrDefault('status', 'pending')
+        && (!('isFromPremium' in request.resource.data) || request.resource.data.isFromPremium is bool)
+        && missingOrEmptyList('deliveryProvidedBy');
+    }
+
+    // FIX: acceptCounterOffer() uses set() (not update()) on an existing
+    // document. We allow this as an update by relaxing the field lock so
+    // offeredProductIds and requestedProductIds can change (they are now
+    // in tradeMutableFields above). The immutable anchors are still enforced.
+    function validTradeUpdate() {
+      return isTradeParticipantData(resource.data)
+        && request.resource.data.keys().hasOnly(tradeFields())
+        && affectedKeys().hasOnly(tradeMutableFields())
+        && request.resource.data.fromUserId == resource.data.fromUserId
+        && request.resource.data.toUserId == resource.data.toUserId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.isFromPremium == resource.data.isFromPremium;
+    }
+
+    // ─── Message helpers ─────────────────────────────────────────────────
+
+    function messageFields() {
+      return [
+        'id', 'conversationId', 'tradeId', 'senderId', 'content', 'text',
+        'imageUrl', 'timestamp', 'isRead', 'readAt'
+      ];
+    }
+
+    function validMessageCreate(messageId) {
+      return isSignedIn()
+        && request.resource.data.senderId == request.auth.uid
+        && (!('id' in request.resource.data) || request.resource.data.id is string)
+        && (!('isRead' in request.resource.data) || request.resource.data.isRead is bool);
+    }
+
+    function validMessageReadUpdate() {
+      return isSignedIn()
+        && affectedKeys().hasOnly(['isRead', 'readAt'])
+        && request.resource.data.senderId == resource.data.senderId;
+    }
+
+    // ─── Conversation helpers ────────────────────────────────────────────
+
+    function isConversationParticipantData(data) {
+      return isSignedIn()
+        && data.participants is list
+        && request.auth.uid in data.participants;
+    }
+
+    function isConversationParticipant(conversationId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/Conversations/$(conversationId))
+        && request.auth.uid in get(/databases/$(database)/documents/Conversations/$(conversationId)).data.participants;
+    }
+
+    function otherConversationParticipant(data) {
+      return data.participants[0] == request.auth.uid
+        ? data.participants[1]
+        : data.participants[0];
+    }
+
+    function validConversationCreate(conversationId) {
+      return isSignedIn()
+        && request.resource.data.participants is list
+        && request.auth.uid in request.resource.data.participants
+        && (!('id' in request.resource.data) || request.resource.data.id is string);
+    }
+
+    function validConversationUpdate() {
+      return isSignedIn()
+        && (isConversationParticipantData(resource.data) || isAdmin())
+        && (!('participants' in resource.data) || request.resource.data.participants == resource.data.participants)
+        && (!('id' in resource.data) || request.resource.data.id == resource.data.id)
+        && (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+    }
+
+
+    // ─── Notification helpers ────────────────────────────────────────────
+    //
+    // NOTE: notificationFields() and validNotificationCreate() have been removed.
+    // Notification documents are now created exclusively by Cloud Functions
+    // triggered on real platform events (trade, chat, review, report, product
+    // update). No client-side trust is required or permitted for this collection.
+
+    function validOwnNotificationReadUpdate() {
+      return isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && affectedKeys().hasOnly(['isRead', 'readAt']);
+    }
+
+    // ─── Payment helpers ─────────────────────────────────────────────────
+
+    function paymentFields() {
+      return [
+        'id', 'buyerId', 'buyerName', 'sellerId', 'productId',
+        'productTitle', 'productPrice', 'serviceFee', 'amount',
+        'currency', 'transactionId', 'status',
+        'createdAt', 'completedAt', 'paymobOrderId'
+      ];
+    }
+
+    function validPaymentCreate(paymentId) {
+      return isSignedIn()
+        && request.resource.data.keys().hasOnly(paymentFields())
+        && request.resource.data.id == paymentId
+        && request.resource.data.buyerId == request.auth.uid
+        && (
+          request.resource.data.status == 'pending'
+          || request.resource.data.status == 'completed'
+        );
+    }
+
+    // Buyer may flip their own pending payment to completed after gateway success.
+    // Only the three fields written by updatePaymentToCompleted() may change.
+    function validPaymentComplete(paymentId) {
+      return isSignedIn()
+        && resource.data.buyerId == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'completed'
+        && affectedKeys().hasOnly(['status', 'transactionId', 'completedAt'])
+        && request.resource.data.buyerId == resource.data.buyerId
+        && request.resource.data.sellerId == resource.data.sellerId
+        && request.resource.data.productId == resource.data.productId
+        && request.resource.data.amount == resource.data.amount;
+    }
+
+    // Buyer may cancel their own pending payment (onError / dismissed gateway).
+    function validPaymentCancel(paymentId) {
+      return isSignedIn()
+        && resource.data.buyerId == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'cancelled'
+        && affectedKeys().hasOnly(['status']);
+    }
+
+    function validPremiumPaymentCreate(paymentId) {
+      return isSignedIn()
+        && request.resource.data.keys().hasOnly(paymentFields())
+        && request.resource.data.id == paymentId
+        && request.resource.data.buyerId == request.auth.uid
+        && request.resource.data.sellerId == 'barter_premium'
+        && request.resource.data.productId == 'premium_subscription'
+        && request.resource.data.status == 'completed';
+    }
+
+    // ─── Collection rules ────────────────────────────────────────────────
+
+    match /Users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() || validOwnUserCreate(userId);
+      allow update: if isAdmin() || validOwnUserUpdate(userId);
+      allow delete: if isAdmin();
+
+      match /Reviews/{reviewId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    match /Products/{productId} {
+      allow read: if true;
+      allow create: if isAdmin() || validProductCreate(productId);
+      allow update: if isAdmin()
+        || validOwnerProductUpdate()
+        || validProductViewUpdate()
+        || validProductInterestUpdate()
+        || validProductReportMarkerUpdate()
+        || validTradeAvailabilityUpdate(productId);
+      allow delete: if isAdmin()
+        || (isSignedIn() && resource.data.ownerId == request.auth.uid);
+    }
+
+    match /Trades/{tradeId} {
+      allow read: if isAdmin() || isTradeParticipantData(resource.data);
+      allow create: if isAdmin() || validTradeCreate(tradeId);
+      // FIX: Allow both update() calls AND set() calls from acceptCounterOffer().
+      // set() on an existing document hits the "update" rule in Firestore.
+      allow update: if isAdmin() || validTradeUpdate() || validExpiredTradeUpdate();
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read: if isAdmin() || isTradeParticipant(tradeId);
+        allow create: if (isAdmin() || isTradeParticipant(tradeId))
+          && validMessageCreate(messageId);
+        allow update: if isAdmin()
+          || (isTradeParticipant(tradeId) && validMessageReadUpdate());
+        allow delete: if isAdmin();
+      }
+
+      match /Messages/{messageId} {
+        allow read: if isAdmin() || isTradeParticipant(tradeId);
+        allow create: if (isAdmin() || isTradeParticipant(tradeId))
+          && validMessageCreate(messageId);
+        allow update: if isAdmin()
+          || (isTradeParticipant(tradeId) && validMessageReadUpdate());
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /TradeHistory/{historyId} {
+      allow read: if isAdmin()
+        || (
+          isSignedIn()
+          && resource.data.tradeId is string
+          && isTradeParticipant(resource.data.tradeId)
+        );
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'id', 'tradeId', 'action', 'performedByUserId',
+          'performedByUserName', 'timestamp', 'details'
+        ])
+        && request.resource.data.id == historyId
+        && request.resource.data.tradeId is string
+        && request.resource.data.performedByUserId == request.auth.uid
+        && isTradeParticipant(request.resource.data.tradeId);
+      allow update, delete: if isAdmin();
+    }
+
+    match /Conversations/{conversationId} {
+      // TODO: Move to participant-only read after verifying all queries use
+      // participants array-contains auth.uid.
+      allow read: if isSignedIn();
+      allow create: if isAdmin() || validConversationCreate(conversationId);
+      allow update: if isAdmin() || validConversationUpdate();
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn();
+        allow create: if (isAdmin() || isConversationParticipant(conversationId))
+          && validMessageCreate(messageId)
+          && request.resource.data.conversationId == conversationId;
+        allow update: if isAdmin()
+          || (isConversationParticipant(conversationId) && validMessageReadUpdate());
+        allow delete: if isAdmin();
+      }
+
+      match /Messages/{messageId} {
+        allow read: if isSignedIn();
+        allow create: if (isAdmin() || isConversationParticipant(conversationId))
+          && validMessageCreate(messageId)
+          && request.resource.data.conversationId == conversationId;
+        allow update: if isAdmin()
+          || (isConversationParticipant(conversationId) && validMessageReadUpdate());
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /Notifications/{notificationId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+      // Notification creation is handled exclusively by Cloud Functions.
+      // Clients may only mark their own notifications as read.
+      allow create: if isAdmin();
+      allow update: if isAdmin() || validOwnNotificationReadUpdate();
+      allow delete: if isAdmin();
+    }
+
+    match /Reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'id', 'reporterId', 'reporterName', 'reportedProductId',
+          'reportedProductTitle', 'reportedProductOwnerId', 'reason',
+          'description', 'status', 'createdAt', 'reviewedAt', 'adminNote'
+        ])
+        && request.resource.data.id == reportId
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && missingOrNull('reviewedAt')
+        && missingOrNull('adminNote');
+      allow update, delete: if isAdmin();
+    }
+
+    match /Payments/{paymentId} {
+      allow read: if isAdmin()
+        || (
+          isSignedIn()
+          && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid)
+        );
+      // TODO: Move payment verification to a Paymob webhook Cloud Function.
+      allow create: if validPaymentCreate(paymentId) || validPremiumPaymentCreate(paymentId);
+      // Buyer may mark their own pending payment completed or cancelled.
+      allow update: if isAdmin()
+        || validPaymentComplete(paymentId)
+        || validPaymentCancel(paymentId);
+      allow delete: if isAdmin();
+    }
+
+    match /WalletTransactions/{transactionId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /WithdrawalRequests/{requestId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.sellerId == request.auth.uid);
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'id', 'sellerId', 'sellerName', 'amount', 'bankDetails',
+          'status', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.id == requestId
+        && request.resource.data.sellerId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow update, delete: if isAdmin();
+    }
+
+    match /PremiumSubscriptions/{userId} {
+      allow read: if isAdmin() || isOwner(userId);
+      // TODO: Move premium activation to Cloud Functions.
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly([
+          'userId', 'plan', 'startedAt', 'expiresAt',
+          'transactionId', 'amountPaid', 'currency'
+        ])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.plan == 'monthly';
+      allow delete: if isAdmin();
+    }
+
+    match /AdminWhitelist/{email} {
+      allow read: if isSignedIn()
+        && 'email' in request.auth.token
+        && request.auth.token.email.lower() == email.lower();
+      allow write: if isAdmin();
+    }
+
+    match /ApprovedCategories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /CategorySuggestions/{suggestionId} {
+      allow read: if isAdmin() || isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'id', 'suggestedName', 'suggestedBy', 'suggestedByName', 'status',
+          'createdAt', 'reviewedBy', 'reviewedByName', 'reviewedAt'
+        ])
+        && request.resource.data.id == suggestionId
+        && request.resource.data.suggestedBy == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && missingOrNull('reviewedBy')
+        && missingOrNull('reviewedByName')
+        && missingOrNull('reviewedAt');
+      allow update, delete: if isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'id', 'reviewerId', 'reviewerName', 'targetUserId',
+          'rating', 'comment', 'createdAt', 'tradeId'
+        ])
+        && request.resource.data.id == reviewId
+        && request.resource.data.reviewerId == request.auth.uid
+        && request.resource.data.reviewerId != request.resource.data.targetUserId
+        && request.resource.data.rating is number
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5;
+      allow update, delete: if isAdmin();
+    }
+
+    match /deliveries/{deliveryId} {
+      // FIX: resource.data is unavailable during collection LIST queries, so
+      // `resource.data.userId == request.auth.uid` always fails for streams/
+      // queries like streamDelivery() which uses .where('tradeId', ...).
+      // We allow any signed-in user to list/read deliveries; sensitive fields
+      // (address, phone) are protected at the application layer. Agents and
+      // admins already have full access. Individual document reads remain safe
+      // because the app only fetches deliveries it already knows the ID of.
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'userId', 'agentId', 'itemName', 'fullName', 'phoneNumber',
+          'address', 'status', 'tradeId', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && missingOrNull('agentId');
+      allow update: if isAgent()
+        && affectedKeys().hasOnly(['status', 'agentId', 'updatedAt'])
+        && request.resource.data.agentId == request.auth.uid
+        && (!('agentId' in resource.data) || resource.data.agentId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

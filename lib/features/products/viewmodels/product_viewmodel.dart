@@ -8,7 +8,7 @@ import '../../../data/repositories/trade_repository.dart';
 import '../../../data/services/notification_service.dart';
 import '../../authentication/models/user_model.dart';
 import '../../chat/models/chat_message.dart';
-import '../../notifications/models/notification_model.dart';
+
 import '../models/product_model.dart';
 
 /// ViewModel for product-related UI state and operations.
@@ -197,21 +197,8 @@ class ProductViewModel extends ChangeNotifier {
 
         if (userToNotifyId == product.ownerId) continue;
 
-        // Send In-App Notification
-        final notification = NotificationModel(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          userId: userToNotifyId,
-          title: 'Product Updated',
-          body:
-              'The item "${product.title}" in your pending trade has been updated.',
-          type: NotificationType.productUpdate,
-          relatedId: trade.id,
-          createdAt: DateTime.now(),
-        );
-
-        await _notificationService.sendNotification(notification);
-
-        // Send Push Notification
+        // In-app notification is created by the Cloud Function `onProductUpdated`.
+        // Send Push Notification only.
         final recipientToken =
             await _notificationService.getUserFcmToken(userToNotifyId);
         if (recipientToken != null) {

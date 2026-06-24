@@ -7,6 +7,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
 import '../../core/widgets/loading_widget.dart';
+import '../../core/error/error_handler.dart';
 import 'package:provider/provider.dart';
 import '../../features/trade/viewmodels/trade_viewmodel.dart';
 import '../../features/products/viewmodels/product_viewmodel.dart';
@@ -57,6 +58,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
   }
 
   Future<void> _acceptTrade(TradeOffer trade) async {
+    bool acceptSucceeded = false;
     try {
       setState(() {
         _isLoading = true;
@@ -68,12 +70,14 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         userId: UserModel.currentUser!.id,
         userName: UserModel.currentUser!.name,
       );
+      acceptSucceeded = true;
 
       if (mounted) {
         await showInfoDialog(
           context: context,
-          title: 'Trade Accepted',
-          message: 'You have accepted the trade offer!',
+          title: 'Trade Accepted! 🎉',
+          message:
+              'Great! Now please fill in your delivery details so the other party can track the item coming to them.',
           icon: Icons.check_circle,
           iconColor: Colors.green,
         );
@@ -83,7 +87,59 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         await showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'Failed to accept trade: $e',
+          message: 'Failed to accept trade: ${ErrorHandler.getErrorMessage(e)}',
+          icon: Icons.error_outline,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+
+    if (!acceptSucceeded || !mounted) return;
+
+    // Immediately collect User 2's delivery details so User 1 can track the shipment.
+    final deliveryDetails = await _showDeliveryDetailsForm(context);
+    if (deliveryDetails == null) return; // User can submit later via the card's button.
+
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      await DeliveryService.createDelivery(
+        userId: UserModel.currentUser!.id,
+        itemName: 'Trade Items (${trade.id.substring(0, 5)})',
+        fullName: deliveryDetails['fullName']!,
+        phoneNumber: deliveryDetails['phoneNumber']!,
+        address: deliveryDetails['address']!,
+        tradeId: trade.id,
+      );
+
+      await context.read<TradeViewModel>().addDeliveryProvidedByUser(
+        tradeId: trade.id,
+        userId: UserModel.currentUser!.id,
+      );
+
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Delivery Details Saved',
+          message:
+              'Your delivery information has been saved. The requester can now track your shipment!',
+          icon: Icons.local_shipping,
+          iconColor: Colors.blue,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        await showInfoDialog(
+          context: context,
+          title: 'Error',
+          message: 'Failed to save delivery details: ${ErrorHandler.getErrorMessage(e)}',
           icon: Icons.error_outline,
         );
       }
@@ -134,7 +190,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         await showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'Failed to reject trade: $e',
+          message: 'Failed to reject trade: ${ErrorHandler.getErrorMessage(e)}',
           icon: Icons.error_outline,
         );
       }
@@ -185,7 +241,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         await showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'Failed to cancel trade: $e',
+          message: 'Failed to cancel trade: ${ErrorHandler.getErrorMessage(e)}',
           icon: Icons.error_outline,
         );
       }
@@ -237,50 +293,50 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                     textAlign: TextAlign.center,
                   ),
                   SizedBox(height: 24.h),
-                TextFormField(
-                  controller: nameController,
-                  decoration: InputDecoration(
-                    labelText: 'Full Name',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
+                  TextFormField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      labelText: 'Full Name',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
+                    ),
+                    validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                   ),
-                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                ),
-                SizedBox(height: 16.h),
-                TextFormField(
-                  controller: phoneController,
-                  decoration: InputDecoration(
-                    labelText: 'Phone Number',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
+                  SizedBox(height: 16.h),
+                  TextFormField(
+                    controller: phoneController,
+                    decoration: InputDecoration(
+                      labelText: 'Phone Number',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
+                    ),
+                    keyboardType: TextInputType.phone,
+                    validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                   ),
-                  keyboardType: TextInputType.phone,
-                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                ),
-                SizedBox(height: 16.h),
-                TextFormField(
-                  controller: addressController,
-                  decoration: InputDecoration(
-                    labelText: 'Full Address (Street, City, Governorate)',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
+                  SizedBox(height: 16.h),
+                  TextFormField(
+                    controller: addressController,
+                    decoration: InputDecoration(
+                      labelText: 'Full Address (Street, City, Governorate)',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
+                    ),
+                    maxLines: 2,
+                    validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                   ),
-                  maxLines: 2,
-                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                ),
-                SizedBox(height: 32.h),
-                ElevatedButton(
-                  onPressed: () {
-                    if (formKey.currentState!.validate()) {
-                      Navigator.pop(context, {
-                        'fullName': nameController.text.trim(),
-                        'phoneNumber': phoneController.text.trim(),
-                        'address': addressController.text.trim(),
-                      });
-                    }
-                  },
-                  child: const Text('Confirm & Complete Trade'),
-                ),
-                SizedBox(height: 24.h),
-              ],
-            ),
+                  SizedBox(height: 32.h),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (formKey.currentState!.validate()) {
+                        Navigator.pop(context, {
+                          'fullName': nameController.text.trim(),
+                          'phoneNumber': phoneController.text.trim(),
+                          'address': addressController.text.trim(),
+                        });
+                      }
+                    },
+                    child: const Text('Confirm & Complete Trade'),
+                  ),
+                  SizedBox(height: 24.h),
+                ],
+              ),
             ),
           ),
         );
@@ -322,7 +378,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
           userId: UserModel.currentUser!.id,
         );
       } catch (e) {
-        print('Error creating delivery: $e');
+        print('Error creating delivery: ${ErrorHandler.getErrorMessage(e)}');
       }
 
       if (mounted) {
@@ -339,7 +395,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         await showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'Failed to complete trade: $e',
+          message: 'Failed to complete trade: ${ErrorHandler.getErrorMessage(e)}',
           icon: Icons.error_outline,
         );
       }
@@ -392,7 +448,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         await showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'Failed to schedule delivery: $e',
+          message: 'Failed to schedule delivery: ${ErrorHandler.getErrorMessage(e)}',
           icon: Icons.error_outline,
         );
       }
@@ -553,118 +609,129 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
             children: [
               // Header with status and time
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 8.w,
-                      vertical: 4.h,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(
-                        trade.status,
-                      ).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    child: Text(
-                      _getStatusText(trade.status, isReceived: isReceived),
-                      style: TextStyle(
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w600,
-                        color: _getStatusColor(trade.status),
-                      ),
-                    ),
-                  ),
-                  if (trade.isFromPremium) ...[
-                    SizedBox(width: 8.w),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 8.w,
-                        vertical: 4.h,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(color: Colors.amber[700]!, width: 1),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const PremiumBadgeWidget.compact(),
-                          SizedBox(width: 4.w),
-                          Text(
-                            'PREMIUM OFFER',
-                            style: TextStyle(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.amber[800],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  if (trade.isCounterOffer) ...[
-                    SizedBox(width: 8.w),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 8.w,
-                        vertical: 4.h,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(color: Colors.orange, width: 1),
-                      ),
-                      child: Text(
-                        'COUNTER OFFER',
-                        style: TextStyle(
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.orange[700],
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (!trade.isCounterOffer && isReceived && isPending) ...[
-                    SizedBox(width: 8.w),
-                    FutureBuilder<int>(
-                      future: context.read<TradeViewModel>().getPendingTradeCountForProduct(
-                        trade.requestedProductIds.first,
-                      ),
-                      builder: (context, snapshot) {
-                        final count = (snapshot.data ?? 1) - 1;
-                        if (count <= 0) return const SizedBox.shrink();
-                        return Container(
+                  // Left: badges group — wraps to next line if needed
+                  Expanded(
+                    child: Wrap(
+                      spacing: 6.w,
+                      runSpacing: 4.h,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        // Status badge
+                        Container(
                           padding: EdgeInsets.symmetric(
                             horizontal: 8.w,
                             vertical: 4.h,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
+                            color: _getStatusColor(
+                              trade.status,
+                            ).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12.r),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.local_fire_department,
-                                  size: 12.w, color: Colors.red),
-                              SizedBox(width: 4.w),
-                              Text(
-                                '$count COMPETING OFFER${count > 1 ? 'S' : ''}',
-                                style: TextStyle(
-                                  fontSize: 10.sp,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.red,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            _getStatusText(trade.status, isReceived: isReceived),
+                            style: TextStyle(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w600,
+                              color: _getStatusColor(trade.status),
+                            ),
                           ),
-                        );
-                      },
+                        ),
+                        // Premium badge
+                        if (trade.isFromPremium)
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8.w,
+                              vertical: 4.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12.r),
+                              border: Border.all(color: Colors.amber[700]!, width: 1),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const PremiumBadgeWidget.compact(),
+                                SizedBox(width: 4.w),
+                                Text(
+                                  'PREMIUM OFFER',
+                                  style: TextStyle(
+                                    fontSize: 10.sp,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.amber[800],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        // Counter offer badge
+                        if (trade.isCounterOffer)
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8.w,
+                              vertical: 4.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12.r),
+                              border: Border.all(color: Colors.orange, width: 1),
+                            ),
+                            child: Text(
+                              'COUNTER OFFER',
+                              style: TextStyle(
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.orange[700],
+                              ),
+                            ),
+                          ),
+                        // Competing offers badge
+                        if (!trade.isCounterOffer && isReceived && isPending)
+                          FutureBuilder<int>(
+                            future: context.read<TradeViewModel>().getPendingTradeCountForProduct(
+                              trade.requestedProductIds.first,
+                            ),
+                            builder: (context, snapshot) {
+                              final count = (snapshot.data ?? 1) - 1;
+                              if (count <= 0) return const SizedBox.shrink();
+                              return Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 8.w,
+                                  vertical: 4.h,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.local_fire_department,
+                                        size: 12.w, color: Colors.red),
+                                    SizedBox(width: 4.w),
+                                    Text(
+                                      '$count COMPETING OFFER${count > 1 ? 'S' : ''}',
+                                      style: TextStyle(
+                                        fontSize: 10.sp,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                      ],
                     ),
-                  ],
+                  ),
+                  SizedBox(width: 8.w),
+                  // Right: chat button + time
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       // Chat Button with Notification Badge
                       Stack(
@@ -702,7 +769,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                               top: 0,
                               child: Container(
                                 padding: EdgeInsets.all(4.w),
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   color: Colors.red,
                                   shape: BoxShape.circle,
                                 ),
@@ -714,7 +781,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                             ),
                         ],
                       ),
-                      SizedBox(width: 8.w),
+                      SizedBox(width: 4.w),
                       Text(
                         _getTimeAgo(trade.createdAt),
                         style: Theme.of(context).textTheme.bodySmall,
@@ -741,8 +808,8 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                           ? 'From: ${trade.fromUserName}'
                           : 'To: ${trade.toUserName}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
+                        fontWeight: FontWeight.w500,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -759,8 +826,8 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                   Text(
                     'You ${isReceived ? 'receive' : 'offer'}:',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   SizedBox(height: 8.h),
                   FutureBuilder<List<ProductModel>>(
@@ -828,8 +895,8 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                   Text(
                     'You ${isReceived ? 'give' : 'receive'}:',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   SizedBox(height: 8.h),
                   FutureBuilder<List<ProductModel>>(
@@ -917,18 +984,18 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                               .textTheme
                               .bodySmall
                               ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).textTheme.bodySmall?.color?.withOpacity(0.7),
-                              ),
+                            color: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.color?.withOpacity(0.7),
+                          ),
                         ),
                         Text(
                           '${_getDaysUntil(trade.expiresAt)} days left',
                           style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    fontWeight: FontWeight.w500,
-                                    color: Theme.of(context).primaryColor,
-                                  ),
+                          Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w500,
+                            color: Theme.of(context).primaryColor,
+                          ),
                         ),
                       ],
                     ),
@@ -991,124 +1058,162 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                     ],
                   ),
                 ] else ...[
-                  // If I'm the recipient (owner), I've already accepted, now waiting for sender
-                  Container(
-                    padding: EdgeInsets.all(12.w),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.hourglass_empty,
-                            size: 16.w, color: Colors.orange),
-                        SizedBox(width: 8.w),
-                        Expanded(
-                          child: Text(
-                            'Accepted. Waiting for requester to confirm completion.',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                    color: Colors.orange,
-                                    fontWeight: FontWeight.w600),
-                          ),
+                  // User 2 (recipient): show delivery details prompt + waiting banner.
+                  Builder(
+                    builder: (context) {
+                      final currentUserId = UserModel.currentUser?.id ?? '';
+                      return FutureBuilder<bool>(
+                        future: DeliveryService.hasCurrentUserSubmittedDelivery(
+                          trade.id,
+                          currentUserId,
                         ),
-                      ],
-                    ),
+                        builder: (context, snapshot) {
+                          final hasSubmitted = snapshot.data ?? false;
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Delivery details section
+                              if (!hasSubmitted)
+                                AuthButton(
+                                  text: 'Provide Delivery Details',
+                                  onPressed: () => _provideDeliveryDetailsOnly(trade),
+                                  backgroundColor: Colors.green,
+                                )
+                              else
+                                Container(
+                                  padding: EdgeInsets.all(10.w),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12.r),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.local_shipping,
+                                          size: 16.w, color: Colors.green),
+                                      SizedBox(width: 8.w),
+                                      Expanded(
+                                        child: Text(
+                                          'Delivery details submitted. The requester can now track your item.',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: Colors.green,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              SizedBox(height: 8.h),
+                              // Waiting for requester to confirm banner
+                              Container(
+                                padding: EdgeInsets.all(10.w),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.hourglass_empty,
+                                        size: 16.w, color: Colors.orange),
+                                    SizedBox(width: 8.w),
+                                    Expanded(
+                                      child: Text(
+                                        'Waiting for requester to confirm completion.',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: Colors.orange,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
                   ),
                 ],
               ] else if (trade.status == TradeStatus.completed) ...[
                 Builder(
                   builder: (context) {
                     final currentUserId = UserModel.currentUser?.id ?? '';
-                    final hasProvided = trade.deliveryProvidedBy.contains(currentUserId);
-                    return Row(
-                      children: [
-                        if (!hasProvided)
-                          Expanded(
-                            child: AuthButton(
-                              text: 'Provide Delivery Details',
-                              onPressed: () => _provideDeliveryDetailsOnly(trade),
-                              backgroundColor: Colors.green,
-                            ),
-                          )
-                        else
-                          Expanded(
-                            child: AuthButton(
-                              text: 'Track Delivery',
-                              onPressed: () async {
-                                setState(() {
-                                  _isLoading = true;
-                                });
-                                try {
-                                  final deliveryId = await DeliveryService.getDeliveryIdByTradeAndUser(
-                                    trade.id,
-                                    currentUserId,
-                                  );
-                                  if (deliveryId != null && context.mounted) {
+                    // FIX: Instead of relying on trade.deliveryProvidedBy (which
+                    // requires a successful Firestore write that may be blocked by
+                    // rules), we query the deliveries collection directly.
+                    // This way "Track Delivery" appears as soon as a delivery doc
+                    // exists for this trade, regardless of the trade document state.
+                    return FutureBuilder<String?>(
+                      future: DeliveryService.getDeliveryIdByTradeAndUser(
+                        trade.id,
+                        currentUserId,
+                      ),
+                      builder: (context, snapshot) {
+                        final deliveryId = snapshot.data;
+                        final hasDelivery = deliveryId != null;
+                        return Row(
+                          children: [
+                            if (!hasDelivery)
+                              Expanded(
+                                child: AuthButton(
+                                  text: 'Provide Delivery Details',
+                                  onPressed: () => _provideDeliveryDetailsOnly(trade),
+                                  backgroundColor: Colors.green,
+                                ),
+                              )
+                            else
+                              Expanded(
+                                child: AuthButton(
+                                  text: 'Track Delivery',
+                                  onPressed: () async {
+                                    if (deliveryId == null) return;
                                     Navigator.pushNamed(
                                       context,
                                       RoutesManager.deliveryStatus,
                                       arguments: deliveryId,
                                     );
-                                  } else {
-                                    if (context.mounted) {
-                                      showInfoDialog(
-                                        context: context,
-                                        title: 'Not Found',
-                                        message: 'Could not find a delivery order for you.',
-                                      );
-                                    }
-                                  }
-                                } catch (e) {
-                                  if (context.mounted) {
-                                    showInfoDialog(
-                                      context: context,
-                                      title: 'Error',
-                                      message: 'Failed to retrieve delivery: $e',
-                                    );
-                                  }
-                                } finally {
-                                  if (context.mounted) {
-                                    setState(() {
-                                      _isLoading = false;
-                                    });
-                                  }
-                                }
-                              },
-                              backgroundColor: Colors.blue,
-                            ),
-                          ),
-                        SizedBox(width: 8.w),
-                        Expanded(
-                          child: AuthButton(
-                            text: 'Leave a Review',
-                            onPressed: () async {
-                              final result = await Navigator.pushNamed(
-                                context,
-                                RoutesManager.leaveReview,
-                                arguments: {
-                                  'trade': trade,
-                                  'targetUserId':
+                                  },
+                                  backgroundColor: Colors.blue,
+                                ),
+                              ),
+                            SizedBox(width: 8.w),
+                            Expanded(
+                              child: AuthButton(
+                                text: 'Leave a Review',
+                                onPressed: () async {
+                                  final result = await Navigator.pushNamed(
+                                    context,
+                                    RoutesManager.leaveReview,
+                                    arguments: {
+                                      'trade': trade,
+                                      'targetUserId':
                                       isReceived ? trade.fromUserId : trade.toUserId,
-                                  'targetUserName':
+                                      'targetUserName':
                                       isReceived ? trade.fromUserName : trade.toUserName,
-                                },
-                              );
+                                    },
+                                  );
 
-                              if (result == true) {
-                                // Maybe disable button or show "Reviewed" text.
-                                // For now, simpler is better.
-                              }
-                            },
-                            isOutlined: true,
-                          ),
-                        ),
-                      ],
-                    );
-                  }
-                ),
+                                  if (result == true) {
+                                    // Maybe disable button or show "Reviewed" text.
+                                    // For now, simpler is better.
+                                  }
+                                },
+                                isOutlined: true,
+                              ),
+                            ),
+                          ],
+                        );
+                      },  // end FutureBuilder builder
+                    );    // end FutureBuilder
+                  },      // end outer Builder builder
+                ),         // end outer Builder
               ],
               if (!trade.isCounterOffer && isReceived && isPending)
                 _buildCounterOffersSection(trade),
@@ -1151,72 +1256,72 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
               ),
             ),
             ...counterOffers.map((counter) => Container(
-                  margin: EdgeInsets.only(bottom: 8.h),
-                  padding: EdgeInsets.all(12.w),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(8.r),
-                    border: Border.all(
-                      color: Colors.grey.withOpacity(0.2),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              margin: EdgeInsets.only(bottom: 8.h),
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8.r),
+                border: Border.all(
+                  color: Colors.grey.withOpacity(0.2),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            counter.fromUserName,
-                            style: TextStyle(
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            _getTimeAgo(counter.createdAt),
-                            style: TextStyle(
-                              fontSize: 10.sp,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        counter.fromUserName,
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      SizedBox(height: 8.h),
-                      Row(
-                        children: [
-                          Icon(Icons.shopping_bag_outlined,
-                              size: 14.w, color: Colors.grey),
-                          SizedBox(width: 4.w),
-                          Expanded(
-                            child: Text(
-                              'Offered: ${counter.offeredProductIds.length} items',
-                              style: TextStyle(fontSize: 11.sp),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 12.h),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: AuthButton(
-                              text: 'View & Accept',
-                              height: 30,
-                              onPressed: () {
-                                // For now, maybe just show details or similar
-                                // But simpler is to open a dialog or similar
-                                // For MVP, let's just make it show the card details
-                                _showCounterOfferDetails(counter);
-                              },
-                              backgroundColor: Theme.of(context).primaryColor,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        _getTimeAgo(counter.createdAt),
+                        style: TextStyle(
+                          fontSize: 10.sp,
+                          color: Colors.grey,
+                        ),
                       ),
                     ],
                   ),
-                )),
+                  SizedBox(height: 8.h),
+                  Row(
+                    children: [
+                      Icon(Icons.shopping_bag_outlined,
+                          size: 14.w, color: Colors.grey),
+                      SizedBox(width: 4.w),
+                      Expanded(
+                        child: Text(
+                          'Offered: ${counter.offeredProductIds.length} items',
+                          style: TextStyle(fontSize: 11.sp),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 12.h),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AuthButton(
+                          text: 'View & Accept',
+                          height: 30,
+                          onPressed: () {
+                            // For now, maybe just show details or similar
+                            // But simpler is to open a dialog or similar
+                            // For MVP, let's just make it show the card details
+                            _showCounterOfferDetails(counter);
+                          },
+                          backgroundColor: Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            )),
           ],
         );
       },
@@ -1266,7 +1371,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
       );
       return products;
     } catch (e) {
-      print('=== DEBUG: Error getting products: $e ===');
+      print('=== DEBUG: Error getting products: ${ErrorHandler.getErrorMessage(e)} ===');
       return [];
     }
   }
@@ -1308,19 +1413,19 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                 color: Colors.grey[200],
                 image: product.images.isNotEmpty
                     ? DecorationImage(
-                        image: CachedNetworkImageProvider(product.images.first),
-                        fit: BoxFit.cover,
-                      )
+                  image: CachedNetworkImageProvider(product.images.first),
+                  fit: BoxFit.cover,
+                )
                     : null,
               ),
               child: product.images.isEmpty
                   ? Center(
-                      child: Icon(
-                        Icons.image_outlined,
-                        size: 24.w,
-                        color: Colors.grey[400],
-                      ),
-                    )
+                child: Icon(
+                  Icons.image_outlined,
+                  size: 24.w,
+                  color: Colors.grey[400],
+                ),
+              )
                   : null,
             ),
             // Product Info
@@ -1334,9 +1439,9 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
                     Text(
                       product.title,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 11.sp,
-                          ),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11.sp,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1392,7 +1497,7 @@ class _TradeManagementScreenState extends State<TradeManagementScreen>
         return 'PENDING';
       case TradeStatus.accepted:
         return isReceived
-            ? 'WAITING FOR CONFIRMATION'
+            ? 'ACCEPTED'
             : 'NEED YOUR CONFIRMATION';
       case TradeStatus.rejected:
         return 'REJECTED';

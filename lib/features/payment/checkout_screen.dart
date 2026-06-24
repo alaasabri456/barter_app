@@ -12,6 +12,7 @@ import '../../services/payment_service.dart';
 import '../authentication/widgets/auth_button.dart';
 import 'payment_success_screen.dart';
 import '../premium/services/premium_service.dart';
+import '../../core/error/error_handler.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final ProductModel product;
@@ -63,6 +64,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           productId: widget.product.id,
           productTitle: widget.product.title,
           amount: _total,
+          productPrice: _price,
+          serviceFee: _serviceFee,
           currency: 'EGP',
           transactionId: '',      // filled in Phase 3
           status: PaymentStatus.pending,
@@ -74,7 +77,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not start payment: $e'),
+            content: Text('Could not start payment: ${ErrorHandler.getErrorMessage(e)}'),
             backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
           ),
@@ -133,7 +136,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Payment succeeded but order save failed: $e'),
+                content: Text('Payment succeeded but order save failed: ${ErrorHandler.getErrorMessage(e)}'),
                 backgroundColor: Theme.of(context).colorScheme.error,
                 behavior: SnackBarBehavior.floating,
               ),
@@ -342,12 +345,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           color: Colors.green,
                         ),
                         SizedBox(width: 6.w),
-                        Text(
-                          'Secured by Paymob · Card or Mobile Wallet',
-                          style: TextStyle(
-                            fontSize: 11.sp,
-                            color: theme.textTheme.bodySmall?.color
-                                ?.withOpacity(0.6),
+                        Flexible(
+                          child: Text(
+                            'Secured by Paymob · Card or Mobile Wallet',
+                            style: TextStyle(
+                              fontSize: 11.sp,
+                              color: theme.textTheme.bodySmall?.color
+                                  ?.withOpacity(0.6),
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],

@@ -73,21 +73,25 @@ class TradeOffer {
       requestedProductIds: List<String>.from(json['requestedProductIds'] ?? []),
       message: json['message'],
       status: TradeStatus.values.firstWhere(
-        (e) => e.name == json['status'],
+            (e) => e.name == json['status'],
         orElse: () => TradeStatus.pending,
       ),
       type: TradeType.values.firstWhere(
-        (e) => e.name == json['type'],
+            (e) => e.name == json['type'],
         orElse: () => TradeType.itemForItem,
       ),
-      createdAt: (json['createdAt'] as Timestamp).toDate(),
-      expiresAt: (json['expiresAt'] as Timestamp).toDate(),
+      createdAt: json['createdAt'] != null
+          ? (json['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
+      expiresAt: json['expiresAt'] != null
+          ? (json['expiresAt'] as Timestamp).toDate()
+          : DateTime.now().add(const Duration(days: 7)),
       updatedAt: json['updatedAt'] != null
           ? (json['updatedAt'] as Timestamp).toDate()
           : null,
       counterOffers: (json['counterOffers'] as List<dynamic>?)
-              ?.map((e) => TradeCounterOffer.fromJson(e))
-              .toList() ??
+          ?.map((e) => TradeCounterOffer.fromJson(e))
+          .toList() ??
           [],
       isCounterOffer: json['isCounterOffer'] ?? false,
       parentTradeId: json['parentTradeId'],
@@ -122,7 +126,7 @@ class TradeOffer {
       'parentTradeId': parentTradeId,
       'lastMessage': lastMessage,
       'lastMessageTime':
-          lastMessageTime != null ? Timestamp.fromDate(lastMessageTime!) : null,
+      lastMessageTime != null ? Timestamp.fromDate(lastMessageTime!) : null,
       'lastMessageSenderId': lastMessageSenderId,
       'hasUnreadMessages': hasUnreadMessages,
       'isFromPremium': isFromPremium,

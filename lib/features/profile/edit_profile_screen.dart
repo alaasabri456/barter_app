@@ -14,6 +14,7 @@ import '../../features/authentication/models/user_model.dart';
 import '../authentication/widgets/auth_button.dart';
 import '../authentication/widgets/auth_text_field.dart';
 import 'package:barter/l10n/app_localizations.dart';
+import '../../core/error/error_handler.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -82,7 +83,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking image: $e')),
+          SnackBar(content: Text('Error picking image: ${ErrorHandler.getErrorMessage(e)}')),
         );
       }
     }
@@ -154,7 +155,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'Failed to update profile: $e',
+          message: 'Failed to update profile: ${ErrorHandler.getErrorMessage(e)}',
           icon: Icons.error_outline,
         );
       }

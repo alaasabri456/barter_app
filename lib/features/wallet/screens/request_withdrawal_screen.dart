@@ -7,6 +7,7 @@ import '../viewmodels/wallet_viewmodel.dart';
 import '../../authentication/models/user_model.dart';
 import '../../authentication/widgets/auth_button.dart';
 import '../models/withdrawal_request_model.dart';
+import '../../../core/error/error_handler.dart';
 
 class RequestWithdrawalScreen extends StatefulWidget {
   final double availableBalance;
@@ -75,7 +76,7 @@ class _RequestWithdrawalScreenState extends State<RequestWithdrawalScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to submit request: $e'),
+            content: Text('Failed to submit request: ${ErrorHandler.getErrorMessage(e)}'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );

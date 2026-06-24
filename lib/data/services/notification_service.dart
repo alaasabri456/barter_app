@@ -5,10 +5,14 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 import '../../features/authentication/models/user_model.dart';
-import '../../features/notifications/models/notification_model.dart';
 import '../../services/fcm_v1_service.dart';
 
-/// Localized notification string templates for push & in-app notifications.
+/// Localized notification string templates for push notifications.
+///
+/// NOTE: In-app Notification documents are now created exclusively by Cloud
+/// Functions triggered on real platform events (trade, chat, review, report,
+/// product update). These string templates are used only for the FCM push
+/// payload sent client-side.
 const Map<String, Map<String, String>> localizedNotificationStrings = {
   'en': {
     'newOfferTitle': 'New Trade Offer',
@@ -52,8 +56,12 @@ const Map<String, Map<String, String>> localizedNotificationStrings = {
   },
 };
 
-/// Shared service for sending push notifications and in-app notifications.
-/// Used by multiple repositories (trade, chat, review, report, etc.).
+/// Shared service for sending push notifications.
+///
+/// In-app Notification documents (Firestore `Notifications/` collection) are
+/// no longer written by the client. They are created exclusively by Cloud
+/// Functions as a verified server-side side-effect of real platform events.
+/// This service only handles the FCM push notification delivery.
 class NotificationService {
   final FirebaseFirestore _firestore;
 
@@ -67,10 +75,6 @@ class NotificationService {
           fromFirestore: (snapshot, _) => UserModel.fromJson(snapshot.data()!),
           toFirestore: (user, _) => user.toJson(),
         );
-  }
-
-  CollectionReference _getNotificationsCollection() {
-    return _firestore.collection('Notifications');
   }
 
   // ─── Public API ───────────────────────────────────────────────────────
@@ -126,27 +130,20 @@ class NotificationService {
     }
   }
 
-  /// Write an in-app notification to Firestore.
-  Future<void> sendNotification(NotificationModel notification) async {
-    try {
-      await _getNotificationsCollection()
-          .doc(notification.id)
-          .set(notification.toJson());
-    } catch (e) {
-      print('Failed to send notification: $e');
-      throw Exception('Failed to send notification: $e');
-    }
-  }
-
-  /// Send a localized push + in-app notification to a user.
+  /// Send a localized push notification to a user.
   ///
   /// Resolves the recipient's preferred language, builds the localized title
-  /// and body, writes an in-app notification, and fires a push notification.
+  /// and body, and fires an FCM push notification.
+  ///
+  /// The corresponding in-app Notification document is created by the Cloud
+  /// Function that triggered this call chain (e.g. `onTradeCreated`) — no
+  /// Firestore write happens here.
   Future<void> sendLocalizedNotification({
     required String recipientId,
     required String titleKey,
     required String bodyKey,
-    NotificationType type = NotificationType.tradeUpdate,
+    // ignore: avoid_unused_parameters — kept for call-site compat; not written to Firestore
+    dynamic type,
     Map<String, String>? bodyArgs,
     Map<String, dynamic>? data,
   }) async {
@@ -169,20 +166,7 @@ class NotificationService {
         });
       }
 
-      // 1. Send In-App Notification
-      final notificationId = DateTime.now().millisecondsSinceEpoch.toString();
-      final notification = NotificationModel(
-        id: notificationId,
-        userId: recipientId,
-        title: title,
-        body: body,
-        type: type,
-        relatedId: data?['tradeId'] ?? data?['conversationId'],
-        createdAt: DateTime.now(),
-      );
-      await sendNotification(notification);
-
-      // 2. Send Push Notification
+      // Send Push Notification only — in-app notification is written by CF.
       if (recipient.fcmToken != null) {
         await sendPushNotification(
           recipientToken: recipient.fcmToken!,

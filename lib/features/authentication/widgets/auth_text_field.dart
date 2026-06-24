@@ -129,7 +129,9 @@ class AuthTextFieldWithIcon extends StatelessWidget {
   final void Function(String)? onChanged;
   final IconData icon;
   final bool enabled;
-  final Future<void> Function()? onEditingComplete;
+  final TextInputAction textInputAction;
+  final void Function()? onEditingComplete;
+  final bool autofocus;
 
   const AuthTextFieldWithIcon({
     super.key,
@@ -142,8 +144,9 @@ class AuthTextFieldWithIcon extends StatelessWidget {
     this.onChanged,
     required this.icon,
     this.enabled = true,
-    required TextInputAction textInputAction,
+    this.textInputAction = TextInputAction.next,
     this.onEditingComplete,
+    this.autofocus = false,
   });
 
   @override
@@ -157,6 +160,9 @@ class AuthTextFieldWithIcon extends StatelessWidget {
       validator: validator,
       onChanged: onChanged,
       enabled: enabled,
+      textInputAction: textInputAction,
+      onEditingComplete: onEditingComplete,
+      autofocus: autofocus,
       prefixIcon: Icon(
         icon,
         color: Theme.of(context).iconTheme.color?.withOpacity(0.6),

@@ -110,16 +110,16 @@ class Validators {
     return null;
   }
 
-  // Phone number validation (optional)
+  // Phone number validation (required, E.164 format)
   static String? validatePhoneNumber(String? value) {
-    if (value == null || value.isEmpty) {
-      return null; // Optional field
+    if (value == null || value.trim().isEmpty) {
+      return 'Phone number is required';
     }
 
-    const String phonePattern = r'^[0-9]{10,15}$';
+    const String phonePattern = r'^\+[1-9]\d{6,14}$';
 
-    if (!RegExp(phonePattern).hasMatch(value)) {
-      return 'Please enter a valid phone number';
+    if (!RegExp(phonePattern).hasMatch(value.trim())) {
+      return 'Enter a valid phone number with country code (e.g. +201012345678)';
     }
 
     return null;

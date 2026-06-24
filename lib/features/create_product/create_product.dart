@@ -6,6 +6,7 @@ import 'package:barter/core/routes_manager/routes_manager.dart';
 import '../../core/validators.dart';
 import '../../core/widgets/custom_app_bar.dart';
 import '../../core/widgets/custom_dialog.dart';
+import '../../core/error/error_handler.dart';
 import 'package:provider/provider.dart';
 import '../products/viewmodels/product_viewmodel.dart';
 import '../admin/viewmodels/admin_viewmodel.dart';
@@ -232,53 +233,88 @@ class _CreateProductState extends State<CreateProduct> {
         }
       }
 
-      final product = ProductModel(
-        id: productId,
-        title: _titleController.text.trim(),
-        description: _descriptionController.text.trim(),
-        category:
-            _selectedType == ProductType.item ? _selectedCategory : 'service',
-        customCategory: customCategoryName,
-        condition: _selectedType == ProductType.item
-            ? _selectedCondition
-            : 'not_applicable',
-        ownerId: user.id,
-        ownerName: user.name,
-        images: finalImageUrls,
-        createdAt: _isEditing ? widget.product!.createdAt : now,
-        updatedAt: now,
-        location: _locationController.text.trim(),
-        latitude: _latitude,
-        longitude: _longitude,
-        tags: const [],
-        status: _isEditing ? widget.product!.status : ProductStatus.available,
-        type: _selectedType,
-        serviceCategory: _selectedType == ProductType.service
-            ? _selectedServiceCategory
-            : null,
-        customServiceCategory: _selectedType == ProductType.service &&
-                _selectedServiceCategory == ServiceCategory.others.name
-            ? _customServiceCategoryController.text.trim()
-            : null,
-        estimatedDuration: _selectedType == ProductType.service
-            ? int.tryParse(_estimatedDurationController.text)
-            : null,
-        priceRange: _selectedType == ProductType.service
-            ? double.tryParse(_priceRangeController.text)
-            : null,
-        availabilitySchedule:
-            _selectedType == ProductType.service ? _selectedAvailability : null,
-        skills: _selectedType == ProductType.service && _skills.isNotEmpty
-            ? _skills
-            : null,
-        transactionType: _selectedTransactionType,
-        price: _selectedTransactionType == TransactionType.sell
-            ? double.tryParse(_priceController.text)
-            : null,
-        desiredSwapCategory: _selectedTransactionType == TransactionType.barter
-            ? _selectedSwapCategory
-            : null,
-      );
+      ProductModel product;
+      if (_isEditing) {
+        product = widget.product!.copyWith(
+          title: _titleController.text.trim(),
+          description: _descriptionController.text.trim(),
+          category: _selectedType == ProductType.item ? _selectedCategory : 'service',
+          customCategory: customCategoryName,
+          condition: _selectedType == ProductType.item ? _selectedCondition : 'not_applicable',
+          images: finalImageUrls,
+          updatedAt: now,
+          location: _locationController.text.trim(),
+          latitude: _latitude,
+          longitude: _longitude,
+          type: _selectedType,
+          serviceCategory: _selectedType == ProductType.service ? _selectedServiceCategory : null,
+          customServiceCategory: _selectedType == ProductType.service &&
+                  _selectedServiceCategory == ServiceCategory.others.name
+              ? _customServiceCategoryController.text.trim()
+              : null,
+          estimatedDuration: _selectedType == ProductType.service
+              ? int.tryParse(_estimatedDurationController.text)
+              : null,
+          priceRange: _selectedType == ProductType.service
+              ? double.tryParse(_priceRangeController.text)
+              : null,
+          availabilitySchedule:
+              _selectedType == ProductType.service ? _selectedAvailability : null,
+          skills: _selectedType == ProductType.service && _skills.isNotEmpty
+              ? _skills
+              : null,
+          transactionType: _selectedTransactionType,
+          price: _selectedTransactionType == TransactionType.sell
+              ? double.tryParse(_priceController.text)
+              : null,
+          desiredSwapCategory: _selectedTransactionType == TransactionType.barter
+              ? _selectedSwapCategory
+              : null,
+        );
+      } else {
+        product = ProductModel(
+          id: productId,
+          title: _titleController.text.trim(),
+          description: _descriptionController.text.trim(),
+          category: _selectedType == ProductType.item ? _selectedCategory : 'service',
+          customCategory: customCategoryName,
+          condition: _selectedType == ProductType.item ? _selectedCondition : 'not_applicable',
+          ownerId: user.id,
+          ownerName: user.name,
+          images: finalImageUrls,
+          createdAt: now,
+          updatedAt: now,
+          location: _locationController.text.trim(),
+          latitude: _latitude,
+          longitude: _longitude,
+          tags: const [],
+          status: ProductStatus.available,
+          type: _selectedType,
+          serviceCategory: _selectedType == ProductType.service ? _selectedServiceCategory : null,
+          customServiceCategory: _selectedType == ProductType.service &&
+                  _selectedServiceCategory == ServiceCategory.others.name
+              ? _customServiceCategoryController.text.trim()
+              : null,
+          estimatedDuration: _selectedType == ProductType.service
+              ? int.tryParse(_estimatedDurationController.text)
+              : null,
+          priceRange: _selectedType == ProductType.service
+              ? double.tryParse(_priceRangeController.text)
+              : null,
+          availabilitySchedule:
+              _selectedType == ProductType.service ? _selectedAvailability : null,
+          skills: _selectedType == ProductType.service && _skills.isNotEmpty
+              ? _skills
+              : null,
+          transactionType: _selectedTransactionType,
+          price: _selectedTransactionType == TransactionType.sell
+              ? double.tryParse(_priceController.text)
+              : null,
+          desiredSwapCategory: _selectedTransactionType == TransactionType.barter
+              ? _selectedSwapCategory
+              : null,
+        );
+      }
 
       if (_isEditing) {
         await context.read<ProductViewModel>().updateProduct(product);
@@ -307,7 +343,7 @@ class _CreateProductState extends State<CreateProduct> {
         showInfoDialog(
           context: context,
           title: 'Error',
-          message: 'Failed to ${_isEditing ? 'update' : 'create'} product: $e',
+          message: 'Failed to ${_isEditing ? 'update' : 'create'} product: ${ErrorHandler.getErrorMessage(e)}',
           icon: Icons.error_outline,
           iconColor: Theme.of(context).colorScheme.error,
         );

@@ -46,6 +46,7 @@ class AuthButton extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12.r),
             ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
           ),
           child: isLoading
               ? _buildLoadingIndicator(context)
@@ -67,6 +68,7 @@ class AuthButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(12.r),
           ),
           elevation: isDisabled ? 0 : 2,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
         ),
         child: isLoading
             ? _buildLoadingIndicator(context)
@@ -156,6 +158,7 @@ class SocialAuthButton extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12.r),
           ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
         ),
         child: isLoading
             ? SizedBox(

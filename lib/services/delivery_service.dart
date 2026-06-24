@@ -64,15 +64,51 @@ class DeliveryService {
     });
   }
 
+  /// Returns the delivery document created by the OTHER participant for the
+  /// given trade — not the current user's own delivery.
+  ///
+  /// Each user tracks the shipment that is coming **to them**, which is the
+  /// delivery set up by the other side of the trade.
+  ///
+  /// Implementation note: querying on both 'tradeId' AND 'userId' together
+  /// requires a Composite Index in Firestore. To avoid that requirement we
+  /// query by tradeId only (single-field index, no extra setup) and filter
+  /// in-memory. A trade has at most 2 deliveries so this is negligible.
   static Future<String?> getDeliveryIdByTradeAndUser(String tradeId, String userId) async {
     final query = await _deliveriesCollection
         .where('tradeId', isEqualTo: tradeId)
-        .where('userId', isEqualTo: userId)
-        .limit(1)
         .get();
-    if (query.docs.isNotEmpty) {
-      return query.docs.first.id;
+
+    // Return the delivery that was created by the OTHER participant.
+    for (final doc in query.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      if (data['userId'] != userId) {
+        return doc.id;
+      }
     }
+
+    // Fallback: if only one delivery exists and it belongs to the current user
+    // (the other participant hasn't submitted theirs yet), return null so the
+    // UI shows "Provide Delivery Details" for the other side rather than
+    // accidentally tracking the wrong shipment.
     return null;
+  }
+
+  /// Returns true if [userId] already has a delivery document for [tradeId].
+  /// Used to decide whether to show "Provide Delivery Details" or a confirmation
+  /// banner in the accepted-state card for User 2.
+  static Future<bool> hasCurrentUserSubmittedDelivery(
+      String tradeId, String userId) async {
+    final query = await _deliveriesCollection
+        .where('tradeId', isEqualTo: tradeId)
+        .get();
+
+    for (final doc in query.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      if (data['userId'] == userId) {
+        return true;
+      }
+    }
+    return false;
   }
 }

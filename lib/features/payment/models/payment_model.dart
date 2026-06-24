@@ -9,7 +9,16 @@ class PaymentModel {
   final String sellerId;
   final String productId;
   final String productTitle;
+
+  /// The total amount charged to the buyer (productPrice + serviceFee).
   final double amount;
+
+  /// The net amount to be credited to the seller (product price only, no platform fee).
+  final double productPrice;
+
+  /// The platform service fee retained by the system (amount - productPrice).
+  final double serviceFee;
+
   final String currency;
   final String transactionId;
   final PaymentStatus status;
@@ -29,6 +38,8 @@ class PaymentModel {
     required this.productId,
     required this.productTitle,
     required this.amount,
+    required this.productPrice,
+    required this.serviceFee,
     required this.currency,
     required this.transactionId,
     required this.status,
@@ -45,6 +56,8 @@ class PaymentModel {
     String? productId,
     String? productTitle,
     double? amount,
+    double? productPrice,
+    double? serviceFee,
     String? currency,
     String? transactionId,
     PaymentStatus? status,
@@ -60,6 +73,8 @@ class PaymentModel {
       productId: productId ?? this.productId,
       productTitle: productTitle ?? this.productTitle,
       amount: amount ?? this.amount,
+      productPrice: productPrice ?? this.productPrice,
+      serviceFee: serviceFee ?? this.serviceFee,
       currency: currency ?? this.currency,
       transactionId: transactionId ?? this.transactionId,
       status: status ?? this.status,
@@ -70,6 +85,7 @@ class PaymentModel {
   }
 
   factory PaymentModel.fromJson(Map<String, dynamic> json) {
+    final amount = (json['amount'] as num?)?.toDouble() ?? 0.0;
     return PaymentModel(
       id: json['id'] ?? '',
       buyerId: json['buyerId'] ?? '',
@@ -77,7 +93,10 @@ class PaymentModel {
       sellerId: json['sellerId'] ?? '',
       productId: json['productId'] ?? '',
       productTitle: json['productTitle'] ?? '',
-      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      amount: amount,
+      // Fallback: if productPrice is missing in older documents, use amount (no split).
+      productPrice: (json['productPrice'] as num?)?.toDouble() ?? amount,
+      serviceFee: (json['serviceFee'] as num?)?.toDouble() ?? 0.0,
       currency: json['currency'] ?? 'EGP',
       transactionId: json['transactionId'] ?? '',
       status: PaymentStatus.values.firstWhere(
@@ -102,7 +121,12 @@ class PaymentModel {
       'sellerId': sellerId,
       'productId': productId,
       'productTitle': productTitle,
+      // Total charged to buyer
       'amount': amount,
+      // Net amount to credit to seller (product price only, no platform fee)
+      'productPrice': productPrice,
+      // Platform service fee retained by the system
+      'serviceFee': serviceFee,
       'currency': currency,
       'transactionId': transactionId,
       'status': status.name,

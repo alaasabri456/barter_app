@@ -51,6 +51,23 @@ class AuthRepository {
     );
   }
 
+  Future<void> sendPhoneOtp({
+    required String phoneNumber,
+    required void Function(String verificationId, int? resendToken) onCodeSent,
+    required void Function(FirebaseAuthException) onVerificationFailed,
+    required void Function(PhoneAuthCredential) onAutoVerified,
+    int? forceResendingToken,
+  }) async {
+    await _auth.verifyPhoneNumber(
+      phoneNumber: phoneNumber,
+      verificationCompleted: onAutoVerified,
+      verificationFailed: onVerificationFailed,
+      codeSent: onCodeSent,
+      codeAutoRetrievalTimeout: (_) {},
+      forceResendingToken: forceResendingToken,
+    );
+  }
+
   Future<UserCredential> login(LoginRequest request) async {
     return await _auth.signInWithEmailAndPassword(
       email: request.email,
@@ -86,6 +103,7 @@ class AuthRepository {
         name: user.displayName ?? 'Google User',
         email: user.email ?? '',
         favouriteProductIds: [],
+        is2faEnabled: false,
       );
 
       await addUserToFireStore(newUser);

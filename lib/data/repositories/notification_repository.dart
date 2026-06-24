@@ -5,6 +5,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../features/notifications/models/notification_model.dart';
 
 /// Repository responsible for in-app notification data operations.
+///
+/// Notification documents are created exclusively by Cloud Functions triggered
+/// on real platform events. This repository only provides read access and the
+/// ability for users to mark their own notifications as read.
 class NotificationRepository {
   final FirebaseFirestore _firestore;
 
@@ -13,16 +17,6 @@ class NotificationRepository {
 
   CollectionReference _getNotificationsCollection() {
     return _firestore.collection('Notifications');
-  }
-
-  Future<void> sendNotification(NotificationModel notification) async {
-    try {
-      await _getNotificationsCollection()
-          .doc(notification.id)
-          .set(notification.toJson());
-    } catch (e) {
-      throw Exception('Failed to send notification: $e');
-    }
   }
 
   Stream<List<NotificationModel>> getUserNotifications(String userId) {
@@ -59,3 +53,4 @@ class NotificationRepository {
     }
   }
 }
+
