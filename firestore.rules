@@ -392,7 +392,8 @@ service cloud.firestore {
     function paymentFields() {
       return [
         'id', 'buyerId', 'buyerName', 'sellerId', 'productId',
-        'productTitle', 'amount', 'currency', 'transactionId', 'status',
+        'productTitle', 'productPrice', 'serviceFee', 'amount',
+        'currency', 'transactionId', 'status',
         'createdAt', 'completedAt', 'paymobOrderId'
       ];
     }

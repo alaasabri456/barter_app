@@ -64,6 +64,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           productId: widget.product.id,
           productTitle: widget.product.title,
           amount: _total,
+          productPrice: _price,
+          serviceFee: _serviceFee,
           currency: 'EGP',
           transactionId: '',      // filled in Phase 3
           status: PaymentStatus.pending,

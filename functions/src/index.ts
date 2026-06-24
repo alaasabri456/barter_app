@@ -560,10 +560,11 @@ export const onPaymentStatusChanged = onDocumentUpdated(
     }
 
     const sellerId    = after.sellerId;
-    const amount      = after.amount;
+    // Fall back to amount if productPrice is not present in older payment docs
+    const netAmount   = after.productPrice ?? after.amount;
     const productTitle = after.productTitle || "a product";
 
-    if (!sellerId || !amount) {
+    if (!sellerId || !netAmount) {
       logger.error(`Payment ${paymentId} is missing sellerId or amount.`, after);
       return;
     }
@@ -579,7 +580,7 @@ export const onPaymentStatusChanged = onDocumentUpdated(
         }
 
         const currentBalance = sellerSnap.data()?.walletBalance || 0;
-        const newBalance     = currentBalance + amount;
+        const newBalance     = currentBalance + netAmount;
 
         // Update seller's wallet balance.
         t.update(sellerRef, { walletBalance: newBalance });
@@ -589,7 +590,7 @@ export const onPaymentStatusChanged = onDocumentUpdated(
         t.set(walletTxRef, {
           id: walletTxRef.id,
           userId: sellerId,
-          amount: amount,
+          amount: netAmount,
           type: "credit",
           referenceId: paymentId,
           description: `Payment received for ${productTitle}`,
@@ -601,7 +602,7 @@ export const onPaymentStatusChanged = onDocumentUpdated(
       });
 
       logger.info(
-        `Successfully credited ${amount} EGP to seller ${sellerId} for payment ${paymentId}`
+        `Successfully credited ${netAmount} EGP to seller ${sellerId} for payment ${paymentId}`
       );
 
       // Send push notification to seller.
@@ -612,7 +613,7 @@ export const onPaymentStatusChanged = onDocumentUpdated(
           token: fcmToken,
           notification: {
             title: "Payment Received!",
-            body: `You received ${amount} EGP for your product "${productTitle}".`,
+            body: `You received ${netAmount} EGP for your product "${productTitle}".`,
           },
           data: {
             type: "wallet_update",

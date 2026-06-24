@@ -444,7 +444,7 @@ exports.paymobWebhook = (0, https_1.onRequest)(async (req, res) => {
  * double-crediting even if the trigger fires more than once.
  */
 exports.onPaymentStatusChanged = (0, firestore_1.onDocumentUpdated)("Payments/{paymentId}", async (event) => {
-    var _a;
+    var _a, _b;
     if (!event.data) {
         logger.error("onPaymentStatusChanged: No data in event");
         return;
@@ -463,9 +463,10 @@ exports.onPaymentStatusChanged = (0, firestore_1.onDocumentUpdated)("Payments/{p
         return;
     }
     const sellerId = after.sellerId;
-    const amount = after.amount;
+    // Fall back to amount if productPrice is not present in older payment docs
+    const netAmount = (_a = after.productPrice) !== null && _a !== void 0 ? _a : after.amount;
     const productTitle = after.productTitle || "a product";
-    if (!sellerId || !amount) {
+    if (!sellerId || !netAmount) {
         logger.error(`Payment ${paymentId} is missing sellerId or amount.`, after);
         return;
     }
@@ -479,7 +480,7 @@ exports.onPaymentStatusChanged = (0, firestore_1.onDocumentUpdated)("Payments/{p
                 throw new Error(`Seller ${sellerId} does not exist`);
             }
             const currentBalance = ((_a = sellerSnap.data()) === null || _a === void 0 ? void 0 : _a.walletBalance) || 0;
-            const newBalance = currentBalance + amount;
+            const newBalance = currentBalance + netAmount;
             // Update seller's wallet balance.
             t.update(sellerRef, { walletBalance: newBalance });
             // Create a WalletTransaction record.
@@ -487,7 +488,7 @@ exports.onPaymentStatusChanged = (0, firestore_1.onDocumentUpdated)("Payments/{p
             t.set(walletTxRef, {
                 id: walletTxRef.id,
                 userId: sellerId,
-                amount: amount,
+                amount: netAmount,
                 type: "credit",
                 referenceId: paymentId,
                 description: `Payment received for ${productTitle}`,
@@ -496,16 +497,16 @@ exports.onPaymentStatusChanged = (0, firestore_1.onDocumentUpdated)("Payments/{p
             // Mark payment as credited (idempotency flag).
             t.update(event.data.after.ref, { isCredited: true });
         });
-        logger.info(`Successfully credited ${amount} EGP to seller ${sellerId} for payment ${paymentId}`);
+        logger.info(`Successfully credited ${netAmount} EGP to seller ${sellerId} for payment ${paymentId}`);
         // Send push notification to seller.
         const sellerDoc = await db.collection("Users").doc(sellerId).get();
-        const fcmToken = (_a = sellerDoc.data()) === null || _a === void 0 ? void 0 : _a.fcmToken;
+        const fcmToken = (_b = sellerDoc.data()) === null || _b === void 0 ? void 0 : _b.fcmToken;
         if (fcmToken) {
             await admin.messaging().send({
                 token: fcmToken,
                 notification: {
                     title: "Payment Received!",
-                    body: `You received ${amount} EGP for your product "${productTitle}".`,
+                    body: `You received ${netAmount} EGP for your product "${productTitle}".`,
                 },
                 data: {
                     type: "wallet_update",

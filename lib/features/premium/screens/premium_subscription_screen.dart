@@ -89,6 +89,8 @@ class _PremiumSubscriptionScreenState extends State<PremiumSubscriptionScreen> {
               productId: 'premium_subscription',
               productTitle: 'Premium Subscription',
               amount: PremiumService.premiumPrice,
+              productPrice: PremiumService.premiumPrice,
+              serviceFee: 0,
               currency: 'EGP',
               transactionId: transactionId,
               status: PaymentStatus.completed,
